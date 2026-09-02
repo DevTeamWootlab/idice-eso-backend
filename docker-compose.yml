@@ -1,0 +1,34 @@
+version: "3.3"
+
+services:
+  # api:
+  #   build: .
+  #   container_name: .
+  #   ports:
+  #     - "4000:4000"
+  #   depends_on:
+  #     - postgres
+  #   env_file:
+  #     - .env
+
+  postgres:
+    image: postgres:16
+    restart: always
+    environment:
+      - POSTGRES_USER=eso_user
+      - POSTGRES_PASSWORD=eso_pass
+      - POSTGRES_DB=eso_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - eso_data:/var/lib/postgresl/data
+      - ./dbscripts/postgres:/docker-entrypoint-initdb.d
+    command: -p 5432
+    networks:
+      - internal
+
+networks:
+  internal:
+
+volumes:
+  eso_data:
