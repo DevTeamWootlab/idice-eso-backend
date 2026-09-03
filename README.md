@@ -31,6 +31,8 @@
 $ yarn install
 ```
 
+
+
 ## Compile and run the project
 
 ```bash
@@ -56,6 +58,31 @@ $ yarn run test:e2e
 # test coverage
 $ yarn run test:cov
 ```
+
+## Database migrations
+
+Start the local PostgreSQL database with Docker, then apply migrations and seed
+the PRD reference data:
+
+```bash
+docker compose up -d postgres
+npm.cmd run db:migration:generate
+npm.cmd run db:migrate
+npm.cmd run db:seed
+```
+
+The seed is idempotent and loads the 11 Centres of Excellence, the full
+60/30/10 training course catalogue, and the six scoring rubric dimensions.
+
+To generate the first schema migration from the current entities:
+
+```bash
+npm.cmd run db:migration:generate
+npm.cmd run db:migrate
+```
+
+Keep `synchronize` disabled. Review generated migrations before applying them
+to a shared or production database.
 
 ## Deployment
 

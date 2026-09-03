@@ -1,0 +1,5 @@
+export enum ReviewerQueueType {
+  ELIGIBILITY = 'ELIGIBILITY',
+  SCORING = 'SCORING',
+  VALIDATION = 'VALIDATION',
+}

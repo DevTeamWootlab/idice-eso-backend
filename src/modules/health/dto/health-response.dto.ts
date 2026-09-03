@@ -1,29 +1,29 @@
+// src/modules/health/dto/health-response.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
+import { IsEnum, IsNotEmpty, IsString, IsBoolean } from 'class-validator';
 
 export enum HealthStatus {
-  HEALTHY = 'healthy',
-  DEGRADED = 'degraded',
-  DOWN = 'down',
+  HEALTHY = 'UP',
+  DEGRADED = 'DEGRADED',
+  UNHEALTHY = 'DOWN',
 }
 
-/**
- * Mirrors the JSON Schema in the ticket's Technical Notes exactly:
- * required: status, timestamp, database_connected, version.
- */
 export class HealthResponseDto {
   @ApiProperty({ enum: HealthStatus, example: HealthStatus.HEALTHY })
-  status: HealthStatus;
+  @IsEnum(HealthStatus)
+  status: HealthStatus = HealthStatus.HEALTHY; // Initialize directly on the line
 
-  @ApiProperty({
-    type: String,
-    format: 'date-time',
-    example: '2026-09-01T12:00:00.000Z',
-  })
-  timestamp: string;
+  @ApiProperty({ example: '2026-09-03T16:45:00.000Z' })
+  @IsString()
+  @IsNotEmpty()
+  timestamp: string = new Date().toISOString(); // Initialize directly on the line
 
-  @ApiProperty({ type: Boolean, example: true })
-  database_connected: boolean;
+  @ApiProperty({ example: true })
+  @IsBoolean()
+  database_connected: boolean = false; // Initialize directly on the line
 
-  @ApiProperty({ type: String, example: '0.1.0' })
-  version: string;
+  @ApiProperty({ example: '1.0.0' })
+  @IsString()
+  @IsNotEmpty()
+  version: string = '1.0.0'; // Initialize directly on the line
 }

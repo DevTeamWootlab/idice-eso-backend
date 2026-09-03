@@ -14,16 +14,22 @@ services:
   postgres:
     image: postgres:16
     restart: always
+    env_file:
+      - .env
     environment:
-      - POSTGRES_USER=eso_user
-      - POSTGRES_PASSWORD=eso_pass
-      - POSTGRES_DB=eso_db
+      - POSTGRES_USER=${DB_USERNAME}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
-      - eso_data:/var/lib/postgresl/data
+      - eso_data:/var/lib/postgresql/data
       - ./dbscripts/postgres:/docker-entrypoint-initdb.d
-    command: -p 5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - internal
 
