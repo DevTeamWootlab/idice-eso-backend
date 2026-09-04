@@ -52,12 +52,6 @@ export class MfaService {
       } as any),
     );
 
-    // await this.mfaSecretRepo.delete({ userId: userId });
-
-    // await this.mfaSecretRepo.save(
-    //   this.mfaSecretRepo.create({ userId, encryptedSecret, backupCodes: [] }),
-    // );
-
     return { qrCodeDataUrl, manualEntryKey: secret };
   }
   async enable(userId: string, code: string) {
