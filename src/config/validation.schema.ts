@@ -51,6 +51,22 @@ export const environmentSchema = z.object({
   STORAGE_SECRET_ACCESS_KEY: z
     .string({ message: 'STORAGE_SECRET_ACCESS_KEY is required' })
     .min(1),
+  MFA_ENCRYPTION_KEY: z
+    .string()
+    .length(64, {
+      message: 'MFA_ENCRYPTION_KEY must be exactly a 64-character hex string',
+    })
+    .regex(/^[0-9a-fA-F]{64}$/, {
+      message: 'MFA_ENCRYPTION_KEY must be a valid hex string',
+    }),
+
+  // The application name displayed inside the authenticator app (e.g., Google Authenticator, Microsoft Authenticator)
+  MFA_ISSUER: z.string().default('iDICE ESO Portal'),
+
+  // Brute-force protection throttling controls
+  LOCKOUT_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+  LOCKOUT_WINDOW_MINUTES: z.coerce.number().int().positive().default(15),
+  LOCKOUT_DURATION_MINUTES: z.coerce.number().int().positive().default(30),
 });
 
 export type EnvironmentVariables = z.infer<typeof environmentSchema>;

@@ -28,7 +28,9 @@ import { StartupsModule } from './modules/startups/startups.module';
 import { TrainingModule } from './modules/training/training.module';
 import { MentorshipModule } from './modules/mentorship/mentorship.module';
 import { DatabaseModule } from '@config/db.config';
-
+import { RolesGuard } from '@/common/guards/roles.guard';
+import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { ScheduleModule } from '@nestjs/schedule';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -36,7 +38,7 @@ import { DatabaseModule } from '@config/db.config';
       load: [configuration],
       validate,
     }),
-
+    ScheduleModule.forRoot(),
     DatabaseModule,
 
     ThrottlerModule.forRootAsync({
@@ -67,10 +69,9 @@ import { DatabaseModule } from '@config/db.config';
     SubAwardsModule,
   ],
   providers: [
-    {
-      provide: APP_GUARD,
-      useClass: ThrottlerGuard, // global rate limiting on every route by default
-    },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
 export class AppModule {}

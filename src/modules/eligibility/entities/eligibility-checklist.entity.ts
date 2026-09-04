@@ -29,7 +29,7 @@ export class EligibilityChecklist extends BaseEntity {
   overallResult!: 'PASS' | 'FAIL';
 
   @Column({ type: 'text', nullable: true })
-  rejectionRemarks!: string; // mandatory when overallResult = FAIL (TC-ELI-04)
+  rejectionRemarks!: string; // mandatory when overallResult = FAIL
 
   @Column({ type: 'timestamptz', nullable: true })
   decidedAt!: Date;

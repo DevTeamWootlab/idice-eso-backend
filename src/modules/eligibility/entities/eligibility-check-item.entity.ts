@@ -2,7 +2,6 @@ import { Entity, Column, ManyToOne } from 'typeorm';
 import { BaseEntity } from '@common/entities/base.entity';
 import { EligibilityChecklist } from './eligibility-checklist.entity';
 
-// The 12 statutory items from RFP §9 / PRD §5 — codes are stable, seeded once
 export enum EligibilityCheckCode {
   LEGAL_REGISTRATION = 'LEGAL_REGISTRATION',
   TAX_COMPLIANCE = 'TAX_COMPLIANCE',

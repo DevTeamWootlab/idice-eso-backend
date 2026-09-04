@@ -1,21 +1,31 @@
-// modules/auth/entities/refresh-token.entity.ts
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
+import { Entity, Column, ManyToOne, Index } from 'typeorm';
+import { BaseEntity } from '@/common/entities/base.entity';
 import { User } from '@/modules/users/entities/user.entity';
 
 @Entity('refresh_tokens')
-export class RefreshToken {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
-
+@Index(['sessionId'], { unique: true })
+export class RefreshToken extends BaseEntity {
   @ManyToOne(() => User)
   user!: User;
 
   @Column()
-  tokenHash!: string;
+  userId!: string;
 
   @Column()
+  sessionId!: string;
+
+  @Column()
+  tokenHash!: string;
+
+  @Column({ type: 'timestamptz' })
   expiresAt!: Date;
 
   @Column({ default: false })
   revoked!: boolean;
+
+  @Column({ nullable: true })
+  userAgent!: string;
+
+  @Column({ nullable: true })
+  ipAddress!: string;
 }

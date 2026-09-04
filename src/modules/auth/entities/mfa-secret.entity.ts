@@ -1,4 +1,3 @@
-// modules/auth/entities/mfa-secret.entity.ts
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -16,6 +15,9 @@ export class MfaSecret {
   @OneToOne(() => User)
   @JoinColumn()
   user!: User;
+
+  @Column()
+  userId!: string;
 
   @Column()
   encryptedSecret!: string; // TOTP secret, encrypted at rest

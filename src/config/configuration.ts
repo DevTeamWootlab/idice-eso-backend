@@ -5,6 +5,7 @@ export default () => ({
     env: process.env.NODE_ENV || 'development',
     port: toInt(process.env.PORT, 3000),
     host: process.env.HOST || '0.0.0.0',
+    frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
     corsOrigins: (process.env.CORS_ORIGINS || '').split(',').filter(Boolean),
   },
   database: {
@@ -40,5 +41,14 @@ export default () => ({
     region: process.env.STORAGE_REGION,
     accessKeyId: process.env.STORAGE_ACCESS_KEY_ID,
     secretAccessKey: process.env.STORAGE_SECRET_ACCESS_KEY,
+  },
+  mfa: {
+    encryptionKey: process.env.MFA_ENCRYPTION_KEY,
+    issuer: process.env.MFA_ISSUER || 'iDICE ESO Portal',
+  },
+  security: {
+    lockoutMaxAttempts: toInt(process.env.LOCKOUT_MAX_ATTEMPTS, 5),
+    lockoutWindowMinutes: toInt(process.env.LOCKOUT_WINDOW_MINUTES, 15),
+    lockoutDurationMinutes: toInt(process.env.LOCKOUT_DURATION_MINUTES, 30),
   },
 });

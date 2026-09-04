@@ -2,11 +2,9 @@ import { AppDataSource } from '../data-source';
 import { seedInstitutions } from './institutions.seed';
 import { seedCourses } from './courses.seed';
 import { seedRubric } from './rubric.seed';
-
+import { seedSystemAdmin } from './sysadmin.seed';
 async function seed(): Promise<void> {
-  // 1. Initialize our centralized TypeORM DataSource connection pool
   await AppDataSource.initialize();
-
   try {
     // 2. Wrap execution blocks inside an atomic transaction scope
     await AppDataSource.transaction(async (transactionalEntityManager) => {
@@ -14,6 +12,7 @@ async function seed(): Promise<void> {
       await seedInstitutions(transactionalEntityManager);
       await seedCourses(transactionalEntityManager);
       await seedRubric(transactionalEntityManager);
+      await seedSystemAdmin(transactionalEntityManager);
     });
 
     console.log(
@@ -26,7 +25,6 @@ async function seed(): Promise<void> {
     );
     throw error;
   } finally {
-    // 3. Guarantee cleanup by safely releasing connection pools back to Postgres
     await AppDataSource.destroy();
   }
 }

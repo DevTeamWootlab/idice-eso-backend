@@ -10,7 +10,7 @@ import { EligibilityController } from './eligibility.controller';
 @Module({
   imports: [
     TypeOrmModule.forFeature([EligibilityChecklist, EligibilityCheckItem]),
-    ApplicationsModule, // needs the state machine, not the raw application repo
+    ApplicationsModule,
   ],
   controllers: [EligibilityController],
   providers: [EligibilityService],

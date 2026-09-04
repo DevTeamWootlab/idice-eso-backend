@@ -14,7 +14,7 @@ export class HealthController {
     summary: 'Infrastructure health check',
     description:
       'Returns server status and database connectivity. Used by uptime ' +
-      'monitors and deployment smoke tests.',
+      'monitors and deployment tests.',
   })
   @ApiOkResponse({ type: HealthResponseDto })
   async check(): Promise<HealthResponseDto> {
