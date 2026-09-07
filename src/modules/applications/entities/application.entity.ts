@@ -43,6 +43,7 @@ export class Application extends BaseEntity {
 
   @Column({ nullable: true })
   organisationPhone!: string;
+
   @Column({ nullable: true })
   cacRegistrationNumber!: string;
 

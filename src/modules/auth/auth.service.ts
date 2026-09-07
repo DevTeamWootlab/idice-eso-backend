@@ -69,6 +69,8 @@ export class AuthService {
       role: Role.ESO,
     });
 
+    // Create application record for the new ESO user (not shown here, but would be part of the application service)
+
     await this.sendVerificationEmail(user.id, user.email);
     return {
       id: user.id,
