@@ -16,11 +16,11 @@ async function seed(): Promise<void> {
     });
 
     console.log(
-      '✅ Database seed operations completed successfully: institutions, courses, and rubric.',
+      '✅ Database seed operations completed successfully: institutions, courses, rubric, and system Admin',
     );
   } catch (error) {
     console.error(
-      '❌ Transaction failed. Rollback executed automatically.',
+      'Transaction failed. Rollback executed.',
       error,
     );
     throw error;
@@ -30,6 +30,6 @@ async function seed(): Promise<void> {
 }
 
 seed().catch((error: unknown) => {
-  console.error('💥 Database seed pipeline failed', error);
+  console.error('Database seed pipeline failed', error);
   process.exitCode = 1;
 });

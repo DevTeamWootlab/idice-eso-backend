@@ -42,7 +42,7 @@
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
     "strict": true,
-    "types": ["node"],
+    "types": ["node", "multer"],
     "paths": {
       "@/*": ["src/*"],
       "@common/*": ["src/common/*"],

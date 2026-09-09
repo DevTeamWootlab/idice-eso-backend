@@ -1,8 +1,15 @@
-import { Entity, Column, ManyToOne, OneToMany, Index, JoinColumn } from 'typeorm';
-import { BaseEntity } from '@common/entities/base.entity';
-import { ApplicationStatus } from '@/common/enums/application-status.enum';
-import { User } from '@modules/users/entities/user.entity';
-import { Institution } from '@modules/institutions/entities/institution.entity';
+import { Entity, Column, ManyToOne, OneToMany, Index ,VersionColumn} from 'typeorm';
+import { BaseEntity } from '@/common/entities/base.entity';
+import {
+  ApplicationStatus,
+  RegistrationType,
+  OrganisationType,
+  SectorFocus,
+  OperatingState,
+  ProximityToHost,
+} from '@/common/enums/application.enum';
+import { User } from '../../users/entities/user.entity';
+import { Institution } from '../../institutions/entities/institution.entity';
 import { ApplicationDocument } from './application-document.entity';
 import { ApplicationReference } from './application-reference.entity';
 import { ApplicationPersonnel } from './application-personnel.entity';
@@ -12,18 +19,16 @@ import { ApplicationPersonnel } from './application-personnel.entity';
 @Index(['submittedByOrgId'])
 export class Application extends BaseEntity {
   @Column({ unique: true })
-  applicationRef!: string; // e.g. iDICE-ESO-BEN-2026-XXXXX, generated on submission
+  applicationRef!: string;
 
   @ManyToOne(() => User)
-  @JoinColumn({ name: 'submittedByOrgId' })
-  submittedByOrg!: User; // the ROLE_ESO account
+  submittedByOrg!: User;
 
   @Column()
   submittedByOrgId!: string;
 
   @ManyToOne(() => Institution, { nullable: true })
-  @JoinColumn({ name: 'preferredInstitutionId' })
-  preferredInstitution!: Institution; // Section C target CoE
+  preferredInstitution!: Institution;
 
   @Column({ nullable: true })
   preferredInstitutionId!: string;
@@ -35,85 +40,168 @@ export class Application extends BaseEntity {
   })
   status!: ApplicationStatus;
 
+  // ---- Section A: Organisation Identity ----
   @Column({ nullable: true })
-  organisationName!: string;
+  organisationLegalName!: string;
+
+  @Column({ type: 'enum', enum: RegistrationType, nullable: true })
+  registrationType!: RegistrationType;
+
+  @Column({ type: 'int', nullable: true })
+  yearEstablished!: number;
+
+  @Column({ type: 'enum', enum: OrganisationType, nullable: true })
+  organisationType!: OrganisationType;
 
   @Column({ nullable: true })
-  organisationEmail!: string;
+  websiteOrSocialHandle!: string;
 
   @Column({ nullable: true })
-  organisationPhone!: string;
+  primaryContactName!: string;
 
   @Column({ nullable: true })
-  cacRegistrationNumber!: string;
+  primaryContactRole!: string;
+
+  @Column({ nullable: true })
+  primaryContactPhone!: string;
+
+  @Column({ nullable: true })
+  primaryContactEmail!: string;
+
+  // ---- Section B: Compliance & Operational Presence ----
+  @Column({ type: 'enum', enum: OperatingState, array: true, nullable: true })
+  statesOfOperation!: OperatingState[];
+
+  @Column({ type: 'text', nullable: true })
+  physicalAddress!: string;
+
+  @Column({ type: 'enum', enum: ProximityToHost, nullable: true })
+  proximityToHostInstitution!: ProximityToHost;
 
   @Column({ nullable: true })
   tin!: string;
 
   @Column({ nullable: true })
+  staffingSummary!: string;
+
+  @Column({ type: 'date', nullable: true })
   taxClearanceExpiry!: Date;
 
   @Column({ nullable: true })
-  operatingState!: string; // must match preferredInstitution.state for eligibility check #3
+  taxClearanceCertificateUrl!: string;
 
   @Column({ nullable: true })
-  physicalAddress!: string;
+  taxComplianceEvidenceUrl!: string;
 
-  @Column({
-    type: 'enum',
-    enum: ['LESS_THAN_15_MINS', '15_30_MINS', 'OVER_30_MINS'],
-    nullable: true,
+  @Column({ nullable: true })
+  auditedAccountsUrl!: string;
+
+  @Column({ nullable: true })
+  organogramUrl!: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  personnelCvUrls!: string[];
+
+  @Column({ type: 'text', nullable: true })
+  governanceStructure!: string;
+
+  // ---- Section C: Programme Delivery ----
+  @Column({ type: 'enum', enum: SectorFocus, array: true, nullable: true })
+  sectorFocus!: SectorFocus[];
+
+  @Column({ type: 'text', nullable: true })
+  programmeDeliveryTrackRecord!: string;
+
+  @Column({ type: 'text', nullable: true })
+  mentorshipIndustryNetwork!: string;
+
+  @Column({ type: 'text', nullable: true })
+  inclusionAccessibilityCapacity!: string;
+
+  // ---- Section D: Institutional Alignment ----
+  @Column({ type: 'text', nullable: true })
+  existingInstitutionalRelationships!: string;
+
+  @Column({ type: 'text', nullable: true })
+  institutionalCoordinationPlan!: string;
+
+  @Column({ type: 'text', nullable: true })
+  staffFacultyEngagementPlan!: string;
+
+  @Column({ type: 'text', nullable: true })
+  beneficiaryReferralPlan!: string;
+
+  // ---- Section E: References ----
+  @OneToMany(() => ApplicationReference, (r) => r.application, {
+    cascade: true,
   })
-  proximityToHostInstitution!: string;
+  references!: ApplicationReference[];
+
+  // ---- Section F: Experience & Industry Linkage ----
+  @Column({ default: false })
+  hasConductedIncubation!: boolean;
+
+  @Column({ default: false })
+  hasConductedAcceleration!: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  monitoringReportingSystems!: string;
+
+  @Column({ type: 'text', nullable: true })
+  sustainabilityPlan!: string;
+
+  @Column({ type: 'text', nullable: true })
+  employmentPathway!: string;
+
+  // ---- Section G: Policies & Declarations ----
+  @Column({ default: false })
+  conflictOfInterestDeclared!: boolean;
+
+  @Column({ default: false })
+  safeguardingPolicyCommitted!: boolean;
+
+  @Column({ default: false })
+  genderInclusionPolicyCommitted!: boolean;
+
+  @Column({ default: false })
+  idiceReportingQaCommitted!: boolean;
+
+  // ---- Section H: Consent & Signature ----
+  @Column({ default: false })
+  ndpaComplianceAccepted!: boolean;
+
+  @Column({ default: false })
+  declarationOfAccuracyConfirmed!: boolean;
+
+  @Column({ default: false })
+  brownfieldRestrictionAccepted!: boolean;
+
+  @Column({ nullable: true })
+  authorisedSignatoryName!: string;
+
+  @Column({ nullable: true })
+  authorisedSignatoryTitle!: string;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  signedAt!: Date;
+
+  // ---- Documents & Personnel (span multiple sections) ----
+  @OneToMany(() => ApplicationDocument, (d) => d.application, { cascade: true })
+  documents!: ApplicationDocument[];
 
   @OneToMany(() => ApplicationPersonnel, (p) => p.application, {
     cascade: true,
   })
   keyPersonnel!: ApplicationPersonnel[];
 
-  @Column({ type: 'text', nullable: true })
-  experienceSummary!: string;
-
-  @Column({ type: 'jsonb', nullable: true })
-  pastAssignments!: {
-    title: string;
-    funder: string;
-    year: number;
-    beneficiaries: number;
-  }[];
-
-  @OneToMany(() => ApplicationReference, (r) => r.application, {
-    cascade: true,
-  })
-  references!: ApplicationReference[];
-
-
-  @Column({ default: false })
-  conflictOfInterestDeclared!: boolean;
-
-  @Column({ default: false })
-  ndpaComplianceAccepted!: boolean;
-
-  @Column({ default: false })
-  brownfieldRestrictionAccepted!: boolean;
-
-  @Column({ nullable: true })
-  authorisedSignatoryName!: string; // typed name mapped to signature checkbox
-
-  @Column({ type: 'timestamptz', nullable: true })
-  signedAt!: Date;
-
-  @OneToMany(() => ApplicationDocument, (d) => d.application, { cascade: true })
-  documents!: ApplicationDocument[];
-
- 
+  // ---- Concurrency / auto-save ----
   @Column({ type: 'timestamptz', nullable: true })
   lastEditedAt!: Date;
 
   @Column({ nullable: true })
   lastEditedByUserId!: string;
 
-
+  // ---- Funnel timestamps ----
   @Column({ type: 'timestamptz', nullable: true })
   submittedAt!: Date;
 
@@ -122,4 +210,6 @@ export class Application extends BaseEntity {
 
   @Column({ type: 'timestamptz', nullable: true })
   shortlistedAt!: Date;
+
+  
 }

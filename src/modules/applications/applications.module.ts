@@ -8,18 +8,26 @@ import { ApplicationDocument } from './entities/application-document.entity';
 import { ApplicationsService } from './applications.service';
 import { ApplicationsStateMachineService } from './applications-state-machine.service';
 import { ApplicationsController } from './applications.controller';
+import { ApplicationCompletenessService } from './application-completeness.service';
+import { StorageModule } from '@/modules/storage/storage.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       Application,
       ApplicationPersonnel,
+
       ApplicationReference,
       ApplicationDocument,
     ]),
+    StorageModule,
   ],
   controllers: [ApplicationsController],
-  providers: [ApplicationsService, ApplicationsStateMachineService],
-  exports: [ApplicationsStateMachineService],
+  providers: [
+    ApplicationsService,
+    ApplicationsStateMachineService,
+    ApplicationCompletenessService,
+  ],
+  exports: [ApplicationsService, ApplicationsStateMachineService],
 })
 export class ApplicationsModule {}
