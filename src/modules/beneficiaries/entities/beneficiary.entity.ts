@@ -1,17 +1,31 @@
-import { Entity, Column, ManyToOne, OneToOne, Index, JoinColumn } from 'typeorm';
-import { BaseEntity } from '@common/entities/base.entity';
-import { Institution } from '@modules/institutions/entities/institution.entity';
+import {
+  Entity,
+  Column,
+  ManyToOne,
+  OneToOne,
+  Index,
+  JoinColumn,
+} from 'typeorm';
+import { BaseEntity } from '@/common/entities/base.entity';
+import { Institution } from '@/modules/institutions/entities/institution.entity';
+import { BeneficiarySkillsProfile } from './beneficiary-skills-profile.entity';
+import { BeneficiaryIncubationProfile } from './beneficiary-incubation-profile.entity';
+import { BeneficiaryAccelerationProfile } from './beneficiary-acceleration-profile.entity';
 import {
   Pillar,
   BeneficiaryStatus,
-} from '@common/enums/beneficiary.enum';
+  Gender,
+  StateOfNigeria,
+} from '@/common/enums/beneficiary.enum';
 
 @Entity('beneficiaries')
-@Index(['nin'], { unique: true }) // identity-deduplication key
-@Index(['assignedInstitutionId', 'pillar']) // ESO cohort tab queries
+@Index(['nin'], { unique: true })
+@Index(['assignedInstitutionId', 'pillar'])
+@Index(['email'], { unique: true })
+@Index(['referenceId'], { unique: true })
 export class Beneficiary extends BaseEntity {
   @Column({ unique: true })
-  referenceId!: string; // iDICE-BEN-2026-XXXXX
+  referenceId!: string;
 
   // ---- Section A: Demographics & Bio (NDPA-sensitive) ----
   @Column()
@@ -20,8 +34,8 @@ export class Beneficiary extends BaseEntity {
   @Column({ type: 'date' })
   dateOfBirth!: Date;
 
-  @Column()
-  gender!: string;
+  @Column({ type: 'enum', enum: Gender })
+  gender!: Gender;
 
   @Column()
   phoneNumber!: string;
@@ -29,11 +43,14 @@ export class Beneficiary extends BaseEntity {
   @Column({ unique: true })
   email!: string;
 
-  @Column({ select: false }) 
-  nin!: string; // TODO: field-level encryption
+  @Column({ select: false })
+  nin!: string;
+
+  @Column({ select: false, unique: true })
+  ninHash!: string;
 
   @Column({ nullable: true })
-  pwdAssistiveRequirement!: string;
+  pwdAssistiveRequirement?: string;
 
   @Column({ default: false })
   isNeet!: boolean;
@@ -42,30 +59,28 @@ export class Beneficiary extends BaseEntity {
   isCurrentStudent!: boolean;
 
   @Column({ nullable: true })
-  institutionName!: string;
+  institutionName?: string;
 
   @Column({ nullable: true })
-  studentMatricNumber!: string;
+  studentMatricNumber?: string;
 
   @Column({ default: false })
   isRecentGraduate!: boolean;
 
+  @Column({ nullable: true })
+  emergencyContactName?: string;
 
   @Column({ nullable: true })
-  emergencyContactName!: string;
+  emergencyContactRelationship?: string;
 
   @Column({ nullable: true })
-  emergencyContactRelationship!: string;
+  emergencyContactPhone?: string;
 
-  @Column({ nullable: true })
-  emergencyContactPhone!: string;
+  @Column({ type: 'enum', enum: StateOfNigeria })
+  stateOfOrigin!: StateOfNigeria;
 
- 
-  @Column()
-  stateOfOrigin!: string;
-
-  @Column()
-  stateOfResidence!: string;
+  @Column({ type: 'enum', enum: StateOfNigeria })
+  stateOfResidence!: StateOfNigeria;
 
   @Column()
   lga!: string;
@@ -73,30 +88,26 @@ export class Beneficiary extends BaseEntity {
   @Column()
   homeAddress!: string;
 
- 
   @Column({ type: 'enum', enum: Pillar })
   pillar!: Pillar;
 
-  @ManyToOne(() => Institution)
+  @ManyToOne(() => Institution, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'preferredInstitutionId' })
   preferredInstitution!: Institution;
 
   @Column()
   preferredInstitutionId!: string;
 
-  // Set by the geo-mapping/hub-allocation job
-  @ManyToOne(() => Institution, { nullable: true })
+  @ManyToOne(() => Institution, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'assignedInstitutionId' })
-  assignedInstitution!: Institution;
+  assignedInstitution?: Institution;
 
   @Column({ nullable: true })
-  assignedInstitutionId!: string;
-
+  assignedInstitutionId?: string;
 
   @Column({ type: 'text', nullable: true })
-  statementOfPurpose!: string; // max 150 words, enforced in DTO
+  statementOfPurpose?: string;
 
-  
   @Column({ default: false })
   ndprConsentGiven!: boolean;
 
@@ -104,7 +115,7 @@ export class Beneficiary extends BaseEntity {
   codeOfConductAccepted!: boolean;
 
   @Column({ type: 'timestamptz', nullable: true })
-  signedAt!: Date;
+  signedAt?: Date;
 
   @Column({
     type: 'enum',
@@ -112,4 +123,31 @@ export class Beneficiary extends BaseEntity {
     default: BeneficiaryStatus.SUBMITTED,
   })
   status!: BeneficiaryStatus;
+
+  // ---- Dynamic Pillar Profile Relationships ----
+  @OneToOne(() => BeneficiarySkillsProfile, (profile) => profile.beneficiary, {
+    cascade: true,
+    nullable: true,
+  })
+  skillsProfile?: BeneficiarySkillsProfile;
+
+  @OneToOne(
+    () => BeneficiaryIncubationProfile,
+    (profile) => profile.beneficiary,
+    {
+      cascade: true,
+      nullable: true,
+    },
+  )
+  incubationProfile?: BeneficiaryIncubationProfile;
+
+  @OneToOne(
+    () => BeneficiaryAccelerationProfile,
+    (profile) => profile.beneficiary,
+    {
+      cascade: true,
+      nullable: true,
+    },
+  )
+  accelerationProfile?: BeneficiaryAccelerationProfile;
 }

@@ -1,21 +1,230 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import {
+  Injectable,
+  ConflictException,
+  UnprocessableEntityException,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
+import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
+import { Repository, DataSource } from 'typeorm';
+import { randomUUID } from 'crypto';
+
 import { Beneficiary } from './entities/beneficiary.entity';
 import { BeneficiarySkillsProfile } from './entities/beneficiary-skills-profile.entity';
 import { BeneficiaryIncubationProfile } from './entities/beneficiary-incubation-profile.entity';
 import { BeneficiaryAccelerationProfile } from './entities/beneficiary-acceleration-profile.entity';
 
+import { Pillar, BeneficiaryStatus } from '@/common/enums/beneficiary.enum';
+import { CreateBeneficiaryDto } from './dto/create-beneficiary.dto';
+// import { CryptoService } from '@/common/services/crypto.service';
+import { GeoAllocationService } from './services/geo-allocation.service';
+import { StorageService } from '../storage/storage.service';
+import { encrypt, decrypt, hashDeterministic } from '@/common/utils/encryption';
+import { ConfigService } from '@nestjs/config';
 @Injectable()
 export class BeneficiariesService {
   constructor(
     @InjectRepository(Beneficiary)
     private readonly beneficiaryRepo: Repository<Beneficiary>,
-    @InjectRepository(BeneficiarySkillsProfile)
-    private readonly skillsProfileRepo: Repository<BeneficiarySkillsProfile>,
-    @InjectRepository(BeneficiaryIncubationProfile)
-    private readonly incubationProfileRepo: Repository<BeneficiaryIncubationProfile>,
-    @InjectRepository(BeneficiaryAccelerationProfile)
-    private readonly accelerationProfileRepo: Repository<BeneficiaryAccelerationProfile>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
+    // private readonly cryptoService: CryptoService,
+    private readonly configService: ConfigService,
+    private readonly geoAllocationService: GeoAllocationService,
+    private readonly storageService: StorageService,
   ) {}
+
+  /**
+   * Handles public intake registration with strict NDPA security & conditional validation
+   */
+  async registerIntake(dto: CreateBeneficiaryDto): Promise<Beneficiary> {
+    // ---- 1. Server-Side Conditional Pillar Payload Rules ----
+    this.validatePillarPayloads(dto);
+
+    // ---- 2. Email & NIN Deduplication Check ----
+    const existingEmail = await this.beneficiaryRepo.findOne({
+      where: { email: dto.email.toLowerCase().trim() },
+    });
+    if (existingEmail) {
+      throw new ConflictException(
+        'An application with this email address has already been submitted.',
+      );
+    }
+
+    // Encrypt NIN at rest and compute deterministic hash for unique lookup
+    const nin_hash = this.configService.getOrThrow<string>('nin.hashKey');
+    const hashedNin = hashDeterministic(dto.nin, nin_hash);
+
+    const encryptedNin = encrypt(
+      dto.nin,
+      this.configService.getOrThrow<string>('nin.encryptionKey'),
+    );
+
+    const existingNin = await this.beneficiaryRepo.findOne({
+      where: { nin: hashedNin },
+    });
+    if (existingNin) {
+      throw new ConflictException(
+        'An application with this National Identification Number (NIN) has already been submitted.',
+      );
+    }
+
+    // ---- 3. Geo/Hub Allocation ----
+    const assignedInstitutionId = await this.geoAllocationService.allocateHub(
+      dto.preferredInstitutionId,
+      dto.stateOfResidence,
+    );
+
+    // ---- 4. Reference ID Generation ----
+    const referenceId = `iDICE-BEN-2026-${randomUUID().slice(0, 8).toUpperCase()}`;
+
+    // ---- 5. Database Transaction Execution ----
+    return await this.dataSource.transaction(async (manager) => {
+      // Build core beneficiary entity
+      const beneficiary = manager.create(Beneficiary, {
+        referenceId,
+        fullName: dto.fullName,
+        dateOfBirth: dto.dateOfBirth,
+        gender: dto.gender,
+        phoneNumber: dto.phoneNumber,
+        email: dto.email.toLowerCase().trim(),
+        nin: encryptedNin,
+        ninHash: hashedNin,
+        pwdAssistiveRequirement: dto.pwdAssistiveRequirement,
+        isNeet: dto.isNeet,
+        isCurrentStudent: dto.isCurrentStudent,
+        institutionName: dto.institutionName,
+        studentMatricNumber: dto.studentMatricNumber,
+        isRecentGraduate: dto.isRecentGraduate,
+        emergencyContactName: dto.emergencyContactName,
+        emergencyContactRelationship: dto.emergencyContactRelationship,
+        emergencyContactPhone: dto.emergencyContactPhone,
+        stateOfOrigin: dto.stateOfOrigin,
+        stateOfResidence: dto.stateOfResidence,
+        lga: dto.lga,
+        homeAddress: dto.homeAddress,
+        pillar: dto.pillar,
+        preferredInstitutionId: dto.preferredInstitutionId,
+        assignedInstitutionId,
+        statementOfPurpose: dto.statementOfPurpose,
+        ndprConsentGiven: dto.ndprConsentGiven,
+        codeOfConductAccepted: dto.codeOfConductAccepted,
+        signedAt: new Date(),
+        status: BeneficiaryStatus.SUBMITTED,
+      });
+
+      const savedBeneficiary = await manager.save(beneficiary);
+
+      // Save corresponding dynamic pillar profile
+      if (dto.pillar === Pillar.SKILLS && dto.skillsProfile) {
+        const skillsProfile = manager.create(BeneficiarySkillsProfile, {
+          ...dto.skillsProfile,
+          beneficiaryId: savedBeneficiary.id,
+        });
+        await manager.save(skillsProfile);
+      } else if (dto.pillar === Pillar.INCUBATION && dto.incubationProfile) {
+        const incubationProfile = manager.create(BeneficiaryIncubationProfile, {
+          ...dto.incubationProfile,
+          beneficiaryId: savedBeneficiary.id,
+        });
+        await manager.save(incubationProfile);
+      } else if (
+        dto.pillar === Pillar.ACCELERATION &&
+        dto.accelerationProfile
+      ) {
+        const accelerationProfile = manager.create(
+          BeneficiaryAccelerationProfile,
+          {
+            ...dto.accelerationProfile,
+            beneficiaryId: savedBeneficiary.id,
+          },
+        );
+        await manager.save(accelerationProfile);
+      }
+
+      // Re-fetch complete beneficiary with relations
+      return await manager.findOneOrFail(Beneficiary, {
+        where: { id: savedBeneficiary.id },
+        relations: {
+          skillsProfile: true,
+          incubationProfile: true,
+          accelerationProfile: true,
+          preferredInstitution: true,
+        },
+      });
+    });
+  }
+
+  /**
+   * Pitch Deck document upload prior to public intake form submission
+   */
+  async uploadPitchDeck(
+    file: Express.Multer.File,
+  ): Promise<{ storageKey: string }> {
+    if (!file) throw new BadRequestException('Pitch deck file is required');
+    if (file.size > 10 * 1024 * 1024) {
+      throw new BadRequestException(
+        'Pitch deck file size must not exceed 10MB',
+      );
+    }
+
+    const storageKey = await this.storageService.uploadFile(
+      file.buffer,
+      'beneficiaries/pitch-decks',
+      file.originalname,
+    );
+
+    return { storageKey };
+  }
+
+  private validatePillarPayloads(dto: CreateBeneficiaryDto): void {
+    if (dto.pillar === Pillar.SKILLS) {
+      if (!dto.skillsProfile) {
+        throw new UnprocessableEntityException(
+          'skillsProfile is required when Pillar is set to SKILLS.',
+        );
+      }
+      if (dto.incubationProfile || dto.accelerationProfile) {
+        throw new UnprocessableEntityException(
+          'Cannot submit incubationProfile or accelerationProfile when Pillar is SKILLS.',
+        );
+      }
+    }
+
+    if (dto.pillar === Pillar.INCUBATION) {
+      if (!dto.incubationProfile) {
+        throw new UnprocessableEntityException(
+          'incubationProfile is required when Pillar is set to INCUBATION.',
+        );
+      }
+      if (dto.skillsProfile || dto.accelerationProfile) {
+        throw new UnprocessableEntityException(
+          'Cannot submit skillsProfile or accelerationProfile when Pillar is INCUBATION.',
+        );
+      }
+    }
+
+    if (dto.pillar === Pillar.ACCELERATION) {
+      if (!dto.accelerationProfile) {
+        throw new UnprocessableEntityException(
+          'accelerationProfile is required when Pillar is set to ACCELERATION.',
+        );
+      }
+      if (dto.skillsProfile || dto.incubationProfile) {
+        throw new UnprocessableEntityException(
+          'Cannot submit skillsProfile or incubationProfile when Pillar is ACCELERATION.',
+        );
+      }
+
+      const { liveProductUrl, pitchDeckStorageKey } = dto.accelerationProfile;
+      if (!liveProductUrl && !pitchDeckStorageKey) {
+        throw new UnprocessableEntityException({
+          statusCode: 422,
+          error: 'Unprocessable Entity',
+          message:
+            'Acceleration applications require either a valid Live Product URL or a Pitch Deck document.',
+        });
+      }
+    }
+  }
 }

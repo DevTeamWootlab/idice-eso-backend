@@ -1,4 +1,9 @@
-import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  randomBytes,
+  createHmac,
+} from 'crypto';
 
 const ALGORITHM = 'aes-256-gcm';
 
@@ -31,4 +36,8 @@ export function decrypt(payload: string, hexKey: string): string {
     decipher.update(Buffer.from(encryptedHex, 'hex')),
     decipher.final(),
   ]).toString('utf8');
+}
+
+export function hashDeterministic(text: string, hashKey: string): string {
+  return createHmac('sha256', hashKey).update(text.trim()).digest('hex');
 }

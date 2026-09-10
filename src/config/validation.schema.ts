@@ -63,6 +63,23 @@ export const environmentSchema = z.object({
   // The application name displayed inside the authenticator app (e.g., Google Authenticator, Microsoft Authenticator)
   MFA_ISSUER: z.string().default('iDICE ESO Portal'),
 
+  NIN_HASH_KEY: z
+    .string()
+    .length(64, {
+      message: 'NIN_HASH_KEY must be exactly a 64-character hex string',
+    })
+    .regex(/^[0-9a-fA-F]{64}$/, {
+      message: 'NIN_HASH_KEY must be a valid hex string',
+    }),
+  NIN_ENCRYPTION_KEY: z
+    .string()
+    .length(64, {
+      message: 'NIN_ENCRYPTION_KEY must be exactly a 64-character hex string',
+    })
+    .regex(/^[0-9a-fA-F]{64}$/, {
+      message: 'NIN_ENCRYPTION_KEY must be a valid hex string',
+    }),
+
   // Brute-force protection throttling controls
   LOCKOUT_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
   LOCKOUT_WINDOW_MINUTES: z.coerce.number().int().positive().default(15),

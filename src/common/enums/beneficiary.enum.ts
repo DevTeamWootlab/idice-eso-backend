@@ -1,18 +1,81 @@
-// common/enums/beneficiary.enum.ts
 export enum Pillar {
-  TRAINING = 'TRAINING',
+  SKILLS = 'SKILLS',
   INCUBATION = 'INCUBATION',
   ACCELERATION = 'ACCELERATION',
 }
 
-export enum TrainingTier {
-  FOUNDATIONAL = 'FOUNDATIONAL',
-  DEVELOPMENTAL = 'DEVELOPMENTAL',
-  SPECIALISED = 'SPECIALISED',
+export enum BeneficiaryStatus {
+  DRAFT = 'DRAFT',
+  SUBMITTED = 'SUBMITTED',
+  UNDER_REVIEW = 'UNDER_REVIEW',
+  SHORTLISTED = 'SHORTLISTED',
+  ALLOCATED = 'ALLOCATED',
+  REJECTED = 'REJECTED',
+  WITHDRAWN = 'WITHDRAWN',
 }
 
-export enum BeneficiaryStatus {
-  SUBMITTED = 'SUBMITTED',
-  TAGGED = 'TAGGED', // geo-mapped + hub-allocated
-  MATCHED = 'MATCHED', // pushed to an ESO's cohort 
+export enum TrainingTier {
+  FOUNDATIONAL = 'FOUNDATIONAL',
+  INTERMEDIATE = 'INTERMEDIATE',
+  ADVANCED = 'ADVANCED',
+}
+
+export enum PreferredHubType {
+  STANDARD = 'STANDARD',
+  GAMING = 'GAMING',
+  VR = 'VR',
+  CREATIVE = 'CREATIVE',
+}
+
+export enum IncubationStage {
+  IDEA = 'IDEA',
+  CONCEPT = 'CONCEPT',
+  EARLY_PROTOTYPE = 'EARLY_PROTOTYPE',
+}
+
+export enum Gender {
+  MALE = 'MALE',
+  FEMALE = 'FEMALE',
+  PREFER_NOT_TO_SAY = 'PREFER_NOT_TO_SAY',
+  OTHER = 'OTHER',
+}
+
+export enum StateOfNigeria {
+  ABIA = 'ABIA',
+  ADAMAWA = 'ADAMAWA',
+  AKWA_IBOM = 'AKWA_IBOM',
+  ANAMBRA = 'ANAMBRA',
+  BAUCHI = 'BAUCHI',
+  BAYELSA = 'BAYELSA',
+  BENUE = 'BENUE',
+  BORNO = 'BORNO',
+  CROSS_RIVER = 'CROSS_RIVER',
+  DELTA = 'DELTA',
+  EBONYI = 'EBONYI',
+  EDO = 'EDO',
+  EKITI = 'EKITI',
+  ENUGU = 'ENUGU',
+  FCT = 'FCT',
+  GOMBE = 'GOMBE',
+  IMO = 'IMO',
+  JIGAWA = 'JIGAWA',
+  KADUNA = 'KADUNA',
+  KANO = 'KANO',
+  KATSINA = 'KATSINA',
+  KEBBI = 'KEBBI',
+  KOGI = 'KOGI',
+  KWARA = 'KWARA',
+  LAGOS = 'LAGOS',
+  NASARAWA = 'NASARAWA',
+  NIGER = 'NIGER',
+  OGUN = 'OGUN',
+  ONDO = 'ONDO',
+  OSUN = 'OSUN',
+  OYO = 'OYO',
+  PLATEAU = 'PLATEAU',
+  RIVERS = 'RIVERS',
+  SOKOTO = 'SOKOTO',
+  TARABA = 'TARABA',
+  YOBE = 'YOBE',
+  ZAMFARA = 'ZAMFARA',
 }

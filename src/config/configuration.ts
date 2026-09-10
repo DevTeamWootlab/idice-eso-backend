@@ -8,6 +8,10 @@ export default () => ({
     frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
     corsOrigins: (process.env.CORS_ORIGINS || '').split(',').filter(Boolean),
   },
+  nin: {
+    hashKey: process.env.NIN_HASH_KEY,
+    encryptionKey: process.env.NIN_ENCRYPTION_KEY,
+  },
   database: {
     host: process.env.DB_HOST,
     port: toInt(process.env.DB_PORT, 5432),

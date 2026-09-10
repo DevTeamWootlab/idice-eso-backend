@@ -1,14 +1,72 @@
-import { Controller, Post, Body } from '@nestjs/common';
-import { Public } from '../../common/decorators/public.decorator';
+import {
+  Controller,
+  Post,
+  Body,
+  UseInterceptors,
+  UploadedFile,
+  ParseFilePipe,
+  MaxFileSizeValidator,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiConsumes,
+} from '@nestjs/swagger';
 
+import { BeneficiariesService } from './beneficiaries.service';
+import { CreateBeneficiaryDto } from './dto/create-beneficiary.dto';
+import { Public } from '@/common/decorators/public.decorator';
+
+@ApiTags('Public Beneficiary Intake')
 @Controller('beneficiaries')
 export class BeneficiariesController {
+  constructor(private readonly beneficiariesService: BeneficiariesService) {}
+  @Public()
+  @Post('pitch-deck')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Upload acceleration pitch deck document (Max 10MB)',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Returns storage key for intake submission',
+  })
+  uploadPitchDeck(
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 })],
+      }),
+    )
+    file: Express.Multer.File,
+  ) {
+    return this.beneficiariesService.uploadPitchDeck(file);
+  }
+
   @Public()
   @Post()
-  submit(
-    @Body()
-    dto: any /* replace with actual CreateBeneficiaryDto once written */,
-  ) {
-    // no auth, no account creation
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Submit youth intake application (Public Endpoint)',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Youth intake form successfully submitted.',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict - Duplicate Email or NIN detected.',
+  })
+  @ApiResponse({
+    status: 422,
+    description:
+      'Unprocessable Entity - Pillar profile mismatch or missing required conditional fields.',
+  })
+  registerIntake(@Body() dto: CreateBeneficiaryDto) {
+    return this.beneficiariesService.registerIntake(dto);
   }
 }

@@ -1,21 +1,25 @@
-
-import { Entity, Column, OneToOne, JoinColumn } from 'typeorm';
-import { BaseEntity } from '@common/entities/base.entity';
+import { Entity, Column, OneToOne, JoinColumn, Index } from 'typeorm';
+import { BaseEntity } from '@/common/entities/base.entity';
 import { Beneficiary } from './beneficiary.entity';
 
 @Entity('beneficiary_acceleration_profiles')
 export class BeneficiaryAccelerationProfile extends BaseEntity {
-  @OneToOne(() => Beneficiary)
-  @JoinColumn()
+  @OneToOne(
+    () => Beneficiary,
+    (beneficiary) => beneficiary.accelerationProfile,
+    { onDelete: 'CASCADE' },
+  )
+  @JoinColumn({ name: 'beneficiaryId' })
   beneficiary!: Beneficiary;
 
+  @Index({ unique: true })
   @Column()
   beneficiaryId!: string;
 
   @Column()
   registeredBusinessName!: string;
 
-  @Column()
+  @Column({ unique: true })
   cacRegistrationNumber!: string;
 
   @Column({ type: 'int' })
@@ -25,32 +29,32 @@ export class BeneficiaryAccelerationProfile extends BaseEntity {
   sector!: string;
 
   @Column({ type: 'int', nullable: true })
-  employeeCount!: number;
+  employeeCount?: number;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
-  estimatedMonthlyRevenueNgn!: number;
+  estimatedMonthlyRevenueNgn?: number;
 
   @Column({ type: 'text', nullable: true })
-  keyTraction!: string;
+  keyTraction?: string;
 
   @Column({ default: false })
   hasRaisedExternalFunding!: boolean;
 
   @Column({ nullable: true })
-  fundingSourceDetails!: string;
+  fundingSourceDetails?: string;
 
   @Column()
   primaryGrowthChallenge!: string;
 
   @Column({ type: 'simple-array', nullable: true })
-  supportNeeded!: string[];
+  supportNeeded?: string[];
 
   @Column({ type: 'text', nullable: true })
-  twelveMonthGrowthTarget!: string;
+  twelveMonthGrowthTarget?: string;
 
   @Column({ nullable: true })
-  liveProductUrl!: string;
+  liveProductUrl?: string;
 
   @Column({ nullable: true })
-  pitchDeckStorageKey!: string;
+  pitchDeckStorageKey?: string;
 }
