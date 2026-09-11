@@ -1,5 +1,5 @@
-# Base  satge for building and dev
-FROM node:20-alpine AS base
+# Base  stage for building and dev
+FROM node:26-alpine AS base
 # Set the working directory to /app inside the container
 WORKDIR /usr/src/app
 # Copy app files
