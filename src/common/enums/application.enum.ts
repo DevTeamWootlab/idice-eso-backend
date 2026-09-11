@@ -57,3 +57,10 @@ export enum ProximityToHost {
   BETWEEN_15_30_MINS = 'BETWEEN_15_30_MINS',
   OVER_30_MINS = 'OVER_30_MINS',
 }
+
+export interface TransitionContext {
+  targetStatus: ApplicationStatus;
+  actorId?: string;
+  role?: string;
+  metadata?: Record<string, any>;
+}

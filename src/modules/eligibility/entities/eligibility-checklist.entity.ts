@@ -29,8 +29,8 @@ export class EligibilityChecklist extends BaseEntity {
   overallResult!: 'PASS' | 'FAIL';
 
   @Column({ type: 'text', nullable: true })
-  rejectionRemarks!: string; // mandatory when overallResult = FAIL
-
+  // rejectionRemarks!: string; // mandatory when overallResult = FAIL
+  rejectionRemarks?: string | null;
   @Column({ type: 'timestamptz', nullable: true })
   decidedAt!: Date;
 }

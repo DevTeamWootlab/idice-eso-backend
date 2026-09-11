@@ -19,9 +19,14 @@ import { ApplicationReference } from './entities/application-reference.entity';
 import { ApplicationsStateMachineService } from './applications-state-machine.service';
 import { ApplicationCompletenessService } from './application-completeness.service';
 import { StorageService } from '../storage/storage.service';
-import { AuditLogService } from '../audit-log/audit-log.service';
 import { ApplicationStatus } from '@/common/enums/application.enum';
 import { SaveDraftDto } from './dto/save-draft.dto';
+import { ReviewerQueueType } from '@/common/enums/reviewer.enum';
+
+import { ReviewerAssignment } from './entities/reviewer-assignment.entity';
+import { Role } from '../../common/enums/role.enum';
+import { AuditLogService } from '@/modules/audit-log/audit-log.service';
+import { UsersService } from '@/modules/users/users.service';
 
 const EDITABLE_STATUSES = [
   ApplicationStatus.DRAFT,
@@ -37,12 +42,15 @@ export class ApplicationsService {
     private readonly documentRepo: Repository<ApplicationDocument>,
     @InjectRepository(ApplicationReference)
     private readonly referenceRepo: Repository<ApplicationReference>,
+    @InjectRepository(ReviewerAssignment)
+    private readonly reviewerAssignmentRepo: Repository<ReviewerAssignment>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly stateMachine: ApplicationsStateMachineService,
     private readonly completenessService: ApplicationCompletenessService,
     private readonly storageService: StorageService,
     private readonly auditLogService: AuditLogService,
+    private readonly usersService: UsersService,
   ) {}
 
   async findMine(userId: string): Promise<Application[]> {
@@ -185,6 +193,148 @@ export class ApplicationsService {
     return this.completenessService.check(application);
   }
 
+  async listReviewerAssignments(applicationId: string) {
+    const application = await this.applicationRepo.findOne({
+      where: { id: applicationId },
+    });
+    if (!application) throw new NotFoundException('Application not found');
+
+    return this.reviewerAssignmentRepo.find({
+      where: { applicationId },
+      relations: {
+        reviewer: true,
+      },
+      order: { assignedAt: 'ASC' },
+    });
+  }
+
+  async assignScoringReviewers(
+    applicationId: string,
+    reviewerIds: string[],
+    actorId: string,
+  ) {
+    const application = await this.applicationRepo.findOne({
+      where: { id: applicationId },
+    });
+    if (!application) throw new NotFoundException('Application not found');
+
+    if (application.status !== ApplicationStatus.IN_REVIEW_SCORING) {
+      throw new BadRequestException(
+        `Application is in ${application.status} status — scoring reviewers can only be assigned once eligibility has passed`,
+      );
+    }
+
+    if (reviewerIds[0] === reviewerIds[1]) {
+      throw new BadRequestException(
+        'The two scoring reviewers must be different people',
+      );
+    }
+
+    for (const reviewerId of reviewerIds) {
+      const reviewer = await this.usersService.findById(reviewerId);
+      if (!reviewer) {
+        throw new NotFoundException(`Reviewer ${reviewerId} not found`);
+      }
+      if (reviewer.role !== Role.SCORING_REVIEWER) {
+        throw new BadRequestException(
+          `User ${reviewer.email} does not hold the Scoring Reviewer role`,
+        );
+      }
+      if (!reviewer.isActive) {
+        throw new BadRequestException(
+          `User ${reviewer.email} is not an active account`,
+        );
+      }
+    }
+
+    const existing = await this.reviewerAssignmentRepo.find({
+      where: { applicationId, queueType: ReviewerQueueType.SCORING },
+    });
+    if (existing.length > 0) {
+      throw new BadRequestException(
+        'Scoring reviewers are already assigned for this application — use the reassign endpoint to replace one',
+      );
+    }
+
+    const assignments = reviewerIds.map((reviewerId) =>
+      this.reviewerAssignmentRepo.create({
+        applicationId,
+        reviewerId,
+        queueType: ReviewerQueueType.SCORING,
+        assignedAt: new Date(),
+      }),
+    );
+    const saved = await this.reviewerAssignmentRepo.save(assignments);
+
+    await this.auditLogService.record({
+      actorId,
+      actorRole: 'ROLE_SYSADMIN',
+      action: 'SCORING_REVIEWERS_ASSIGNED',
+      entityType: 'Application',
+      entityId: applicationId,
+      metadata: { reviewerIds },
+    });
+
+    return saved;
+  }
+
+  async reassignScoringReviewer(
+    applicationId: string,
+    outgoingReviewerId: string,
+    incomingReviewerId: string,
+    actorId: string,
+  ) {
+    const assignment = await this.reviewerAssignmentRepo.findOne({
+      where: {
+        applicationId,
+        reviewerId: outgoingReviewerId,
+        queueType: ReviewerQueueType.SCORING,
+      },
+    });
+    if (!assignment) {
+      throw new NotFoundException(
+        'The outgoing reviewer is not assigned to this application',
+      );
+    }
+    if (assignment.completed) {
+      throw new BadRequestException(
+        'This reviewer has already submitted a score — reassignment is not permitted after submission, since it would compromise the blind dual-review integrity',
+      );
+    }
+
+    const incomingReviewer =
+      await this.usersService.findById(incomingReviewerId);
+    if (!incomingReviewer || incomingReviewer.role !== Role.SCORING_REVIEWER) {
+      throw new BadRequestException(
+        'The incoming reviewer must be an active Scoring Reviewer account',
+      );
+    }
+
+    const otherAssignment = await this.reviewerAssignmentRepo.findOne({
+      where: { applicationId, queueType: ReviewerQueueType.SCORING },
+      order: { assignedAt: 'ASC' },
+    });
+    if (otherAssignment && otherAssignment.reviewerId === incomingReviewerId) {
+      throw new BadRequestException(
+        'The incoming reviewer is already assigned as the other scorer on this application',
+      );
+    }
+
+    assignment.reviewerId = incomingReviewerId;
+    assignment.assignedAt = new Date();
+    const saved = await this.reviewerAssignmentRepo.save(assignment);
+
+    await this.auditLogService.record({
+      actorId,
+      actorRole: 'ROLE_SYSADMIN',
+      action: 'SCORING_REVIEWER_REASSIGNED',
+      entityType: 'Application',
+      entityId: applicationId,
+      metadata: { outgoingReviewerId, incomingReviewerId },
+    });
+
+    return saved;
+  }
   /**
    * POST /applications/submit
    *

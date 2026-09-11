@@ -9,7 +9,7 @@ export class MailProvider {
 
   async send(to: string, subject: string, body: string): Promise<void> {
     const env = this.configService.get<string>('app.env');
-
+    console.log(`[DEV EMAIL] To: ${to} | Subject: ${subject}\n${body}`);
     if (env !== 'production') {
       this.logger.log(`[DEV EMAIL] To: ${to} | Subject: ${subject}\n${body}`);
       return;

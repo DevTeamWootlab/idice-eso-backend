@@ -6,8 +6,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import { authenticator } from '@otplib/preset-default'; 
-// import { generate, verify } from 'otplib'; 
+import { authenticator } from '@otplib/preset-default';
+// import { generate, verify } from 'otplib';
 import * as qrcode from 'qrcode';
 import * as argon2 from 'argon2';
 import { randomBytes } from 'crypto';
@@ -119,6 +119,12 @@ export class MfaService {
     if (authenticator.verify({ token: code, secret })) {
       return true;
     }
+    // console.log('DEBUG — secret in DB:', secret);
+    // console.log('DEBUG — code received:', code);
+    // console.log(
+    //   'DEBUG — expected code right now:',
+    //   authenticator.generate(secret),
+    // );
 
     return this.tryConsumeBackupCode(record, code);
   }
@@ -180,7 +186,7 @@ export class MfaService {
 
       try {
         if (await argon2.verify(hash, code.trim())) {
-          record.backupCodes.splice(i, 1); 
+          record.backupCodes.splice(i, 1);
           await this.mfaSecretRepo.save(record);
           return true;
         }
@@ -201,3 +207,15 @@ export class MfaService {
     );
   }
 }
+
+// for (let i = 0; i < codes.length; i++) {
+//   const hashedCode = codes[i];
+//   if (!hashedCode || typeof hashedCode !== 'string') continue; // skip anything malformed
+
+//   if (await argon2.verify(hashedCode, code)) {
+//     codes.splice(i, 1);
+//     record.backupCodes = codes;
+//     await this.mfaSecretRepo.save(record);
+//     return true;
+//   }
+// }

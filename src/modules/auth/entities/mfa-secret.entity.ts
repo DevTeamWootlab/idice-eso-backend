@@ -22,6 +22,9 @@ export class MfaSecret {
   @Column()
   encryptedSecret!: string; // TOTP secret, encrypted at rest
 
-  @Column('simple-array', { nullable: true })
-  backupCodes!: string[]; // hashed, single-use
+  // @Column('simple-array', { nullable: true })
+  // backupCodes!: string[]; // hashed, single-use
+
+  @Column('jsonb', { default: () => "'[]'" })
+  backupCodes!: string[];
 }

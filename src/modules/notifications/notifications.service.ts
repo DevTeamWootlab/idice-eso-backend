@@ -31,12 +31,21 @@ export class NotificationsService {
       `Click to reset your password: ${link}`,
     );
   }
-  async sendEligibilityRejection(applicantEmail: string, remarks: string) {
-    // uses templates/rejection-eligibility.template.ts
+
+  async sendEligibilityRejection(email: string, remarks: string) {
+    await this.mail.send(
+      email,
+      'Application Update — iDICE ESO Portal',
+      `Your application was not successful at the eligibility stage. Reason: ${remarks}`,
+    );
   }
 
-  async sendReworkRequested(applicantEmail: string, sectionNotes: string[]) {
-    // uses templates/rework-requested.template.ts
+  async sendReworkRequested(email: string, notes: string[]) {
+    await this.mail.send(
+      email,
+      'Action Required — iDICE ESO Application',
+      `Please review and resubmit your application. Notes: ${notes.join('; ')}`,
+    );
   }
 
   async sendBeneficiaryConfirmation(
