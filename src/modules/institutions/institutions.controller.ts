@@ -18,7 +18,7 @@ export class InstitutionsController {
     status: 200,
     description: 'Returns array of active institutions for UI selection.',
   })
-  async getPublicInstitutions(@Query('state') state?: StateOfNigeria) {
-    return this.institutionsService.findPublicActiveOptions(state);
+  async getPublicInstitutions() {
+    return this.institutionsService.findPublicActiveOptions();
   }
 }

@@ -72,6 +72,7 @@ export class Application extends BaseEntity {
   @Column({ type: 'enum', enum: OperatingState, array: true, nullable: true })
   statesOfOperation!: OperatingState[];
 
+
   @Column({ type: 'text', nullable: true })
   physicalAddress!: string;
 
@@ -210,6 +211,4 @@ export class Application extends BaseEntity {
 
   @Column({ type: 'timestamptz', nullable: true })
   shortlistedAt!: Date;
-
-  
 }

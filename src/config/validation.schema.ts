@@ -14,6 +14,7 @@ export const environmentSchema = z.object({
   DB_USERNAME: z.string({ message: 'DB_USERNAME is required' }).min(1),
   DB_PASSWORD: z.string({ message: 'DB_PASSWORD is required' }).min(1),
   DB_NAME: z.string({ message: 'DB_NAME is required' }).min(1),
+  FRONTEND_URL: z.string().url('FRONTEND_URL must be a valid URL').default('http://localhost:3000'),
 
   // JWT Configuration
   JWT_ACCESS_SECRET: z
@@ -30,11 +31,14 @@ export const environmentSchema = z.object({
   THROTTLE_LIMIT: z.coerce.number().default(100),
 
   // Mailer Configuration
-  MAIL_PROVIDER: z.string().default('sendgrid'),
-  MAIL_API_KEY: z.string({ message: 'MAIL_API_KEY is required' }).min(1),
+  MAIL_PROVIDER: z
+    .enum(['console', 'resend', 'aws-ses', 'sendgrid'])
+    .default('console'),
+  MAIL_API_KEY: z.string().optional().default(''),
   MAIL_FROM_ADDRESS: z
-    .string({ message: 'MAIL_FROM_ADDRESS is required' })
-    .email('Invalid MAIL_FROM_ADDRESS email format'),
+    .string()
+    .email('Invalid MAIL_FROM_ADDRESS email format')
+    .default('noreply@localhost'),
 
   // SMS Configuration
   SMS_PROVIDER: z.string().default('termii'),

@@ -30,9 +30,12 @@ export default () => ({
     limit: toInt(process.env.THROTTLE_LIMIT, 100),
   },
   mail: {
-    provider: process.env.MAIL_PROVIDER || 'sendgrid',
-    apiKey: process.env.MAIL_API_KEY,
-    fromAddress: process.env.MAIL_FROM_ADDRESS,
+    provider:
+      process.env.MAIL_PROVIDER ||
+      (process.env.NODE_ENV === 'production' ? 'resend' : 'console'),
+    apiKey: process.env.MAIL_API_KEY || '',
+    fromAddress: process.env.MAIL_FROM_ADDRESS || 'noreply@localhost',
+    fromName: process.env.MAIL_FROM_NAME || 'iDICE ESO Portal',
   },
   sms: {
     provider: process.env.SMS_PROVIDER || 'termii',

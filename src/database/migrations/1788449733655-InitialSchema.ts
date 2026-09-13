@@ -125,130 +125,318 @@ export class InitialSchema1788449733655 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "cohort_members" ADD CONSTRAINT "FK_1fd0729bfdcfdc2b1ced03727f0" FOREIGN KEY ("beneficiaryId") REFERENCES "beneficiaries"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "validation_records" ADD CONSTRAINT "FK_3146b93fa7f617ea1952ebe034c" FOREIGN KEY ("applicationId") REFERENCES "applications"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "validation_records" ADD CONSTRAINT "FK_9adf88faa1d89b8a84879726ea4" FOREIGN KEY ("validatorId") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+
+        
+
+
+ await queryRunner.query(`
+      ALTER TABLE IF EXISTS "applications" 
+      ALTER COLUMN "statesOfOperation" TYPE text[] 
+      USING "statesOfOperation"::text[];
+    `);
+
+    // 2. Force drop the stale, incomplete enum type definition from the public schema namespace
+    await queryRunner.query(`
+      DROP TYPE IF EXISTS "public"."applications_statesofoperation_enum" CASCADE;
+    `);
+
+    // 3. Re-instantiate the type with all 7 complete North Central program territories fully defined
+    await queryRunner.query(`
+      CREATE TYPE "public"."applications_statesofoperation_enum" AS ENUM(
+        'Benue', 'Kogi', 'Kwara', 'Nasarawa', 'Niger', 'Plateau', 'FCT'
+      );
+    `);
+
+    // 4. Clean up any invalid row strings or trailing space gaps inside the database rows
+    await queryRunner.query(`
+      UPDATE "applications" 
+      SET "statesOfOperation" = ARRAY['FCT']::text[] 
+      WHERE "statesOfOperation" IS NULL;
+    `);
+
+    // 5. Safely re-cast the column type back to the fully synchronized enum array specification
+    await queryRunner.query(`
+      ALTER TABLE "applications" 
+      ALTER COLUMN "statesOfOperation" TYPE "public"."applications_statesofoperation_enum"[] 
+      USING "statesOfOperation"::text[]::"public"."applications_statesofoperation_enum"[];
+    `)
+
     }
 
     public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`ALTER TABLE "validation_records" DROP CONSTRAINT "FK_9adf88faa1d89b8a84879726ea4"`);
-        await queryRunner.query(`ALTER TABLE "validation_records" DROP CONSTRAINT "FK_3146b93fa7f617ea1952ebe034c"`);
-        await queryRunner.query(`ALTER TABLE "cohort_members" DROP CONSTRAINT "FK_1fd0729bfdcfdc2b1ced03727f0"`);
-        await queryRunner.query(`ALTER TABLE "cohort_members" DROP CONSTRAINT "FK_e00ea7965d1ed8c53b3c85a56e9"`);
-        await queryRunner.query(`ALTER TABLE "certificates" DROP CONSTRAINT "FK_e27f5bd8eda26a1ef2041d8e904"`);
-        await queryRunner.query(`ALTER TABLE "training_completions" DROP CONSTRAINT "FK_b4f0ece456c93ddb2d394e38f5d"`);
-        await queryRunner.query(`ALTER TABLE "training_completions" DROP CONSTRAINT "FK_b2f2374cd4e15335463078e1f2f"`);
-        await queryRunner.query(`ALTER TABLE "attendance_records" DROP CONSTRAINT "FK_c353fbd5d220dce9dce59d8be49"`);
-        await queryRunner.query(`ALTER TABLE "attendance_records" DROP CONSTRAINT "FK_73dc742eac42ee289715b6d2593"`);
-        await queryRunner.query(`ALTER TABLE "training_sessions" DROP CONSTRAINT "FK_62f4bcba5423eba89157b553279"`);
-        await queryRunner.query(`ALTER TABLE "cohorts" DROP CONSTRAINT "FK_16678415d388dd072c6640a77d3"`);
-        await queryRunner.query(`ALTER TABLE "cohorts" DROP CONSTRAINT "FK_29ea07916f0acd8179d278c97f5"`);
-        await queryRunner.query(`ALTER TABLE "financial_retirements" DROP CONSTRAINT "FK_5549ee6359ddc19b5838222e2ec"`);
-        await queryRunner.query(`ALTER TABLE "sub_award_tranches" DROP CONSTRAINT "FK_762f4c18bff62b87854ec747cb7"`);
-        await queryRunner.query(`ALTER TABLE "sub_awards" DROP CONSTRAINT "FK_c32b41ecf898aeadaec1dd014fd"`);
-        await queryRunner.query(`ALTER TABLE "startup_milestones" DROP CONSTRAINT "FK_746596bd7fd200715b2c95b4cc0"`);
-        await queryRunner.query(`ALTER TABLE "score_cards" DROP CONSTRAINT "FK_a6c046f0711ddc9b54567d34dba"`);
-        await queryRunner.query(`ALTER TABLE "score_cards" DROP CONSTRAINT "FK_aa583dfc13280a7d774c3c6bf83"`);
-        await queryRunner.query(`ALTER TABLE "employment_outcomes" DROP CONSTRAINT "FK_e8d68c09ec6d2b9adf55d8f391d"`);
-        await queryRunner.query(`ALTER TABLE "mentor_assignments" DROP CONSTRAINT "FK_126ecfc9c73624a70a8fc80b3a2"`);
-        await queryRunner.query(`ALTER TABLE "mentor_assignments" DROP CONSTRAINT "FK_c29c359759e8018ce47665fbd2b"`);
-        await queryRunner.query(`ALTER TABLE "mel_kpi_snapshots" DROP CONSTRAINT "FK_3336f0fcce2a357ac10e2c695d7"`);
-        await queryRunner.query(`ALTER TABLE "matches" DROP CONSTRAINT "FK_4bb5111eb64c1035589dacbf6ee"`);
-        await queryRunner.query(`ALTER TABLE "matches" DROP CONSTRAINT "FK_5eb55afa42477e208143d5a9206"`);
-        await queryRunner.query(`ALTER TABLE "institution_users" DROP CONSTRAINT "FK_12965a7a39dfc1fa6d7f4d840f4"`);
-        await queryRunner.query(`ALTER TABLE "institution_users" DROP CONSTRAINT "FK_47aa475a1c5eb1df662d4f82d52"`);
-        await queryRunner.query(`ALTER TABLE "facility_inspections" DROP CONSTRAINT "FK_ef2b960a9fd93430a766516ae51"`);
-        await queryRunner.query(`ALTER TABLE "eligibility_check_items" DROP CONSTRAINT "FK_19d6b48096de2d24c08567eb588"`);
-        await queryRunner.query(`ALTER TABLE "eligibility_checklists" DROP CONSTRAINT "FK_c74238bff75dba3c96603377bbd"`);
-        await queryRunner.query(`ALTER TABLE "eligibility_checklists" DROP CONSTRAINT "FK_820101d947c772cdc494c8bdf2e"`);
-        await queryRunner.query(`ALTER TABLE "beneficiary_skills_profiles" DROP CONSTRAINT "FK_1d0fd2b880523b477496d7750be"`);
-        await queryRunner.query(`ALTER TABLE "beneficiary_incubation_profiles" DROP CONSTRAINT "FK_c9c01dddfbb658a95682c60dd95"`);
-        await queryRunner.query(`ALTER TABLE "beneficiary_acceleration_profiles" DROP CONSTRAINT "FK_a090488b402f3873db45300a8cc"`);
-        await queryRunner.query(`ALTER TABLE "beneficiaries" DROP CONSTRAINT "FK_bd336303341f771897518b89eb5"`);
-        await queryRunner.query(`ALTER TABLE "beneficiaries" DROP CONSTRAINT "FK_18ab4e023013dc48121406d7904"`);
-        await queryRunner.query(`ALTER TABLE "refresh_tokens" DROP CONSTRAINT "FK_610102b60fea1455310ccd299de"`);
-        await queryRunner.query(`ALTER TABLE "mfa_secrets" DROP CONSTRAINT "FK_9adff2630422d0325ec3369f6e0"`);
-        await queryRunner.query(`ALTER TABLE "reviewer_assignments" DROP CONSTRAINT "FK_fa22ae3e279c7268f51e98692a9"`);
-        await queryRunner.query(`ALTER TABLE "reviewer_assignments" DROP CONSTRAINT "FK_636d7d3577071a1bb5b5c4e5682"`);
-        await queryRunner.query(`ALTER TABLE "application_documents" DROP CONSTRAINT "FK_fa1747f54494a479d3582aa9631"`);
-        await queryRunner.query(`ALTER TABLE "applications" DROP CONSTRAINT "FK_ce400242c0a02af55adebb26723"`);
-        await queryRunner.query(`ALTER TABLE "applications" DROP CONSTRAINT "FK_340e6f6693aac66607dc54e691b"`);
-        await queryRunner.query(`ALTER TABLE "application_personnel" DROP CONSTRAINT "FK_bccfe578ffb7b08b1f4b879f6d4"`);
-        await queryRunner.query(`ALTER TABLE "application_references" DROP CONSTRAINT "FK_21d66f6ebd8b5172516f71d2413"`);
-        await queryRunner.query(`DROP TABLE "validation_records"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_674d5bd4b1a1416dc254bab5e7"`);
-        await queryRunner.query(`DROP TABLE "cohort_members"`);
-        await queryRunner.query(`DROP TABLE "certificates"`);
-        await queryRunner.query(`DROP TABLE "training_completions"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_e55fe22dc4080c96a147c55494"`);
-        await queryRunner.query(`DROP TABLE "attendance_records"`);
-        await queryRunner.query(`DROP TYPE "public"."attendance_records_status_enum"`);
-        await queryRunner.query(`DROP TABLE "training_sessions"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_114fed40a5da550ce2e7e8bbbc"`);
-        await queryRunner.query(`DROP TABLE "cohorts"`);
-        await queryRunner.query(`DROP TYPE "public"."cohorts_status_enum"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_1ead49f37a115d0dd5db8820f2"`);
-        await queryRunner.query(`DROP TABLE "courses"`);
-        await queryRunner.query(`DROP TYPE "public"."courses_tier_enum"`);
-        await queryRunner.query(`DROP TABLE "financial_retirements"`);
-        await queryRunner.query(`DROP TABLE "sub_award_tranches"`);
-        await queryRunner.query(`DROP TYPE "public"."sub_award_tranches_status_enum"`);
-        await queryRunner.query(`DROP TABLE "sub_awards"`);
-        await queryRunner.query(`DROP TABLE "startup_milestones"`);
-        await queryRunner.query(`DROP TABLE "score_cards"`);
-        await queryRunner.query(`DROP TYPE "public"."score_cards_reviewerslot_enum"`);
-        await queryRunner.query(`DROP TABLE "rubric_configurations"`);
-        await queryRunner.query(`DROP TABLE "employment_outcomes"`);
-        await queryRunner.query(`DROP TYPE "public"."employment_outcomes_outcometype_enum"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_14f2ae4d74e43ab32f8e22c1a4"`);
-        await queryRunner.query(`DROP TABLE "mentor_assignments"`);
-        await queryRunner.query(`DROP TYPE "public"."mentor_assignments_status_enum"`);
-        await queryRunner.query(`DROP TABLE "mentors"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_5f8c28a805fe77642b927ad7a4"`);
-        await queryRunner.query(`DROP TABLE "mel_kpi_snapshots"`);
-        await queryRunner.query(`DROP TABLE "matches"`);
-        await queryRunner.query(`DROP TYPE "public"."matches_status_enum"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_5b7091541081db9b88aa8cc924"`);
-        await queryRunner.query(`DROP TABLE "institution_users"`);
-        await queryRunner.query(`DROP TABLE "facility_safety_requirements"`);
-        await queryRunner.query(`DROP TABLE "facility_inspections"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_020641861cb3d75f516eaa3c78"`);
-        await queryRunner.query(`DROP TABLE "grievances"`);
-        await queryRunner.query(`DROP TYPE "public"."grievances_status_enum"`);
-        await queryRunner.query(`DROP TYPE "public"."grievances_category_enum"`);
-        await queryRunner.query(`DROP TABLE "eligibility_check_items"`);
-        await queryRunner.query(`DROP TYPE "public"."eligibility_check_items_code_enum"`);
-        await queryRunner.query(`DROP TABLE "eligibility_checklists"`);
-        await queryRunner.query(`DROP TABLE "beneficiary_skills_profiles"`);
-        await queryRunner.query(`DROP TYPE "public"."beneficiary_skills_profiles_skilltier_enum"`);
-        await queryRunner.query(`DROP TABLE "beneficiary_incubation_profiles"`);
-        await queryRunner.query(`DROP TYPE "public"."beneficiary_incubation_profiles_currentstage_enum"`);
-        await queryRunner.query(`DROP TABLE "beneficiary_acceleration_profiles"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_e6baf5e9d8316b29b2b5d898f1"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_b11f8a8fdc934fd5feea9e39f8"`);
-        await queryRunner.query(`DROP TABLE "beneficiaries"`);
-        await queryRunner.query(`DROP TYPE "public"."beneficiaries_status_enum"`);
-        await queryRunner.query(`DROP TYPE "public"."beneficiaries_pillar_enum"`);
-        await queryRunner.query(`DROP TABLE "refresh_tokens"`);
-        await queryRunner.query(`DROP TABLE "mfa_secrets"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_13c69424c440a0e765053feb4b"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_2dc33f7f3c22e2e7badafca1d1"`);
-        await queryRunner.query(`DROP TABLE "audit_logs"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_d7e4279c7d01eb5d1cf18d2c7c"`);
-        await queryRunner.query(`DROP TABLE "reviewer_assignments"`);
-        await queryRunner.query(`DROP TYPE "public"."reviewer_assignments_queuetype_enum"`);
-        await queryRunner.query(`DROP TABLE "application_documents"`);
-        await queryRunner.query(`DROP TYPE "public"."application_documents_documenttype_enum"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_8ee114cee92e995a9e75c05cfb"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_340e6f6693aac66607dc54e691"`);
-        await queryRunner.query(`DROP TABLE "applications"`);
-        await queryRunner.query(`DROP TYPE "public"."applications_proximitytohostinstitution_enum"`);
-        await queryRunner.query(`DROP TYPE "public"."applications_status_enum"`);
-        await queryRunner.query(`DROP TABLE "application_personnel"`);
-        await queryRunner.query(`DROP TYPE "public"."application_personnel_personnelrole_enum"`);
-        await queryRunner.query(`DROP TABLE "application_references"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_15c98649276025998cd1acaf61"`);
-        await queryRunner.query(`DROP TABLE "institutions"`);
-        await queryRunner.query(`DROP TYPE "public"."institutions_hubtype_enum"`);
-        await queryRunner.query(`DROP TABLE "users"`);
-        await queryRunner.query(`DROP TYPE "public"."users_role_enum"`);
+      await queryRunner.query(
+        `ALTER TABLE "validation_records" DROP CONSTRAINT "FK_9adf88faa1d89b8a84879726ea4"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "validation_records" DROP CONSTRAINT "FK_3146b93fa7f617ea1952ebe034c"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "cohort_members" DROP CONSTRAINT "FK_1fd0729bfdcfdc2b1ced03727f0"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "cohort_members" DROP CONSTRAINT "FK_e00ea7965d1ed8c53b3c85a56e9"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "certificates" DROP CONSTRAINT "FK_e27f5bd8eda26a1ef2041d8e904"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "training_completions" DROP CONSTRAINT "FK_b4f0ece456c93ddb2d394e38f5d"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "training_completions" DROP CONSTRAINT "FK_b2f2374cd4e15335463078e1f2f"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "attendance_records" DROP CONSTRAINT "FK_c353fbd5d220dce9dce59d8be49"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "attendance_records" DROP CONSTRAINT "FK_73dc742eac42ee289715b6d2593"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "training_sessions" DROP CONSTRAINT "FK_62f4bcba5423eba89157b553279"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "cohorts" DROP CONSTRAINT "FK_16678415d388dd072c6640a77d3"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "cohorts" DROP CONSTRAINT "FK_29ea07916f0acd8179d278c97f5"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "financial_retirements" DROP CONSTRAINT "FK_5549ee6359ddc19b5838222e2ec"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "sub_award_tranches" DROP CONSTRAINT "FK_762f4c18bff62b87854ec747cb7"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "sub_awards" DROP CONSTRAINT "FK_c32b41ecf898aeadaec1dd014fd"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "startup_milestones" DROP CONSTRAINT "FK_746596bd7fd200715b2c95b4cc0"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "score_cards" DROP CONSTRAINT "FK_a6c046f0711ddc9b54567d34dba"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "score_cards" DROP CONSTRAINT "FK_aa583dfc13280a7d774c3c6bf83"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "employment_outcomes" DROP CONSTRAINT "FK_e8d68c09ec6d2b9adf55d8f391d"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "mentor_assignments" DROP CONSTRAINT "FK_126ecfc9c73624a70a8fc80b3a2"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "mentor_assignments" DROP CONSTRAINT "FK_c29c359759e8018ce47665fbd2b"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "mel_kpi_snapshots" DROP CONSTRAINT "FK_3336f0fcce2a357ac10e2c695d7"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "matches" DROP CONSTRAINT "FK_4bb5111eb64c1035589dacbf6ee"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "matches" DROP CONSTRAINT "FK_5eb55afa42477e208143d5a9206"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "institution_users" DROP CONSTRAINT "FK_12965a7a39dfc1fa6d7f4d840f4"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "institution_users" DROP CONSTRAINT "FK_47aa475a1c5eb1df662d4f82d52"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "facility_inspections" DROP CONSTRAINT "FK_ef2b960a9fd93430a766516ae51"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "eligibility_check_items" DROP CONSTRAINT "FK_19d6b48096de2d24c08567eb588"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "eligibility_checklists" DROP CONSTRAINT "FK_c74238bff75dba3c96603377bbd"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "eligibility_checklists" DROP CONSTRAINT "FK_820101d947c772cdc494c8bdf2e"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "beneficiary_skills_profiles" DROP CONSTRAINT "FK_1d0fd2b880523b477496d7750be"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "beneficiary_incubation_profiles" DROP CONSTRAINT "FK_c9c01dddfbb658a95682c60dd95"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "beneficiary_acceleration_profiles" DROP CONSTRAINT "FK_a090488b402f3873db45300a8cc"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "beneficiaries" DROP CONSTRAINT "FK_bd336303341f771897518b89eb5"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "beneficiaries" DROP CONSTRAINT "FK_18ab4e023013dc48121406d7904"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "refresh_tokens" DROP CONSTRAINT "FK_610102b60fea1455310ccd299de"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "mfa_secrets" DROP CONSTRAINT "FK_9adff2630422d0325ec3369f6e0"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "reviewer_assignments" DROP CONSTRAINT "FK_fa22ae3e279c7268f51e98692a9"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "reviewer_assignments" DROP CONSTRAINT "FK_636d7d3577071a1bb5b5c4e5682"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "application_documents" DROP CONSTRAINT "FK_fa1747f54494a479d3582aa9631"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "applications" DROP CONSTRAINT "FK_ce400242c0a02af55adebb26723"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "applications" DROP CONSTRAINT "FK_340e6f6693aac66607dc54e691b"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "application_personnel" DROP CONSTRAINT "FK_bccfe578ffb7b08b1f4b879f6d4"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "application_references" DROP CONSTRAINT "FK_21d66f6ebd8b5172516f71d2413"`,
+      );
+      await queryRunner.query(`DROP TABLE "validation_records"`);
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_674d5bd4b1a1416dc254bab5e7"`,
+      );
+      await queryRunner.query(`DROP TABLE "cohort_members"`);
+      await queryRunner.query(`DROP TABLE "certificates"`);
+      await queryRunner.query(`DROP TABLE "training_completions"`);
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_e55fe22dc4080c96a147c55494"`,
+      );
+      await queryRunner.query(`DROP TABLE "attendance_records"`);
+      await queryRunner.query(
+        `DROP TYPE "public"."attendance_records_status_enum"`,
+      );
+      await queryRunner.query(`DROP TABLE "training_sessions"`);
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_114fed40a5da550ce2e7e8bbbc"`,
+      );
+      await queryRunner.query(`DROP TABLE "cohorts"`);
+      await queryRunner.query(`DROP TYPE "public"."cohorts_status_enum"`);
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_1ead49f37a115d0dd5db8820f2"`,
+      );
+      await queryRunner.query(`DROP TABLE "courses"`);
+      await queryRunner.query(`DROP TYPE "public"."courses_tier_enum"`);
+      await queryRunner.query(`DROP TABLE "financial_retirements"`);
+      await queryRunner.query(`DROP TABLE "sub_award_tranches"`);
+      await queryRunner.query(
+        `DROP TYPE "public"."sub_award_tranches_status_enum"`,
+      );
+      await queryRunner.query(`DROP TABLE "sub_awards"`);
+      await queryRunner.query(`DROP TABLE "startup_milestones"`);
+      await queryRunner.query(`DROP TABLE "score_cards"`);
+      await queryRunner.query(
+        `DROP TYPE "public"."score_cards_reviewerslot_enum"`,
+      );
+      await queryRunner.query(`DROP TABLE "rubric_configurations"`);
+      await queryRunner.query(`DROP TABLE "employment_outcomes"`);
+      await queryRunner.query(
+        `DROP TYPE "public"."employment_outcomes_outcometype_enum"`,
+      );
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_14f2ae4d74e43ab32f8e22c1a4"`,
+      );
+      await queryRunner.query(`DROP TABLE "mentor_assignments"`);
+      await queryRunner.query(
+        `DROP TYPE "public"."mentor_assignments_status_enum"`,
+      );
+      await queryRunner.query(`DROP TABLE "mentors"`);
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_5f8c28a805fe77642b927ad7a4"`,
+      );
+      await queryRunner.query(`DROP TABLE "mel_kpi_snapshots"`);
+      await queryRunner.query(`DROP TABLE "matches"`);
+      await queryRunner.query(`DROP TYPE "public"."matches_status_enum"`);
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_5b7091541081db9b88aa8cc924"`,
+      );
+      await queryRunner.query(`DROP TABLE "institution_users"`);
+      await queryRunner.query(`DROP TABLE "facility_safety_requirements"`);
+      await queryRunner.query(`DROP TABLE "facility_inspections"`);
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_020641861cb3d75f516eaa3c78"`,
+      );
+      await queryRunner.query(`DROP TABLE "grievances"`);
+      await queryRunner.query(`DROP TYPE "public"."grievances_status_enum"`);
+      await queryRunner.query(`DROP TYPE "public"."grievances_category_enum"`);
+      await queryRunner.query(`DROP TABLE "eligibility_check_items"`);
+      await queryRunner.query(
+        `DROP TYPE "public"."eligibility_check_items_code_enum"`,
+      );
+      await queryRunner.query(`DROP TABLE "eligibility_checklists"`);
+      await queryRunner.query(`DROP TABLE "beneficiary_skills_profiles"`);
+      await queryRunner.query(
+        `DROP TYPE "public"."beneficiary_skills_profiles_skilltier_enum"`,
+      );
+      await queryRunner.query(`DROP TABLE "beneficiary_incubation_profiles"`);
+      await queryRunner.query(
+        `DROP TYPE "public"."beneficiary_incubation_profiles_currentstage_enum"`,
+      );
+      await queryRunner.query(`DROP TABLE "beneficiary_acceleration_profiles"`);
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_e6baf5e9d8316b29b2b5d898f1"`,
+      );
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_b11f8a8fdc934fd5feea9e39f8"`,
+      );
+      await queryRunner.query(`DROP TABLE "beneficiaries"`);
+      await queryRunner.query(`DROP TYPE "public"."beneficiaries_status_enum"`);
+      await queryRunner.query(`DROP TYPE "public"."beneficiaries_pillar_enum"`);
+      await queryRunner.query(`DROP TABLE "refresh_tokens"`);
+      await queryRunner.query(`DROP TABLE "mfa_secrets"`);
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_13c69424c440a0e765053feb4b"`,
+      );
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_2dc33f7f3c22e2e7badafca1d1"`,
+      );
+      await queryRunner.query(`DROP TABLE "audit_logs"`);
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_d7e4279c7d01eb5d1cf18d2c7c"`,
+      );
+      await queryRunner.query(`DROP TABLE "reviewer_assignments"`);
+      await queryRunner.query(
+        `DROP TYPE "public"."reviewer_assignments_queuetype_enum"`,
+      );
+      await queryRunner.query(`DROP TABLE "application_documents"`);
+      await queryRunner.query(
+        `DROP TYPE "public"."application_documents_documenttype_enum"`,
+      );
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_8ee114cee92e995a9e75c05cfb"`,
+      );
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_340e6f6693aac66607dc54e691"`,
+      );
+      await queryRunner.query(`DROP TABLE "applications"`);
+      await queryRunner.query(
+        `DROP TYPE "public"."applications_proximitytohostinstitution_enum"`,
+      );
+      await queryRunner.query(`DROP TYPE "public"."applications_status_enum"`);
+      await queryRunner.query(`DROP TABLE "application_personnel"`);
+      await queryRunner.query(
+        `DROP TYPE "public"."application_personnel_personnelrole_enum"`,
+      );
+      await queryRunner.query(`DROP TABLE "application_references"`);
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_15c98649276025998cd1acaf61"`,
+      );
+      await queryRunner.query(`DROP TABLE "institutions"`);
+      await queryRunner.query(`DROP TYPE "public"."institutions_hubtype_enum"`);
+      await queryRunner.query(`DROP TABLE "users"`);
+      await queryRunner.query(`DROP TYPE "public"."users_role_enum"`);
+
+      await queryRunner.query(`
+      ALTER TABLE "applications" ALTER COLUMN "statesOfOperation" TYPE text[] USING "statesOfOperation"::text[];
+    `);
+      await queryRunner.query(`
+      DROP TYPE IF EXISTS "public"."applications_statesofoperation_enum" CASCADE;
+    `);
     }
+    
 
 }

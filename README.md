@@ -31,7 +31,12 @@
 $ yarn install
 ```
 
-
+```bash
+### command to generate keys for nin and haskey for the .env file
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+NIN_HASH_KEY=haskey
+NIN_ENCRYPTION_KEY=generated_encyrption
+```
 
 ## Compile and run the project
 
