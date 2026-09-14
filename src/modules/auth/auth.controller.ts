@@ -30,10 +30,18 @@ import {
   ResetPasswordDto,
   ChangePasswordDto,
 } from './dto/password.dto';
+import {
+  LoginResponseDto,
+  RegisterResponseDto,
+  EmailVerificationResponseDto,
+  SessionResponseDto,
+  MfaSetupResponseDto,
+  MfaEnableResponseDto,
+} from './dto/response.dto';
 import { Public } from '@/common/decorators/public.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { JwtPayload } from '@/common/interfaces/jwt-payload.interface';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiCreatedResponse, ApiTags, ApiNoContentResponse } from '@nestjs/swagger';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -45,12 +53,14 @@ export class AuthController {
   ) {}
 
   @Public()
+  @ApiCreatedResponse({ description: 'User registered successfully', type: RegisterResponseDto })
   @Post('register')
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
 
   @Public()
+  @ApiOkResponse({ description: 'Email verified successfully', type: EmailVerificationResponseDto })
   @Get('verify-email')
   verifyEmail(@Query() dto: VerifyEmailDto) {
     return this.authService.verifyEmail(dto.token);
@@ -58,6 +68,7 @@ export class AuthController {
 
   @Public()
   @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOkResponse({ description: 'User logged in successfully', type: LoginResponseDto })
   @Post('login')
   login(
     @Body() dto: LoginDto,
@@ -69,6 +80,7 @@ export class AuthController {
 
   @Public()
   @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOkResponse({ description: 'User Verified', type: LoginResponseDto })
   @Post('mfa/verify')
   verifyMfa(
     @Body() dto: VerifyMfaDto,
@@ -83,39 +95,46 @@ export class AuthController {
 
   @Public()
   @UseGuards(AuthGuard('jwt-refresh'))
+  @ApiOkResponse({ description: 'Token refreshed successfully', type: LoginResponseDto })
   @Post('refresh')
   refresh(@Req() req: any) {
     return this.authService.refresh(req.user);
   }
 
   @Post('logout')
+  @ApiNoContentResponse({ description: 'User logged out successfully' })
   logout(@Body() dto: RefreshTokenDto) {
     return this.authService.logout(dto.refreshToken);
   }
 
   @Post('logout-all')
+  @ApiNoContentResponse({ description: 'All user sessions logged out successfully' })
   logoutAll(@CurrentUser() user: JwtPayload) {
     return this.authService.logoutAll(user.sub);
   }
 
   @Get('sessions')
+  @ApiOkResponse({ description: 'User sessions listed successfully', type: [SessionResponseDto] })
   listSessions(@CurrentUser() user: JwtPayload) {
     return this.authService.listSessions(user.sub);
   }
 
   @Public()
   @Throttle({ default: { limit: 3, ttl: 900000 } })
+  @ApiOkResponse({ description: 'Password reset email sent successfully' })
   @Post('forgot-password')
   forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto.email);
   }
 
   @Public()
+  @ApiOkResponse({ description: 'Password reset successfully' })
   @Post('reset-password')
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto.token, dto.newPassword);
   }
 
+  @ApiOkResponse({ description: 'Password changed successfully' })
   @Post('change-password')
   changePassword(
     @CurrentUser() user: JwtPayload,
@@ -131,6 +150,7 @@ export class AuthController {
   // --- MFA setup — called with the setupToken returned from a login that required enrolment ---
 
   @Public()
+  @ApiOkResponse({ description: 'MFA setup initiated successfully', type: MfaSetupResponseDto })
   @Post('mfa/setup')
   async setupMfa(@Body() dto: MfaSetupTokenDto) {
     const userId = this.authService.verifySetupToken(dto.setupToken);
@@ -142,6 +162,7 @@ export class AuthController {
   }
 
   @Public()
+  @ApiOkResponse({ description: 'MFA enabled successfully', type: MfaEnableResponseDto })
   @Post('mfa/enable')
   async enableMfa(@Body() dto: EnableMfaDto) {
     const userId = this.authService.verifySetupToken(dto.setupToken);
@@ -150,6 +171,7 @@ export class AuthController {
 
   // --- MFA management for an already-authenticated, already-enrolled user ---
 
+  @ApiOkResponse({ description: 'MFA disabled successfully' })
   @Post('mfa/disable')
   async disableMfa(
     @CurrentUser() user: JwtPayload,
@@ -166,6 +188,7 @@ export class AuthController {
     return { message: 'MFA has been disabled for your account' };
   }
 
+  @ApiOkResponse({ description: 'MFA backup codes regenerated successfully', type: MfaEnableResponseDto })
   @Post('mfa/backup-codes/regenerate')
   regenerateBackupCodes(@CurrentUser() user: JwtPayload) {
     return this.mfaService.regenerateBackupCodes(user.sub);
