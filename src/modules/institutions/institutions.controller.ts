@@ -1,8 +1,8 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Public } from '@/common/decorators/public.decorator';
 import { InstitutionsService } from './institutions.service';
-import { StateOfNigeria } from '@/common/enums/beneficiary.enum';
+import { InstitutionResponseDto } from './dto/response.dto';
 
 @ApiTags('Public Institutions')
 @Controller('institutions')
@@ -17,6 +17,7 @@ export class InstitutionsController {
   @ApiResponse({
     status: 200,
     description: 'Returns array of active institutions for UI selection.',
+    type: [InstitutionResponseDto],
   })
   async getPublicInstitutions() {
     return this.institutionsService.findPublicActiveOptions();
