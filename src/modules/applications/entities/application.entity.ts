@@ -15,9 +15,9 @@ import { ApplicationReference } from './application-reference.entity';
 import { ApplicationPersonnel } from './application-personnel.entity';
 import { ScoreCard } from '../../scoring/entities/score-card.entity';
 
-@Entity('applications')
-@Index(['status'])
-@Index(['submittedByOrgId'])
+@Entity("applications")
+@Index(["status"])
+@Index(["submittedByOrgId"])
 export class Application extends BaseEntity {
   @Column({ unique: true })
   applicationRef!: string;
@@ -35,7 +35,7 @@ export class Application extends BaseEntity {
   preferredInstitutionId!: string;
 
   @Column({
-    type: 'enum',
+    type: "enum",
     enum: ApplicationStatus,
     default: ApplicationStatus.DRAFT,
   })
@@ -45,13 +45,13 @@ export class Application extends BaseEntity {
   @Column({ nullable: true })
   organisationLegalName!: string;
 
-  @Column({ type: 'enum', enum: RegistrationType, nullable: true })
+  @Column({ type: "enum", enum: RegistrationType, nullable: true })
   registrationType!: RegistrationType;
 
-  @Column({ type: 'int', nullable: true })
+  @Column({ type: "int", nullable: true })
   yearEstablished!: number;
 
-  @Column({ type: 'enum', enum: OrganisationType, nullable: true })
+  @Column({ type: "enum", enum: OrganisationType, nullable: true })
   organisationType!: OrganisationType;
 
   @Column({ nullable: true })
@@ -70,14 +70,13 @@ export class Application extends BaseEntity {
   primaryContactEmail!: string;
 
   // ---- Section B: Compliance & Operational Presence ----
-  @Column({ type: 'enum', enum: OperatingState, array: true, nullable: true })
+  @Column({ type: "enum", enum: OperatingState, array: true, nullable: true })
   statesOfOperation!: OperatingState[];
 
-
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: "text", nullable: true })
   physicalAddress!: string;
 
-  @Column({ type: 'enum', enum: ProximityToHost, nullable: true })
+  @Column({ type: "enum", enum: ProximityToHost, nullable: true })
   proximityToHostInstitution!: ProximityToHost;
 
   @Column({ nullable: true })
@@ -86,7 +85,7 @@ export class Application extends BaseEntity {
   @Column({ nullable: true })
   staffingSummary!: string;
 
-  @Column({ type: 'date', nullable: true })
+  @Column({ type: "date", nullable: true })
   taxClearanceExpiry!: Date;
 
   @Column({ nullable: true })
@@ -101,36 +100,36 @@ export class Application extends BaseEntity {
   @Column({ nullable: true })
   organogramUrl!: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: "jsonb", nullable: true })
   personnelCvUrls!: string[];
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: "text", nullable: true })
   governanceStructure!: string;
 
   // ---- Section C: Programme Delivery ----
-  @Column({ type: 'enum', enum: SectorFocus, array: true, nullable: true })
+  @Column({ type: "enum", enum: SectorFocus, array: true, nullable: true })
   sectorFocus!: SectorFocus[];
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: "text", nullable: true })
   programmeDeliveryTrackRecord!: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: "text", nullable: true })
   mentorshipIndustryNetwork!: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: "text", nullable: true })
   inclusionAccessibilityCapacity!: string;
 
   // ---- Section D: Institutional Alignment ----
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: "text", nullable: true })
   existingInstitutionalRelationships!: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: "text", nullable: true })
   institutionalCoordinationPlan!: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: "text", nullable: true })
   staffFacultyEngagementPlan!: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: "text", nullable: true })
   beneficiaryReferralPlan!: string;
 
   // ---- Section E: References ----
@@ -146,13 +145,13 @@ export class Application extends BaseEntity {
   @Column({ default: false })
   hasConductedAcceleration!: boolean;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: "text", nullable: true })
   monitoringReportingSystems!: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: "text", nullable: true })
   sustainabilityPlan!: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: "text", nullable: true })
   employmentPathway!: string;
 
   // ---- Section G: Policies & Declarations ----
@@ -184,7 +183,7 @@ export class Application extends BaseEntity {
   @Column({ nullable: true })
   authorisedSignatoryTitle!: string;
 
-  @Column({ type: 'timestamptz', nullable: true })
+  @Column({ type: "timestamptz", nullable: true })
   signedAt!: Date;
 
   // ---- Documents & Personnel (span multiple sections) ----
@@ -202,40 +201,42 @@ export class Application extends BaseEntity {
   scoreCards?: ScoreCard[];
 
   // ---- Concurrency / auto-save ----
-  @Column({ type: 'timestamptz', nullable: true })
+  @Column({ type: "timestamptz", nullable: true })
   lastEditedAt!: Date;
 
   @Column({ nullable: true })
   lastEditedByUserId!: string;
 
   // ---- Funnel timestamps ----
-  @Column({ type: 'timestamptz', nullable: true })
+  @Column({ type: "timestamptz", nullable: true })
   submittedAt!: Date;
 
-  @Column({ type: 'timestamptz', nullable: true })
+  @Column({ type: "timestamptz", nullable: true })
   eligibilityDecidedAt!: Date;
 
-  @Column({ type: 'timestamptz', nullable: true })
+  @Column({ type: "timestamptz", nullable: true })
   shortlistedAt!: Date;
 
   // ---- Technical scoring outcome (persisted once both reviewers submit, or once a
   // >15% variance is reconciled by the Validator / Lead Evaluator) ----
-  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  @Column({ type: "decimal", precision: 5, scale: 2, nullable: true })
   finalScorePercent!: number | null;
 
   @Column({ default: false })
   scoreVarianceFlagged!: boolean;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: "text", nullable: true })
   scoreVarianceResolutionNote!: string | null;
 
-  @Column({ nullable: true })
+  // @Column({ nullable: true })
+  // scoreVarianceResolvedByUserId!: string | null;
+  @Column({ type: "varchar", nullable: true })
   scoreVarianceResolvedByUserId!: string | null;
 
-  @Column({ type: 'timestamptz', nullable: true })
+  @Column({ type: "timestamptz", nullable: true })
   scoreVarianceResolvedAt!: Date | null;
 
   // ---- Partner Match Engine outcome ----
-  @Column({ type: 'timestamptz', nullable: true })
+  @Column({ type: "timestamptz", nullable: true })
   matchedAt!: Date | null;
 }
