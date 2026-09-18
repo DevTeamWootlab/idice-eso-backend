@@ -94,12 +94,13 @@ run the committed migrations against the production database:
 ```bash
 yarn build
 yarn db:migrate:prod
+yarn db:seed:prod
 yarn start:prod
 ```
 
-`start:prod` also runs `db:migrate:prod` automatically before starting the
-application, so it is safe to use the normal production start command after a
-deployment.
+The seed is separate from migrations. To run both deployment database steps in
+one command, use `yarn deploy:prod`. The seed is idempotent and can be run
+again safely; it inserts or updates reference data without duplicating it.
 
 Keep `synchronize` disabled. Review generated migrations before applying them
 to a shared or production database.

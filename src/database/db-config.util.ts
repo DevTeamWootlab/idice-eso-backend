@@ -3,6 +3,7 @@ import type { DataSourceOptions } from 'typeorm';
 
 export function getDbConfig(): DataSourceOptions {
   const isProduction = process.env.NODE_ENV === 'production';
+  const isCompiled = __filename.endsWith('.js');
   return {
     type: "postgres" as const,
     host: process.env.DB_HOST,
@@ -23,8 +24,16 @@ export function getDbConfig(): DataSourceOptions {
     //     ? 'dist/database/migrations/*.js'
     //     : 'src/database/migrations/*.ts',
     // ],
-    entities: [__dirname + "/../modules/**/entities/*.entity.{ts,js}"],
-    migrations: [__dirname + "/migrations/*.{ts,js}"],
+    entities: [
+      isCompiled
+        ? __dirname + "/../modules/**/entities/*.entity.js"
+        : __dirname + "/../modules/**/entities/*.entity.ts",
+    ],
+    migrations: [
+      isCompiled
+        ? __dirname + "/migrations/*.js"
+        : __dirname + "/migrations/*.ts",
+    ],
   };
 }
 
