@@ -11,8 +11,7 @@ import { S3StorageProvider } from '@/modules/storage/providers/s3-storage.provid
     {
       provide: 'STORAGE_PROVIDER',
       useFactory: (configService: ConfigService) => {
-        // const driver = configService.get<string>('storage.provider', 'local');
-        const driver = configService.get<string>('local');
+        const driver = configService.get<string>('storage.provider', 'local');
         if (driver === 's3') {
           return new S3StorageProvider(configService);
         }

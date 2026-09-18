@@ -7,6 +7,7 @@ export const environmentSchema = z.object({
   PORT: z.coerce.number().default(3000),
   HOST: z.string().default('0.0.0.0'),
   CORS_ORIGINS: z.string().optional().default(''),
+  CORS_VERCEL_PREVIEW_REGEX: z.string().optional(),
 
   // Database Configuration
   DB_HOST: z.string({ message: 'DB_HOST is required' }).min(1),
@@ -45,16 +46,11 @@ export const environmentSchema = z.object({
   SMS_API_KEY: z.string({ message: 'SMS_API_KEY is required' }).min(1),
   SMS_SENDER_ID: z.string({ message: 'SMS_SENDER_ID is required' }).min(1),
 
-  // Storage Configuration
-  STORAGE_PROVIDER: z.string().default('s3'),
-  STORAGE_BUCKET: z.string({ message: 'STORAGE_BUCKET is required' }).min(1),
-  STORAGE_REGION: z.string({ message: 'STORAGE_REGION is required' }).min(1),
-  STORAGE_ACCESS_KEY_ID: z
-    .string({ message: 'STORAGE_ACCESS_KEY_ID is required' })
-    .min(1),
-  STORAGE_SECRET_ACCESS_KEY: z
-    .string({ message: 'STORAGE_SECRET_ACCESS_KEY is required' })
-    .min(1),
+  STORAGE_PROVIDER: z.enum(['local', 's3']).default('s3'),
+  STORAGE_BUCKET: z.string().optional().default(''),
+  STORAGE_REGION: z.string().optional().default(''),
+  STORAGE_ACCESS_KEY_ID: z.string().optional().default(''),
+  STORAGE_SECRET_ACCESS_KEY: z.string().optional().default(''),
   MFA_ENCRYPTION_KEY: z
     .string()
     .length(64, {
@@ -64,7 +60,6 @@ export const environmentSchema = z.object({
       message: 'MFA_ENCRYPTION_KEY must be a valid hex string',
     }),
 
-  // The application name displayed inside the authenticator app (e.g., Google Authenticator, Microsoft Authenticator)
   MFA_ISSUER: z.string().default('iDICE ESO Portal'),
 
   NIN_HASH_KEY: z
@@ -84,10 +79,45 @@ export const environmentSchema = z.object({
       message: 'NIN_ENCRYPTION_KEY must be a valid hex string',
     }),
 
-  // Brute-force protection throttling controls
   LOCKOUT_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
   LOCKOUT_WINDOW_MINUTES: z.coerce.number().int().positive().default(15),
   LOCKOUT_DURATION_MINUTES: z.coerce.number().int().positive().default(30),
+});
+
+const environmentSchemaWithCors = environmentSchema.superRefine((env, ctx) => {
+  if (env.NODE_ENV === 'production' || env.NODE_ENV === 'staging') {
+    const origins = env.CORS_ORIGINS.split(',')
+      .map((o) => o.trim())
+      .filter(Boolean);
+    if (origins.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['CORS_ORIGINS'],
+        message:
+          `CORS_ORIGINS is required when NODE_ENV=${env.NODE_ENV} — set a comma-separated ` +
+          'allowlist (e.g. the staging origin, the production frontend domain, and any ' +
+          'Vercel preview origin you rely on). Refusing to boot with an empty CORS allowlist.',
+      });
+    }
+  }
+
+  if (env.STORAGE_PROVIDER === 's3') {
+    const required: Array<[keyof typeof env, string]> = [
+      ['STORAGE_BUCKET', 'STORAGE_BUCKET'],
+      ['STORAGE_REGION', 'STORAGE_REGION'],
+      ['STORAGE_ACCESS_KEY_ID', 'STORAGE_ACCESS_KEY_ID'],
+      ['STORAGE_SECRET_ACCESS_KEY', 'STORAGE_SECRET_ACCESS_KEY'],
+    ];
+    for (const [key, name] of required) {
+      if (!env[key]) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `${name} is required when STORAGE_PROVIDER=s3`,
+        });
+      }
+    }
+  }
 });
 
 export type EnvironmentVariables = z.infer<typeof environmentSchema>;
@@ -95,12 +125,12 @@ export type EnvironmentVariables = z.infer<typeof environmentSchema>;
 export function validate(
   config: Record<string, unknown>,
 ): EnvironmentVariables {
-  const result = environmentSchema.safeParse(config);
+  const result = environmentSchemaWithCors.safeParse(config);
 
   if (!result.success) {
     const formattedErrors = JSON.stringify(result.error.format(), null, 2);
     throw new Error(`❌ Environment Validation Error:\n${formattedErrors}`);
   }
 
-  return result.data;
+  return result.data as EnvironmentVariables;
 }

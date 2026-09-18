@@ -13,6 +13,7 @@ import { Institution } from '../../institutions/entities/institution.entity';
 import { ApplicationDocument } from './application-document.entity';
 import { ApplicationReference } from './application-reference.entity';
 import { ApplicationPersonnel } from './application-personnel.entity';
+import { ScoreCard } from '../../scoring/entities/score-card.entity';
 
 @Entity('applications')
 @Index(['status'])
@@ -195,6 +196,11 @@ export class Application extends BaseEntity {
   })
   keyPersonnel!: ApplicationPersonnel[];
 
+  // Not eagerly loaded — callers opt in via `relations: { scoreCards: true }` only once
+  // it's safe to unblind (see ScoringService.getDossier / ValidationService.getDossier).
+  @OneToMany(() => ScoreCard, (s) => s.application)
+  scoreCards?: ScoreCard[];
+
   // ---- Concurrency / auto-save ----
   @Column({ type: 'timestamptz', nullable: true })
   lastEditedAt!: Date;
@@ -211,4 +217,25 @@ export class Application extends BaseEntity {
 
   @Column({ type: 'timestamptz', nullable: true })
   shortlistedAt!: Date;
+
+  // ---- Technical scoring outcome (persisted once both reviewers submit, or once a
+  // >15% variance is reconciled by the Validator / Lead Evaluator) ----
+  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  finalScorePercent!: number | null;
+
+  @Column({ default: false })
+  scoreVarianceFlagged!: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  scoreVarianceResolutionNote!: string | null;
+
+  @Column({ nullable: true })
+  scoreVarianceResolvedByUserId!: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  scoreVarianceResolvedAt!: Date | null;
+
+  // ---- Partner Match Engine outcome ----
+  @Column({ type: 'timestamptz', nullable: true })
+  matchedAt!: Date | null;
 }

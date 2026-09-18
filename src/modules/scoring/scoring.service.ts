@@ -14,15 +14,26 @@ import { ApplicationsStateMachineService } from '../applications/applications-st
 import { ApplicationStatus } from '@/common/enums/application.enum';
 import { ReviewerQueueType } from '@/common/enums/reviewer.enum';
 import { SubmitScoreDto } from './dto/submit-score.dto';
+import { AuditLogService } from '@/modules/audit-log/audit-log.service';
+import { NotificationsService } from '@/modules/notifications/notifications.service';
 
-const DIMENSION_WEIGHTS = {
-  localPresenceScore: 20,
-  teamExpertiseScore: 20,
-  incubationExperienceScore: 15,
-  credibilityGovernanceScore: 15,
-  deliveryTrackRecordScore: 15,
-  institutionalRelationshipScore: 15,
-};
+// Was a plain Record indexed dynamically via `keyof SubmitScoreDto` cast — since
+// SubmitScoreDto also has an optional `comments?: string` field, TypeScript widened
+// every lookup to `number | string | undefined` (the union of *all* the DTO's
+// property types), which is why `raw / 5.0` failed to compile ("possibly undefined",
+// "left-hand side must be number"). An explicit tuple list keyed to only the six
+// required number fields keeps each lookup correctly typed as `number`.
+const SCORE_DIMENSIONS: {
+  key: keyof Omit<SubmitScoreDto, 'comments'>;
+  weight: number;
+}[] = [
+  { key: 'localPresenceScore', weight: 20 },
+  { key: 'teamExpertiseScore', weight: 20 },
+  { key: 'incubationExperienceScore', weight: 15 },
+  { key: 'credibilityGovernanceScore', weight: 15 },
+  { key: 'deliveryTrackRecordScore', weight: 15 },
+  { key: 'institutionalAlignmentScore', weight: 15 },
+];
 
 const VARIANCE_THRESHOLD = 15; // percentage points
 const QUALIFICATION_THRESHOLD = 70.0; // percent
@@ -37,6 +48,8 @@ export class ScoringService {
     @InjectRepository(ReviewerAssignment)
     private readonly assignmentRepo: Repository<ReviewerAssignment>,
     private readonly stateMachine: ApplicationsStateMachineService,
+    private readonly auditLogService: AuditLogService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async getQueue(reviewerId: string) {
@@ -60,13 +73,24 @@ export class ScoringService {
 
   async getDossier(applicationId: string, reviewerId: string) {
     await this.assertAssigned(applicationId, reviewerId);
-    return this.applicationRepo.findOne({
+    const application = await this.applicationRepo.findOne({
       where: { id: applicationId },
       relations: {
         references: true,
         documents: true,
+        scoreCards: { reviewer: true },
       },
     });
+    if (!application) throw new NotFoundException('Application not found');
+
+    // TC-SCO-03 — both cards are only safe to unblind once scoring has actually
+    // finalized (average taken, or escalated for variance). While still
+    // IN_REVIEW_SCORING, strip every card so the caller's co-reviewer stays hidden,
+    // even though the relation was fetched (simpler than a conditional query).
+    if (application.status === ApplicationStatus.IN_REVIEW_SCORING) {
+      application.scoreCards = [];
+    }
+    return application;
   }
 
   private async assertAssigned(applicationId: string, reviewerId: string) {
@@ -114,20 +138,6 @@ export class ScoringService {
       );
     }
 
-    // let card = await this.scoreCardRepo.findOne({
-    //   where: { applicationId, reviewerId },
-    // });
-    // if (card?.submitted) {
-    //   throw new BadRequestException(
-    //     'You have already submitted your score for this application',
-    //   );
-    // }
-
-    // const compositePercentage = this.calculateComposite(dto);
-
-    // if (!card) {
-    //   card = this.scoreCardRepo.create({ applicationId, reviewerId });
-    // }
     let card = await this.scoreCardRepo.findOne({
       where: { applicationId, reviewerId },
     });
@@ -162,14 +172,25 @@ export class ScoringService {
     assignment.completed = true;
     await this.assignmentRepo.save(assignment);
 
-    return this.tryFinalize(applicationId, reviewerId);
+    await this.auditLogService.record({
+      actorId: reviewerId,
+      actorRole: 'ROLE_SCORING_REVIEWER',
+      action: 'SCORE_SUBMITTED',
+      entityType: 'Application',
+      entityId: applicationId,
+      // Deliberately no raw score/compositePercentage in metadata here — the other
+      // reviewer may read this application's audit trail before they've submitted
+      // their own card, and that must not leak a blinded score early.
+      metadata: { reviewerSlot: card.reviewerSlot },
+    });
+
+    return this.tryFinalize(applicationId, reviewerId, application.primaryContactEmail);
   }
 
   private calculateComposite(scores: SubmitScoreDto): number {
     let total = 0;
-    for (const [dimension, weight] of Object.entries(DIMENSION_WEIGHTS)) {
-      const raw = scores[dimension as keyof SubmitScoreDto];
-      total += (raw / 5.0) * weight;
+    for (const { key, weight } of SCORE_DIMENSIONS) {
+      total += (scores[key] / 5.0) * weight;
     }
     return Math.round(total * 100) / 100;
   }
@@ -178,7 +199,11 @@ export class ScoringService {
    * Called after every score submission — only actually finalizes
    * once BOTH scoring reviewers for this application have submitted.
    */
-  private async tryFinalize(applicationId: string, actorId: string) {
+  private async tryFinalize(
+    applicationId: string,
+    actorId: string,
+    applicantEmail?: string,
+  ) {
     const cards = await this.scoreCardRepo.find({
       where: { applicationId, submitted: true },
     });
@@ -196,11 +221,29 @@ export class ScoringService {
     const variance = Math.abs(s1.compositePercentage - s2.compositePercentage);
 
     if (variance > VARIANCE_THRESHOLD) {
-      // TC-SCO-04 — escalate to validator/lead evaluator, do NOT auto-average
+      // TC-SCO-04 — escalate to validator/lead evaluator, do NOT auto-average.
+      // finalScorePercent stays null until the Lead Evaluator reconciles it
+      // (ValidationService.resolveVariance).
+      await this.applicationRepo.update(
+        { id: applicationId },
+        { scoreVarianceFlagged: true },
+      );
       await this.stateMachine.transition(applicationId, {
         targetStatus: ApplicationStatus.PENDING_VALIDATION,
         actorId,
         role: 'ROLE_SCORING_REVIEWER',
+        metadata: {
+          reviewer1Score: s1.compositePercentage,
+          reviewer2Score: s2.compositePercentage,
+          variance,
+        },
+      });
+      await this.auditLogService.record({
+        actorId,
+        actorRole: 'ROLE_SCORING_REVIEWER',
+        action: 'SCORE_VARIANCE_ESCALATED',
+        entityType: 'Application',
+        entityId: applicationId,
         metadata: {
           reviewer1Score: s1.compositePercentage,
           reviewer2Score: s2.compositePercentage,
@@ -220,6 +263,10 @@ export class ScoringService {
       ) / 100;
 
     if (averageScore >= QUALIFICATION_THRESHOLD) {
+      await this.applicationRepo.update(
+        { id: applicationId },
+        { finalScorePercent: averageScore, scoreVarianceFlagged: false },
+      );
       await this.stateMachine.transition(applicationId, {
         targetStatus: ApplicationStatus.SHORTLISTED,
         actorId,
@@ -230,12 +277,30 @@ export class ScoringService {
           reviewer2Score: s2.compositePercentage,
         },
       });
+      await this.auditLogService.record({
+        actorId,
+        actorRole: 'ROLE_SCORING_REVIEWER',
+        action: 'SCORE_FINALIZED_SHORTLISTED',
+        entityType: 'Application',
+        entityId: applicationId,
+        metadata: { averageScore },
+      });
+      if (applicantEmail) {
+        await this.notificationsService.sendShortlistedNotification(
+          applicantEmail,
+          averageScore,
+        );
+      }
       return {
         message: 'Both scores submitted and averaged. Application shortlisted.',
         averageScore,
       };
     }
 
+    await this.applicationRepo.update(
+      { id: applicationId },
+      { finalScorePercent: averageScore, scoreVarianceFlagged: false },
+    );
     await this.stateMachine.transition(applicationId, {
       targetStatus: ApplicationStatus.REJECTED,
       actorId,
@@ -245,6 +310,20 @@ export class ScoringService {
         reason: 'Below 70% qualification threshold',
       },
     });
+    await this.auditLogService.record({
+      actorId,
+      actorRole: 'ROLE_SCORING_REVIEWER',
+      action: 'SCORE_FINALIZED_REJECTED',
+      entityType: 'Application',
+      entityId: applicationId,
+      metadata: { averageScore, reason: 'Below 70% qualification threshold' },
+    });
+    if (applicantEmail) {
+      await this.notificationsService.sendDisqualificationNotification(
+        applicantEmail,
+        `Composite technical score of ${averageScore}% did not meet the 70% qualification threshold.`,
+      );
+    }
 
     return {
       message:

@@ -8,6 +8,13 @@ const MANDATORY_DOCUMENT_TYPES = [
   DOCUMENT_TYPES.ORGANOGRAM,
   DOCUMENT_TYPES.CV,
   DOCUMENT_TYPES.AUDITED_ACCOUNTS,
+  // PRD 5 (eligibility item 7) and 8.1 (Section G) require these three too — the
+  // document types already existed in DOCUMENT_TYPES but nothing enforced their
+  // presence, and the frontend had no upload field for any of them at all.
+  DOCUMENT_TYPES.BANK_REFERENCE_LETTER,
+  DOCUMENT_TYPES.CONCEPT_NOTE,
+  DOCUMENT_TYPES.WORKPLAN,
+  DOCUMENT_TYPES.BUDGET,
 ];
 
 export interface CompletenessResult {

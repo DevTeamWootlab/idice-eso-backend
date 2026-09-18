@@ -28,6 +28,16 @@ export class Match extends BaseEntity {
   @Column({ type: 'decimal', precision: 5, scale: 2 })
   matchCompatibilityIndex!: number;
 
+  // The three named MCI components (see MatchingService.computeMci) — persisted
+  // alongside the final index so the admin UI can show the breakdown that actually
+  // produced this match, not a value recomputed later against possibly-changed data.
+  @Column({ type: 'jsonb', nullable: true })
+  breakdown!: {
+    hubAlignmentScore: number;
+    capacityAlignment: number;
+    institutionalRelationshipScore: number;
+  } | null;
+
   @Column()
   state!: string;
 

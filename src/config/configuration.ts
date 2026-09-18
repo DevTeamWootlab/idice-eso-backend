@@ -6,7 +6,16 @@ export default () => ({
     port: toInt(process.env.PORT, 3000),
     host: process.env.HOST || '0.0.0.0',
     frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
-    corsOrigins: (process.env.CORS_ORIGINS || '').split(',').filter(Boolean),
+    corsOrigins: (() => {
+      const parsed = (process.env.CORS_ORIGINS || '')
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean);
+      if (parsed.length > 0) return parsed;
+      const env = process.env.NODE_ENV;
+      return env === 'production' || env === 'staging' ? [] : ['http://localhost:3000'];
+    })(),
+    corsVercelPreviewRegex: process.env.CORS_VERCEL_PREVIEW_REGEX || '^https://[a-z0-9-]+\\.vercel\\.app$',
   },
   nin: {
     hashKey: process.env.NIN_HASH_KEY,

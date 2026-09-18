@@ -20,6 +20,7 @@ import {
 import { BeneficiariesService } from './beneficiaries.service';
 import { CreateBeneficiaryDto } from './dto/create-beneficiary.dto';
 import { Public } from '@/common/decorators/public.decorator';
+import { pitchDeckUploadOptions } from '@/config/multer.config';
 
 @ApiTags('Public Beneficiary Intake')
 @Controller('beneficiaries')
@@ -27,10 +28,10 @@ export class BeneficiariesController {
   constructor(private readonly beneficiariesService: BeneficiariesService) {}
   @Public()
   @Post('pitch-deck')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', pitchDeckUploadOptions))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
-    summary: 'Upload acceleration pitch deck document (Max 10MB)',
+    summary: 'Upload acceleration pitch deck document (Max 10MB, PDF/DOCX/XLSX/CSV/JPEG/PNG)',
   })
   @ApiResponse({
     status: 201,

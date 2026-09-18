@@ -45,13 +45,6 @@ export class VerifyMfaDto {
 
 export class DisableMfaDto {
   @ApiProperty({
-    description: 'MFA token',
-    example: 'mfa-token-123'
-  })
-  @IsString()
-  mfaToken!: string;
-
-  @ApiProperty({
     description: 'User password',
     example: 'password123'
   })
