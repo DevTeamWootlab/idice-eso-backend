@@ -14,7 +14,12 @@ export class InitialSchema1788449733655 implements MigrationInterface {
         await queryRunner.query(`CREATE TABLE "application_personnel" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "applicationId" uuid NOT NULL, "fullName" character varying NOT NULL, "personnelRole" "public"."application_personnel_personnelrole_enum" NOT NULL, "yearsOfExperience" integer, "cvDocumentId" character varying, CONSTRAINT "PK_aa32a7608de887dc12723fbc8b6" PRIMARY KEY ("id"))`);
         await queryRunner.query(`CREATE TYPE "public"."applications_status_enum" AS ENUM('DRAFT', 'SUBMITTED', 'IN_REVIEW_ELIGIBILITY', 'REWORK_REQUIRED', 'IN_REVIEW_SCORING', 'PENDING_VALIDATION', 'SHORTLISTED', 'PENDING_CONTEXTUAL_FEEDBACK', 'PENDING_ECOSYSTEM_VALIDATION', 'VALIDATED_SHORTLISTED', 'MATCHED', 'REJECTED')`);
         await queryRunner.query(`CREATE TYPE "public"."applications_proximitytohostinstitution_enum" AS ENUM('LESS_THAN_15_MINS', '15_30_MINS', 'OVER_30_MINS')`);
-        await queryRunner.query(`CREATE TABLE "applications" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "applicationRef" character varying NOT NULL, "submittedByOrgId" uuid NOT NULL, "preferredInstitutionId" uuid, "status" "public"."applications_status_enum" NOT NULL DEFAULT 'DRAFT', "organisationName" character varying, "organisationEmail" character varying, "organisationPhone" character varying, "cacRegistrationNumber" character varying, "tin" character varying, "taxClearanceExpiry" TIMESTAMP, "operatingState" character varying, "physicalAddress" character varying, "proximityToHostInstitution" "public"."applications_proximitytohostinstitution_enum", "experienceSummary" text, "pastAssignments" jsonb, "conflictOfInterestDeclared" boolean NOT NULL DEFAULT false, "ndpaComplianceAccepted" boolean NOT NULL DEFAULT false, "brownfieldRestrictionAccepted" boolean NOT NULL DEFAULT false, "authorisedSignatoryName" character varying, "signedAt" TIMESTAMP WITH TIME ZONE, "lastEditedAt" TIMESTAMP WITH TIME ZONE, "lastEditedByUserId" character varying, "submittedAt" TIMESTAMP WITH TIME ZONE, "eligibilityDecidedAt" TIMESTAMP WITH TIME ZONE, "shortlistedAt" TIMESTAMP WITH TIME ZONE, CONSTRAINT "UQ_3ebf4b1c08826afe7702a2c0aef" UNIQUE ("applicationRef"), CONSTRAINT "PK_938c0a27255637bde919591888f" PRIMARY KEY ("id"))`);
+        await queryRunner.query(
+          `CREATE TYPE "public"."applications_statesofoperation_enum" AS ENUM('BENUE', 'KOGI', 'KWARA', 'NASARAWA', 'NIGER', 'PLATEAU', 'FCT')`,
+        );
+        await queryRunner.query(
+          `CREATE TABLE "applications" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "applicationRef" character varying NOT NULL, "submittedByOrgId" uuid NOT NULL, "preferredInstitutionId" uuid, "status" "public"."applications_status_enum" NOT NULL DEFAULT 'DRAFT', "organisationName" character varying, "organisationEmail" character varying, "organisationPhone" character varying, "cacRegistrationNumber" character varying, "tin" character varying, "taxClearanceExpiry" TIMESTAMP, "operatingState" character varying, "statesOfOperation" "public"."applications_statesofoperation_enum"[], "physicalAddress" character varying, "proximityToHostInstitution" "public"."applications_proximitytohostinstitution_enum", "experienceSummary" text, "pastAssignments" jsonb, "conflictOfInterestDeclared" boolean NOT NULL DEFAULT false, "ndpaComplianceAccepted" boolean NOT NULL DEFAULT false, "brownfieldRestrictionAccepted" boolean NOT NULL DEFAULT false, "authorisedSignatoryName" character varying, "signedAt" TIMESTAMP WITH TIME ZONE, "lastEditedAt" TIMESTAMP WITH TIME ZONE, "lastEditedByUserId" character varying, "submittedAt" TIMESTAMP WITH TIME ZONE, "eligibilityDecidedAt" TIMESTAMP WITH TIME ZONE, "shortlistedAt" TIMESTAMP WITH TIME ZONE, CONSTRAINT "UQ_3ebf4b1c08826afe7702a2c0aef" UNIQUE ("applicationRef"), CONSTRAINT "PK_938c0a27255637bde919591888f" PRIMARY KEY ("id"))`,
+        );
         await queryRunner.query(`CREATE INDEX "IDX_340e6f6693aac66607dc54e691" ON "applications"  ("submittedByOrgId") `);
         await queryRunner.query(`CREATE INDEX "IDX_8ee114cee92e995a9e75c05cfb" ON "applications"  ("status") `);
         await queryRunner.query(`CREATE TYPE "public"."application_documents_documenttype_enum" AS ENUM('REGISTRATION_CERTIFICATE', 'TAX_CLEARANCE', 'ORGANOGRAM', 'CV', 'AUDITED_ACCOUNTS', 'BANK_REFERENCE_LETTER', 'CONCEPT_NOTE', 'WORKPLAN', 'BUDGET', 'CONFLICT_OF_INTEREST_EVIDENCE', 'INSTITUTION_ENDORSEMENT_LETTER')`);
@@ -125,41 +130,6 @@ export class InitialSchema1788449733655 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "cohort_members" ADD CONSTRAINT "FK_1fd0729bfdcfdc2b1ced03727f0" FOREIGN KEY ("beneficiaryId") REFERENCES "beneficiaries"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "validation_records" ADD CONSTRAINT "FK_3146b93fa7f617ea1952ebe034c" FOREIGN KEY ("applicationId") REFERENCES "applications"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
         await queryRunner.query(`ALTER TABLE "validation_records" ADD CONSTRAINT "FK_9adf88faa1d89b8a84879726ea4" FOREIGN KEY ("validatorId") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-
-        
-
-
- await queryRunner.query(`
-      ALTER TABLE IF EXISTS "applications" 
-      ALTER COLUMN "statesOfOperation" TYPE text[] 
-      USING "statesOfOperation"::text[];
-    `);
-
-    // 2. Force drop the stale, incomplete enum type definition from the public schema namespace
-    await queryRunner.query(`
-      DROP TYPE IF EXISTS "public"."applications_statesofoperation_enum" CASCADE;
-    `);
-
-    // 3. Re-instantiate the type with all 7 complete North Central program territories fully defined
-    await queryRunner.query(`
-      CREATE TYPE "public"."applications_statesofoperation_enum" AS ENUM(
-        'Benue', 'Kogi', 'Kwara', 'Nasarawa', 'Niger', 'Plateau', 'FCT'
-      );
-    `);
-
-    // 4. Clean up any invalid row strings or trailing space gaps inside the database rows
-    await queryRunner.query(`
-      UPDATE "applications" 
-      SET "statesOfOperation" = ARRAY['FCT']::text[] 
-      WHERE "statesOfOperation" IS NULL;
-    `);
-
-    // 5. Safely re-cast the column type back to the fully synchronized enum array specification
-    await queryRunner.query(`
-      ALTER TABLE "applications" 
-      ALTER COLUMN "statesOfOperation" TYPE "public"."applications_statesofoperation_enum"[] 
-      USING "statesOfOperation"::text[]::"public"."applications_statesofoperation_enum"[];
-    `)
 
     }
 
