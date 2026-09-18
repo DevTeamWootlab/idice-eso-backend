@@ -8,13 +8,12 @@ import { Observable } from "rxjs";
 import { map } from "rxjs/operators";
 
 export interface CtxRes {
-  message: string;
+  status: boolean;
+  timestamp: number;
   data: any;
 }
 
-export interface Response extends CtxRes {
-  status: boolean;
-}
+export type Response = CtxRes;
 
 @Injectable()
 export class ResponseInterceptor<T> implements NestInterceptor<T, Response> {
@@ -26,7 +25,7 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, Response> {
       map((res) => ({
         status: true,
         timestamp: Date.now(),
-        ...res,
+        data: res,
       })),
     );
   }

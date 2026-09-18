@@ -61,6 +61,7 @@ export class ScoreCard extends BaseEntity {
   @Max(5)
   incubationExperienceScore!: number;
 
+  @Column({ type: 'smallint' })
   @ApiProperty({ example: 4 })
   @IsNumber()
   @IsNotEmpty()

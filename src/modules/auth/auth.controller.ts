@@ -41,7 +41,7 @@ import {
 import { Public } from '@/common/decorators/public.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { JwtPayload } from '@/common/interfaces/jwt-payload.interface';
-import { ApiOkResponse, ApiCreatedResponse, ApiTags, ApiNoContentResponse } from '@nestjs/swagger';
+import { ApiOkResponse, ApiCreatedResponse, ApiTags, ApiNoContentResponse, ApiBearerAuth } from '@nestjs/swagger';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -101,18 +101,21 @@ export class AuthController {
     return this.authService.refresh(req.user);
   }
 
+  @ApiBearerAuth()
   @Post('logout')
   @ApiNoContentResponse({ description: 'User logged out successfully' })
   logout(@Body() dto: RefreshTokenDto) {
     return this.authService.logout(dto.refreshToken);
   }
 
+  @ApiBearerAuth()
   @Post('logout-all')
   @ApiNoContentResponse({ description: 'All user sessions logged out successfully' })
   logoutAll(@CurrentUser() user: JwtPayload) {
     return this.authService.logoutAll(user.sub);
   }
 
+  @ApiBearerAuth()
   @Get('sessions')
   @ApiOkResponse({ description: 'User sessions listed successfully', type: [SessionResponseDto] })
   listSessions(@CurrentUser() user: JwtPayload) {
@@ -134,6 +137,7 @@ export class AuthController {
     return this.authService.resetPassword(dto.token, dto.newPassword);
   }
 
+  @ApiBearerAuth()
   @ApiOkResponse({ description: 'Password changed successfully' })
   @Post('change-password')
   changePassword(
@@ -171,6 +175,7 @@ export class AuthController {
 
   // --- MFA management for an already-authenticated, already-enrolled user ---
 
+  @ApiBearerAuth()
   @ApiOkResponse({ description: 'MFA disabled successfully' })
   @Post('mfa/disable')
   async disableMfa(
@@ -188,6 +193,7 @@ export class AuthController {
     return { message: 'MFA has been disabled for your account' };
   }
 
+  @ApiBearerAuth()
   @ApiOkResponse({ description: 'MFA backup codes regenerated successfully', type: MfaEnableResponseDto })
   @Post('mfa/backup-codes/regenerate')
   regenerateBackupCodes(@CurrentUser() user: JwtPayload) {

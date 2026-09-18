@@ -9,11 +9,17 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ValidationRecord } from './entities/validation-record.entity';
 import { Application } from '../applications/entities/application.entity';
+import { ScoreCard } from '../scoring/entities/score-card.entity';
 import { ApplicationsStateMachineService } from '../applications/applications-state-machine.service';
 import { UsersService } from '../users/users.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { StorageService } from '../storage/storage.service';
 import { ApplicationStatus } from '@/common/enums/application.enum';
 import { SubmitValidationDto } from './dto/submit-validation.dto';
+import { ResolveVarianceDto } from './dto/resolve-variance.dto';
+
+const QUALIFICATION_THRESHOLD = 70.0; // percent — same 70% gate as the ordinary scoring path
 
 @Injectable()
 export class ValidationService {
@@ -22,9 +28,13 @@ export class ValidationService {
     private readonly validationRepo: Repository<ValidationRecord>,
     @InjectRepository(Application)
     private readonly applicationRepo: Repository<Application>,
+    @InjectRepository(ScoreCard)
+    private readonly scoreCardRepo: Repository<ScoreCard>,
     private readonly usersService: UsersService,
     private readonly stateMachine: ApplicationsStateMachineService,
     private readonly auditLogService: AuditLogService,
+    private readonly notificationsService: NotificationsService,
+    private readonly storageService: StorageService,
   ) {}
 
   /**
@@ -61,7 +71,17 @@ export class ValidationService {
   }
 
   async getDossier(applicationId: string, validatorId: string) {
-    return this.assertInScope(applicationId, validatorId);
+    const application = await this.assertInScope(applicationId, validatorId);
+    // Safe to unblind here unconditionally: this dossier is only ever reachable once
+    // an application has left IN_REVIEW_SCORING (SHORTLISTED, PENDING_VALIDATION due
+    // to variance, or PENDING_ECOSYSTEM_VALIDATION), i.e. scoring has already
+    // finalized one way or another — never while the two reviewers are still blind
+    // to each other.
+    application.scoreCards = await this.scoreCardRepo.find({
+      where: { applicationId },
+      relations: { reviewer: true },
+    });
+    return application;
   }
 
   private async assertInScope(
@@ -93,11 +113,6 @@ export class ValidationService {
         'This application has no assigned Centre of Excellence and cannot be routed for validation',
       );
     }
-    console.log(
-      'application.preferredInstitution.state, validator.assignedState',
-      application.preferredInstitution.state,
-      validator.assignedState,
-    );
     if (
       application.preferredInstitution?.state?.trim().toUpperCase() !==
       validator.assignedState?.trim().toUpperCase()
@@ -142,7 +157,8 @@ export class ValidationService {
       'No site inspection notes provided by the validator';
 
     record.siteInspectionNotes = siteInspectionNotes;
-    record.geotaggedPhotos = dto.geotaggedPhotos as any;
+    record.checklist = dto.checklist ?? null;
+    record.geotaggedPhotos = dto.geotaggedPhotos ?? [];
     record.physicalFootprintVerified = dto.physicalFootprintVerified;
     record.validatedAt = new Date();
     record.validatorId = validatorId;
@@ -169,5 +185,109 @@ export class ValidationService {
       });
     }
     return record;
+  }
+
+  /**
+   * A validator captures a geotagged site-visit photo. Returns a descriptor the
+   * frontend accumulates client-side and includes in the final `geotaggedPhotos[]`
+   * array passed to submitValidation — mirrors the existing application-document
+   * upload flow (upload first, reference the storageKey afterwards), since a
+   * ValidationRecord isn't created until the validator actually submits.
+   */
+  async uploadSiteVisitPhoto(
+    applicationId: string,
+    validatorId: string,
+    file: Express.Multer.File,
+    latitude: number,
+    longitude: number,
+  ) {
+    // Confirms the validator is actually in scope for this application before letting
+    // them upload anything against it.
+    await this.assertInScope(applicationId, validatorId);
+
+    const storageKey = await this.storageService.uploadFile(
+      file.buffer,
+      `validation/${applicationId}/photos`,
+      file.originalname,
+    );
+
+    return {
+      storageKey,
+      latitude,
+      longitude,
+      takenAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * TC-SCO-04 follow-up — the Validator / Lead Evaluator reconciling a >15% scorer
+   * variance. Scoped the same way as field validation itself (assertInScope — the
+   * validator's assignedState must match the application's Centre of Excellence), so
+   * this stays consistent with the dossier fetch (GET :id/validation) that the
+   * frontend loads before showing the reconciliation panel — that fetch is already
+   * state-scoped, so resolving the variance has to be too, or an out-of-state
+   * validator could never even load the dossier to act on it in the first place.
+   */
+  async resolveVariance(
+    applicationId: string,
+    validatorId: string,
+    dto: ResolveVarianceDto,
+  ) {
+    const application = await this.assertInScope(applicationId, validatorId);
+    if (application.status !== ApplicationStatus.PENDING_VALIDATION) {
+      throw new BadRequestException(
+        `Application is in ${application.status} status and does not have a pending score-variance escalation`,
+      );
+    }
+
+    const reconciledScorePercent =
+      Math.round(dto.reconciledScorePercent * 100) / 100;
+
+    application.finalScorePercent = reconciledScorePercent;
+    application.scoreVarianceFlagged = false;
+    application.scoreVarianceResolutionNote = dto.note;
+    application.scoreVarianceResolvedByUserId = validatorId;
+    application.scoreVarianceResolvedAt = new Date();
+    await this.applicationRepo.save(application);
+
+    // Same 70% qualification threshold as the ordinary (non-variance) scoring path —
+    // a human reconciling the scores doesn't bypass the programme's qualification bar.
+    const targetStatus =
+      reconciledScorePercent >= QUALIFICATION_THRESHOLD
+        ? ApplicationStatus.SHORTLISTED
+        : ApplicationStatus.REJECTED;
+
+    await this.stateMachine.transition(applicationId, {
+      targetStatus,
+      actorId: validatorId,
+      role: 'ROLE_VALIDATOR',
+      metadata: { reconciledScorePercent, note: dto.note },
+    });
+
+    await this.auditLogService.record({
+      actorId: validatorId,
+      actorRole: 'ROLE_VALIDATOR',
+      action:
+        targetStatus === ApplicationStatus.SHORTLISTED
+          ? 'SCORE_VARIANCE_RESOLVED_SHORTLISTED'
+          : 'SCORE_VARIANCE_RESOLVED_REJECTED',
+      entityType: 'Application',
+      entityId: applicationId,
+      metadata: { reconciledScorePercent, note: dto.note },
+    });
+
+    if (targetStatus === ApplicationStatus.SHORTLISTED) {
+      await this.notificationsService.sendShortlistedNotification(
+        application.primaryContactEmail,
+        reconciledScorePercent,
+      );
+    } else {
+      await this.notificationsService.sendDisqualificationNotification(
+        application.primaryContactEmail,
+        `A Lead Evaluator reconciled the two reviewer scores at ${reconciledScorePercent}%, which did not meet the 70% qualification threshold.`,
+      );
+    }
+
+    return this.applicationRepo.findOne({ where: { id: applicationId } });
   }
 }

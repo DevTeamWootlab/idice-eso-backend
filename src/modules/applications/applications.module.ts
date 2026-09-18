@@ -12,6 +12,7 @@ import { ApplicationsStateMachineService } from './applications-state-machine.se
 import { ApplicationCompletenessService } from './application-completeness.service';
 import { ApplicationsController } from './applications.controller';
 import { AdminApplicationsController } from './admin-applications.controller';
+import { InternalApplicationAccessController } from './internal-application-access.controller';
 
 @Module({
   imports: [
@@ -25,7 +26,11 @@ import { AdminApplicationsController } from './admin-applications.controller';
     StorageModule,
     UsersModule,
   ],
-  controllers: [ApplicationsController, AdminApplicationsController],
+  controllers: [
+    ApplicationsController,
+    AdminApplicationsController,
+    InternalApplicationAccessController,
+  ],
   providers: [
     ApplicationsService,
     ApplicationsStateMachineService,

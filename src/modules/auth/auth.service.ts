@@ -69,7 +69,9 @@ export class AuthService {
       role: Role.ESO,
     });
 
-    // Create application record for the new ESO user (not shown here, but would be part of the application service)
+    // Organisation name and state are NOT collected here — ROLE_ESO applicants provide
+    // them as part of Section A/B of their application (organisationLegalName,
+    // statesOfOperation), created lazily on first POST /applications/draft.
 
     await this.sendVerificationEmail(user.id, user.email);
     return {

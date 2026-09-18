@@ -22,6 +22,10 @@ export class InstitutionsService {
         'institution.name',
         'institution.hubType',
         'institution.state',
+        'institution.latitude',
+        'institution.longitude',
+        'institution.beneficiaryCapacity',
+        'institution.isActive',
       ])
       .where('institution.isActive = :isActive', { isActive: true });
 

@@ -19,6 +19,7 @@ import { CreateBeneficiaryDto } from './dto/create-beneficiary.dto';
 // import { CryptoService } from '@/common/services/crypto.service';
 import { GeoAllocationService } from './services/geo-allocation.service';
 import { StorageService } from '../storage/storage.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { encrypt, decrypt, hashDeterministic } from '@/common/utils/encryption';
 import { ConfigService } from '@nestjs/config';
 @Injectable()
@@ -32,6 +33,7 @@ export class BeneficiariesService {
     private readonly configService: ConfigService,
     private readonly geoAllocationService: GeoAllocationService,
     private readonly storageService: StorageService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   /**
@@ -79,7 +81,7 @@ export class BeneficiariesService {
     const referenceId = `iDICE-BEN-2026-${randomUUID().slice(0, 8).toUpperCase()}`;
 
     // ---- 5. Database Transaction Execution ----
-    return await this.dataSource.transaction(async (manager) => {
+    const beneficiary = await this.dataSource.transaction(async (manager) => {
       // Build core beneficiary entity
       const beneficiary = manager.create(Beneficiary, {
         referenceId,
@@ -153,6 +155,25 @@ export class BeneficiariesService {
         },
       });
     });
+
+    // Sent after the transaction commits, not inside it — a confirmation email
+    // failing (e.g. the mail provider being briefly unavailable) shouldn't roll back
+    // an otherwise-successful registration. Previously this was never called at all,
+    // so a beneficiary got no confirmation of any kind beyond the frontend's
+    // client-side success screen.
+    try {
+      await this.notificationsService.sendBeneficiaryConfirmation(
+        beneficiary.email,
+        beneficiary.phoneNumber,
+        beneficiary.referenceId,
+      );
+    } catch {
+      // Swallowed deliberately — the registration itself already succeeded and is
+      // committed; a notification failure shouldn't turn into a 500 for the
+      // applicant after their data was saved correctly.
+    }
+
+    return beneficiary;
   }
 
   /**

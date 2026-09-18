@@ -27,6 +27,7 @@ import { ReviewerAssignment } from './entities/reviewer-assignment.entity';
 import { Role } from '../../common/enums/role.enum';
 import { AuditLogService } from '@/modules/audit-log/audit-log.service';
 import { UsersService } from '@/modules/users/users.service';
+import { JwtPayload } from '@/common/interfaces/jwt-payload.interface';
 
 const EDITABLE_STATUSES = [
   ApplicationStatus.DRAFT,
@@ -74,6 +75,27 @@ export class ApplicationsService {
         'You do not have access to this application',
       );
     }
+    return application;
+  }
+
+  /**
+   * SYSADMIN-only equivalent of findOneOwned with no ownership check — there was
+   * previously no endpoint at all for an admin to fetch a single application's full
+   * details (only the reviewer-assignment sub-routes existed).
+   */
+  async findOneForAdmin(id: string): Promise<Application> {
+    const application = await this.applicationRepo.findOne({
+      where: { id },
+      relations: {
+        references: true,
+        documents: true,
+        preferredInstitution: true,
+        // SYSADMIN sees everything — always safe to unblind here, unlike the
+        // in-progress scoring reviewer's own dossier view.
+        scoreCards: { reviewer: true },
+      },
+    });
+    if (!application) throw new NotFoundException('Application not found');
     return application;
   }
 
@@ -410,5 +432,90 @@ export class ApplicationsService {
 
       return saved;
     });
+  }
+
+  /**
+   * Checks whether `user` (an internal reviewer role) is allowed to see this
+   * application's dossier/documents/audit trail at all, using the same scoping each
+   * role's own queue already enforces:
+   * - ROLE_ELIGIBILITY_REVIEWER: unrestricted, same as EligibilityService's queue/dossier.
+   * - ROLE_SCORING_REVIEWER: only the two reviewers actually assigned to score it.
+   * - ROLE_VALIDATOR: only the validator whose assignedState matches the application's
+   *   preferredInstitution.state, same as ValidationService.assertInScope.
+   * - ROLE_SYSADMIN: unrestricted.
+   */
+  private async assertReviewerCanAccess(
+    application: Application,
+    user: JwtPayload,
+  ): Promise<void> {
+    if (user.role === Role.SYSADMIN || user.role === Role.ELIGIBILITY_REVIEWER) {
+      return;
+    }
+    if (user.role === Role.SCORING_REVIEWER) {
+      const assignment = await this.reviewerAssignmentRepo.findOne({
+        where: {
+          applicationId: application.id,
+          reviewerId: user.sub,
+          queueType: ReviewerQueueType.SCORING,
+        },
+      });
+      if (!assignment) {
+        throw new ForbiddenException(
+          'You are not assigned to score this application',
+        );
+      }
+      return;
+    }
+    if (user.role === Role.VALIDATOR) {
+      const validator = await this.usersService.findById(user.sub);
+      if (
+        !validator?.assignedState ||
+        application.preferredInstitution?.state?.trim().toUpperCase() !==
+          validator.assignedState.trim().toUpperCase()
+      ) {
+        throw new ForbiddenException(
+          'This application is outside your assigned state',
+        );
+      }
+      return;
+    }
+    throw new ForbiddenException('You do not have access to this application');
+  }
+
+  /**
+   * Reviewer-facing document download (eligibility/scoring/validation/sysadmin) — the
+   * only download route that previously existed (ApplicationsController's) was
+   * ROLE_ESO-only with an ownership check, so no internal reviewer could ever open a
+   * document they were supposed to be auditing (TC-ELI-02).
+   */
+  async getDocumentForReviewer(
+    applicationId: string,
+    documentId: string,
+    user: JwtPayload,
+  ) {
+    const application = await this.applicationRepo.findOne({
+      where: { id: applicationId },
+      relations: { preferredInstitution: true },
+    });
+    if (!application) throw new NotFoundException('Application not found');
+    await this.assertReviewerCanAccess(application, user);
+
+    const document = await this.documentRepo.findOne({
+      where: { id: documentId, applicationId },
+    });
+    if (!document) throw new NotFoundException('Document not found');
+    const buffer = await this.storageService.readFile(document.storageKey);
+    return { buffer, document };
+  }
+
+  /** Backs the "Audit trail" panel on the internal application detail page. */
+  async getAuditLogForReviewer(applicationId: string, user: JwtPayload) {
+    const application = await this.applicationRepo.findOne({
+      where: { id: applicationId },
+      relations: { preferredInstitution: true },
+    });
+    if (!application) throw new NotFoundException('Application not found');
+    await this.assertReviewerCanAccess(application, user);
+    return this.auditLogService.findForEntity('Application', applicationId);
   }
 }

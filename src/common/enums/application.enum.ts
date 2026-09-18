@@ -47,7 +47,6 @@ export enum OperatingState {
   KWARA = 'KWARA',
   NASARAWA = 'NASARAWA',
   NIGER = 'NIGER',
-  JOS = 'JOS',
   PLATEAU = 'PLATEAU',
   FCT = 'FCT',
 }

@@ -32,8 +32,19 @@ async function bootstrap() {
   app.use(json({ limit: '10mb' }));
   app.use(urlencoded({ extended: true, limit: '10mb' }));
 
+  const corsOrigins = configService.get<string[]>('app.corsOrigins', []);
+  const corsVercelPreviewRegex = new RegExp(
+    configService.get<string>('app.corsVercelPreviewRegex', '^https://[a-z0-9-]+\\.vercel\\.app$'),
+  );
+
   app.enableCors({
-    origin: configService.get<string[]>('app.corsOrigins'),
+    origin: (requestOrigin, callback) => {
+      // Non-browser requests (curl, server-to-server, same-origin) have no Origin header.
+      if (!requestOrigin) return callback(null, true);
+      if (corsOrigins.includes(requestOrigin)) return callback(null, true);
+      if (corsVercelPreviewRegex.test(requestOrigin)) return callback(null, true);
+      return callback(new Error(`Origin ${requestOrigin} is not allowed by CORS`), false);
+    },
     credentials: true,
   });
 

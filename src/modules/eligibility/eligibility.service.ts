@@ -14,6 +14,7 @@ import {
 import { Application } from '../applications/entities/application.entity';
 import { ApplicationsStateMachineService } from '../applications/applications-state-machine.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AuditLogService } from '../audit-log/audit-log.service';
 import { ApplicationStatus } from '../../common/enums/application.enum';
 import { SubmitEligibilityReviewDto } from './dto/submit-eligibility-review.dto';
 
@@ -30,6 +31,7 @@ export class EligibilityService {
     private readonly applicationRepo: Repository<Application>,
     private readonly stateMachine: ApplicationsStateMachineService,
     private readonly notificationsService: NotificationsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   /**
@@ -185,6 +187,15 @@ export class EligibilityService {
           checklistId: checklist.id,
         },
       });
+      // TC-ELI-02 — reviewer actions are logged with ISO timestamps in the audit trail.
+      await this.auditLogService.record({
+        actorId: reviewerId,
+        actorRole: 'ROLE_ELIGIBILITY_REVIEWER',
+        action: 'ELIGIBILITY_APPROVED',
+        entityType: 'Application',
+        entityId: applicationId,
+        metadata: { checklistId: checklist.id },
+      });
     } else {
       await this.stateMachine.transition(applicationId, {
         targetStatus: ApplicationStatus.REJECTED,
@@ -198,6 +209,16 @@ export class EligibilityService {
       const rejectionRemarks =
         dto.rejectionRemarks ??
         'Your application did not satisfy all required eligibility criteria.';
+
+      // TC-ELI-04 — disqualification is logged for Grievance Redress Mechanism (GRM) purposes.
+      await this.auditLogService.record({
+        actorId: reviewerId,
+        actorRole: 'ROLE_ELIGIBILITY_REVIEWER',
+        action: 'ELIGIBILITY_REJECTED',
+        entityType: 'Application',
+        entityId: applicationId,
+        metadata: { checklistId: checklist.id, rejectionRemarks },
+      });
 
       await this.notificationsService.sendEligibilityRejection(
         application.primaryContactEmail,
@@ -232,6 +253,15 @@ export class EligibilityService {
       metadata: {
         notes,
       },
+    });
+
+    await this.auditLogService.record({
+      actorId: reviewerId,
+      actorRole: 'ROLE_ELIGIBILITY_REVIEWER',
+      action: 'ELIGIBILITY_REWORK_REQUESTED',
+      entityType: 'Application',
+      entityId: applicationId,
+      metadata: { notes },
     });
 
     await this.notificationsService.sendReworkRequested(

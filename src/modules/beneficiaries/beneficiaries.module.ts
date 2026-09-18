@@ -12,6 +12,7 @@ import { BeneficiariesService } from './beneficiaries.service';
 import { GeoAllocationService } from './services/geo-allocation.service';
 
 import { StorageModule } from '../storage/storage.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { StorageModule } from '../storage/storage.module';
       Institution,
     ]),
     StorageModule,
+    NotificationsModule,
   ],
   controllers: [BeneficiariesController],
   providers: [BeneficiariesService, GeoAllocationService],
