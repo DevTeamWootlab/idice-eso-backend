@@ -58,3 +58,4 @@ temp_interactive_push.bat
 .gitignore
 yarn.lock
 /src/database/migrations
+tsconfig.build.tsbuildinfo
