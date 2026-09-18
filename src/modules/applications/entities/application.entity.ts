@@ -231,7 +231,7 @@ export class Application extends BaseEntity {
   // @Column({ nullable: true })
   // scoreVarianceResolvedByUserId!: string | null;
   @Column({ type: "uuid", nullable: true })
-  scoreVarianceResolvedByUserId: string | null;
+  scoreVarianceResolvedByUserId!: string | null;
 
   @Column({ type: "timestamptz", nullable: true })
   scoreVarianceResolvedAt!: Date | null;
