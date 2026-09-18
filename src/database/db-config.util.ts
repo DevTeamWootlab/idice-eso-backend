@@ -3,9 +3,8 @@ import type { DataSourceOptions } from 'typeorm';
 
 export function getDbConfig(): DataSourceOptions {
   const isProduction = process.env.NODE_ENV === 'production';
-
   return {
-    type: 'postgres' as const,
+    type: "postgres" as const,
     host: process.env.DB_HOST,
     port: toInt(process.env.DB_PORT, 5432),
     username: process.env.DB_USERNAME,
@@ -14,15 +13,27 @@ export function getDbConfig(): DataSourceOptions {
     synchronize: false,
     logging: false,
     ssl: isProduction ? { rejectUnauthorized: false } : false,
+    // entities: [
+    //   isProduction
+    //     ? 'dist/modules/**/entities/*.entity.js'
+    //     : 'src/modules/**/entities/*.entity.ts',
+    // ],
+    // migrations: [
+    //   isProduction
+    //     ? 'dist/database/migrations/*.js'
+    //     : 'src/database/migrations/*.ts',
+    // ],
     entities: [
       isProduction
-        ? 'dist/modules/**/entities/*.entity.js'
-        : 'src/modules/**/entities/*.entity.ts',
+        ? __dirname + "/../modules/**/entities/*.entity.js"
+        : __dirname + "/../modules/**/entities/*.entity.ts",
     ],
     migrations: [
       isProduction
-        ? 'dist/database/migrations/*.js'
-        : 'src/database/migrations/*.ts',
+        ? __dirname + "/migrations/*.js"
+        : __dirname + "/migrations/*.ts",
     ],
   };
 }
+
+
