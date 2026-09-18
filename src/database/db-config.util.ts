@@ -23,16 +23,8 @@ export function getDbConfig(): DataSourceOptions {
     //     ? 'dist/database/migrations/*.js'
     //     : 'src/database/migrations/*.ts',
     // ],
-    entities: [
-      isProduction
-        ? __dirname + "/../modules/**/entities/*.entity.js"
-        : __dirname + "/../modules/**/entities/*.entity.ts",
-    ],
-    migrations: [
-      isProduction
-        ? __dirname + "/migrations/*.js"
-        : __dirname + "/migrations/*.ts",
-    ],
+    entities: [__dirname + "/../modules/**/entities/*.entity.{ts,js}"],
+    migrations: [__dirname + "/migrations/*.{ts,js}"],
   };
 }
 

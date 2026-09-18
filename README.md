@@ -86,6 +86,21 @@ npm.cmd run db:migration:generate
 npm.cmd run db:migrate
 ```
 
+On a server, do not run `db:migration:generate`. That command compares the
+current entities with the database and exits with code 1 when there are no
+changes; it does not apply existing migrations. Build the application, then
+run the committed migrations against the production database:
+
+```bash
+yarn build
+yarn db:migrate:prod
+yarn start:prod
+```
+
+`start:prod` also runs `db:migrate:prod` automatically before starting the
+application, so it is safe to use the normal production start command after a
+deployment.
+
 Keep `synchronize` disabled. Review generated migrations before applying them
 to a shared or production database.
 
