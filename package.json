@@ -16,7 +16,6 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
-    "prestart:prod": "yarn db:migrate:prod && node dist/database/seeds/supabase-import.js",
     "lint": "oxlint src/ test/",
     "test": "jest",
     "test:watch": "jest --watch",

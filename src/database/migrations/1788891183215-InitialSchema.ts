@@ -28,9 +28,9 @@ export class InitialSchema1788891183215 implements MigrationInterface {
         await queryRunner.query(`ALTER TABLE "applications" ADD "primaryContactName" character varying`);
         await queryRunner.query(`ALTER TABLE "applications" ADD "primaryContactRole" character varying`);
         await queryRunner.query(`ALTER TABLE "applications" ADD "primaryContactPhone" character varying`);
-        await queryRunner.query(`ALTER TABLE "applications" ADD "primaryContactEmail" character varying`);
-        await queryRunner.query(`CREATE TYPE "public"."applications_statesofoperation_enum" AS ENUM('BENUE', 'KOGI', 'KWARA', 'NASARAWA', 'NIGER', 'JOS', 'PLATEAU', 'FCT')`);
-        await queryRunner.query(`ALTER TABLE "applications" ADD "statesOfOperation" "public"."applications_statesofoperation_enum" array`);
+        await queryRunner.query(
+          `ALTER TABLE "applications" ADD "primaryContactEmail" character varying`,
+        );
         await queryRunner.query(`ALTER TABLE "applications" ADD "staffingSummary" character varying`);
         await queryRunner.query(`ALTER TABLE "applications" ADD "taxClearanceCertificateUrl" character varying`);
         await queryRunner.query(`ALTER TABLE "applications" ADD "taxComplianceEvidenceUrl" character varying`);
