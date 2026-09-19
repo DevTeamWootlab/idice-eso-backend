@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags, ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { ProvisionInternalUserDto } from './dto/provision-internal-user.dto';
 import { ListInternalUsersDto } from './dto/list-internal-users.dto';
@@ -22,6 +22,7 @@ export class UsersController {
       'filtered to one role via ?role=. Used to populate reviewer/validator assignment ' +
       "pickers — never returns ROLE_ESO applicants.",
   })
+  @ApiOkResponse({ description: 'List internal users.' })
   @Get()
   list(@Query() query: ListInternalUsersDto) {
     return this.usersService.listInternalUsers(query.role);
@@ -34,6 +35,7 @@ export class UsersController {
       'ROLE_SCORING_REVIEWER, ROLE_VALIDATOR, or ROLE_SYSADMIN accounts. ROLE_ESO applicants ' +
       'self-register via POST /auth/register instead.',
   })
+  @ApiCreatedResponse({ description: 'Provision an internal user.' })
   @Post()
   provision(@Body() dto: ProvisionInternalUserDto) {
     return this.usersService.provisionInternalUser(dto);
@@ -43,6 +45,7 @@ export class UsersController {
     summary: 'Activate or suspend an internal user',
     description: 'Requires role: ROLE_SYSADMIN.',
   })
+  @ApiOkResponse({ description: 'Activate or suspend an internal user.' })
   @Patch(':id/status')
   updateStatus(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateUserStatusDto) {
     return this.usersService.setActive(id, dto.isActive);

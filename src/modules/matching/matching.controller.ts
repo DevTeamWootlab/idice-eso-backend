@@ -1,5 +1,5 @@
 import { Controller, Get, Post } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags, ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 import { MatchingService } from './matching.service';
 import { Roles } from '@/common/decorators/roles.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
@@ -22,6 +22,7 @@ export class MatchingController {
       '(E_loc = I_loc) and one ESO partner per institution. Returns the full current ' +
       'set of matches (equivalent to calling GET last-run immediately afterwards).',
   })
+  @ApiCreatedResponse({ description: 'Run the Partner Match Engine.' })
   @Post('run')
   run(@CurrentUser() user: JwtPayload) {
     return this.matchingService.runMatch(user.sub);
@@ -31,6 +32,7 @@ export class MatchingController {
     summary: 'Get the current set of matches',
     description: 'Requires role: ROLE_SYSADMIN.',
   })
+  @ApiOkResponse({ description: 'Get the current set of matches.' })
   @Get('last-run')
   lastRun() {
     return this.matchingService.getLastRun();

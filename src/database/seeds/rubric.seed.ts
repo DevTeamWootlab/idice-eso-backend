@@ -10,13 +10,22 @@ const dimensions = [
   ['INSTITUTIONAL_ALIGNMENT', 'Institutional Relationship & Alignment with Host Institution Needs', 15],
 ] as const;
 
+/**
+ * Inserts any missing rubric dimension with its PRD default weight.
+ *
+ * Deliberately does NOT overwrite existing rows: administrators can edit the weights
+ * (until scoring starts), and this seed runs on every deploy (`deploy:prod`), so an
+ * upsert here would silently reset their changes.
+ */
 export async function seedRubric(manager: EntityManager): Promise<void> {
   const repository = manager.getRepository(RubricConfiguration);
 
   for (const [dimensionCode, label, weightPercentage] of dimensions) {
-    await repository.upsert(
-      { dimensionCode, label, weightPercentage, isActive: true },
-      ['dimensionCode'],
-    );
+    await repository
+      .createQueryBuilder()
+      .insert()
+      .values({ dimensionCode, label, weightPercentage, isActive: true })
+      .orIgnore()
+      .execute();
   }
 }

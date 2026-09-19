@@ -7,7 +7,7 @@ import {
   ParseUUIDPipe,
   Post,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags, ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 import { EligibilityService } from './eligibility.service';
 import { SubmitEligibilityReviewDto } from './dto/submit-eligibility-review.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -22,6 +22,7 @@ import { JwtPayload } from '../../common/interfaces/jwt-payload.interface';
 export class EligibilityController {
   constructor(private readonly eligibilityService: EligibilityService) {}
 
+  @ApiOkResponse({ description: 'Get the eligibility review queue.' })
   @ApiOperation({ summary: 'Get the eligibility review queue', description: 'Requires role: ROLE_ELIGIBILITY_REVIEWER' })
   @Get('queue/eligibility')
   getQueue() {
@@ -34,6 +35,7 @@ export class EligibilityController {
       'Requires role: ROLE_ELIGIBILITY_REVIEWER. Narrative/qualitative fields are stripped ' +
       'server-side (cognitive bias masking) — this is intended, not an error.',
   })
+  @ApiOkResponse({ description: 'Get an application dossier for eligibility review.' })
   @Get(':id/eligibility')
   getDossier(@Param('id', ParseUUIDPipe) id: string) {
     return this.eligibilityService.getDossier(id);
@@ -45,6 +47,7 @@ export class EligibilityController {
       'Requires role: ROLE_ELIGIBILITY_REVIEWER. All 12 EligibilityCheckCode items must be ' +
       'present or the request 400s; rejectionRemarks is mandatory if any item fails.',
   })
+  @ApiCreatedResponse({ description: 'Submit an eligibility review decision.' })
   @Post(':id/eligibility/review')
   submitReview(
     @CurrentUser() user: JwtPayload,
@@ -58,6 +61,7 @@ export class EligibilityController {
     summary: 'Send the application back to the applicant for rework',
     description: 'Requires role: ROLE_ELIGIBILITY_REVIEWER',
   })
+  @ApiCreatedResponse({ description: 'Send the application back to the applicant for rework.' })
   @Post(':id/eligibility/rework')
   requestRework(
     @CurrentUser() user: JwtPayload,

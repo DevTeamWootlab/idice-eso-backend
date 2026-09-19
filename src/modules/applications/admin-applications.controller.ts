@@ -6,15 +6,18 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags, ApiOkResponse, ApiCreatedResponse } from '@nestjs/swagger';
 import { ApplicationsService } from './applications.service';
 import { AssignReviewersDto } from './dto/assign-reviewers.dto';
 import { ReassignReviewerDto } from './dto/reassign-reviewer.dto';
+import { ListAdminApplicationsDto } from './dto/list-admin-applications.dto';
 import { Roles } from '@/common/decorators/roles.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { Role } from '@/common/enums/role.enum';
 import { JwtPayload } from '@/common/interfaces/jwt-payload.interface';
+import { AdminApplicationStatsDto, AdminApplicationListDto } from './dto/applicant-views.dto';
 
 @ApiTags('Applications (SYSADMIN)')
 @ApiBearerAuth()
@@ -23,18 +26,47 @@ import { JwtPayload } from '@/common/interfaces/jwt-payload.interface';
 export class AdminApplicationsController {
   constructor(private readonly applicationsService: ApplicationsService) {}
 
+  // Static routes ('' and 'stats') must stay above ':id' — otherwise 'stats' is captured
+  // by ParseUUIDPipe on the :id route and rejected with a 400.
+  @ApiOperation({
+    summary: 'List applications',
+    description:
+      'Requires role: ROLE_SYSADMIN. Paginated, with optional search (organisation name or ' +
+      'application code), status filter (one or comma-separated) and state filter. DRAFT ' +
+      'applications are excluded unless requested via status=DRAFT.',
+  })
+  @ApiOkResponse({ type: AdminApplicationListDto })
+  @Get()
+  list(@Query() query: ListAdminApplicationsDto) {
+    return this.applicationsService.listForAdmin(query);
+  }
+
+  @ApiOperation({
+    summary: 'Application counts by status',
+    description:
+      'Requires role: ROLE_SYSADMIN. Zero-filled per-status counts plus a total that excludes DRAFT.',
+  })
+  @ApiOkResponse({ type: AdminApplicationStatsDto })
+  @Get('stats')
+  stats() {
+    return this.applicationsService.getAdminStats();
+  }
+
+  @ApiOkResponse({ description: 'Full application: all sections, documents, personnel, references and score cards' })
   @ApiOperation({ summary: 'Get an application\'s full details', description: 'Requires role: ROLE_SYSADMIN' })
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.applicationsService.findOneForAdmin(id);
   }
 
+  @ApiOkResponse({ description: 'Reviewer assignments for the application' })
   @ApiOperation({ summary: 'List reviewer assignments for an application', description: 'Requires role: ROLE_SYSADMIN' })
   @Get(':id/reviewer-assignments')
   listAssignments(@Param('id', ParseUUIDPipe) id: string) {
     return this.applicationsService.listReviewerAssignments(id);
   }
 
+  @ApiCreatedResponse({ description: 'The two created scoring-reviewer assignments' })
   @ApiOperation({ summary: 'Assign the two blind scoring reviewers', description: 'Requires role: ROLE_SYSADMIN' })
   @Post(':id/assign-scoring-reviewers')
   assignReviewers(
@@ -49,6 +81,7 @@ export class AdminApplicationsController {
     );
   }
 
+  @ApiCreatedResponse({ description: 'The updated reviewer assignment' })
   @ApiOperation({ summary: 'Reassign a scoring reviewer', description: 'Requires role: ROLE_SYSADMIN' })
   @Post(':id/reassign-scoring-reviewer')
   reassignReviewer(

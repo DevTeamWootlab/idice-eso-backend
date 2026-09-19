@@ -10,12 +10,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiConsumes,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiCreatedResponse } from '@nestjs/swagger';
 
 import { BeneficiariesService } from './beneficiaries.service';
 import { CreateBeneficiaryDto } from './dto/create-beneficiary.dto';
@@ -26,6 +21,7 @@ import { pitchDeckUploadOptions } from '@/config/multer.config';
 @Controller('beneficiaries')
 export class BeneficiariesController {
   constructor(private readonly beneficiariesService: BeneficiariesService) {}
+  @ApiCreatedResponse({ description: 'POST pitch-deck.' })
   @Public()
   @Post('pitch-deck')
   @UseInterceptors(FileInterceptor('file', pitchDeckUploadOptions))
@@ -48,6 +44,7 @@ export class BeneficiariesController {
     return this.beneficiariesService.uploadPitchDeck(file);
   }
 
+  @ApiCreatedResponse({ description: 'POST /.' })
   @Public()
   @Post()
   @HttpCode(HttpStatus.CREATED)

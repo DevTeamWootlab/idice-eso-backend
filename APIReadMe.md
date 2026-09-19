@@ -172,3 +172,83 @@ Authorization: Bearer PASTE_REVIEWER_ACCESS_TOKEN
 Content-Type: application/json
 
 { "email": "x@example.com", "password": "Pass1234!", "fullName": "X", "role": "ROLE_VALIDATOR" }
+### Sysadmin: list applications (drafts excluded unless status=DRAFT is requested)
+GET {{baseUrl}}/internal/admin/applications?search=bright&status=SHORTLISTED,MATCHED&state=NASARAWA&page=1&limit=20
+Authorization: Bearer PASTE_SYSADMIN_ACCESS_TOKEN
+
+### Sysadmin: application counts by status (total excludes drafts)
+GET {{baseUrl}}/internal/admin/applications/stats
+Authorization: Bearer PASTE_SYSADMIN_ACCESS_TOKEN
+
+### Reviewer token on the sysadmin list — expect 403
+GET {{baseUrl}}/internal/admin/applications
+Authorization: Bearer PASTE_REVIEWER_ACCESS_TOKEN
+
+### Unknown status — expect 400
+GET {{baseUrl}}/internal/admin/applications?status=NOPE
+Authorization: Bearer PASTE_SYSADMIN_ACCESS_TOKEN
+
+### Health check — no token needed
+GET {{baseUrl}}/health
+
+### PCU dashboard KPIs (live aggregation)
+GET {{baseUrl}}/internal/pcu/metrics
+Authorization: Bearer PASTE_SYSADMIN_ACCESS_TOKEN
+
+### List beneficiaries awaiting review
+GET {{baseUrl}}/internal/beneficiaries?status=SUBMITTED&page=1&limit=20
+Authorization: Bearer PASTE_SYSADMIN_ACCESS_TOKEN
+
+### Allocate (enrol) a beneficiary at a CoE — this is what "youth enrolled" counts
+PATCH {{baseUrl}}/internal/beneficiaries/PASTE_BENEFICIARY_ID/status
+Authorization: Bearer PASTE_SYSADMIN_ACCESS_TOKEN
+Content-Type: application/json
+
+{ "status": "ALLOCATED" }
+
+### Courses, then create a cohort at a CoE
+GET {{baseUrl}}/internal/training/courses
+Authorization: Bearer PASTE_SYSADMIN_ACCESS_TOKEN
+
+###
+POST {{baseUrl}}/internal/training/cohorts
+Authorization: Bearer PASTE_SYSADMIN_ACCESS_TOKEN
+Content-Type: application/json
+
+{ "name": "Foundational Cohort 1", "institutionId": "PASTE_INSTITUTION_ID", "courseId": "PASTE_COURSE_ID", "startDate": "2026-10-05", "capacity": 50 }
+
+### Activate the cohort, enrol allocated Skills beneficiaries, then record completions
+PATCH {{baseUrl}}/internal/training/cohorts/PASTE_COHORT_ID/status
+Authorization: Bearer PASTE_SYSADMIN_ACCESS_TOKEN
+Content-Type: application/json
+
+{ "status": "ACTIVE" }
+
+###
+POST {{baseUrl}}/internal/training/cohorts/PASTE_COHORT_ID/enroll
+Authorization: Bearer PASTE_SYSADMIN_ACCESS_TOKEN
+Content-Type: application/json
+
+{ "beneficiaryIds": ["PASTE_BENEFICIARY_ID"] }
+
+###
+POST {{baseUrl}}/internal/training/cohorts/PASTE_COHORT_ID/completions
+Authorization: Bearer PASTE_SYSADMIN_ACCESS_TOKEN
+Content-Type: application/json
+
+{ "records": [{ "beneficiaryId": "PASTE_BENEFICIARY_ID", "completed": true, "certified": true, "attendanceRate": 92.5 }] }
+
+### Record a verified job placement (feeds the placement rate)
+POST {{baseUrl}}/internal/outcomes
+Authorization: Bearer PASTE_SYSADMIN_ACCESS_TOKEN
+Content-Type: application/json
+
+{ "beneficiaryId": "PASTE_BENEFICIARY_ID", "outcomeType": "FORMAL_EMPLOYMENT", "employerOrVentureName": "Acme Ltd", "achievedOn": "2026-11-20", "verified": true }
+
+### Cohort members and their completion state
+GET {{baseUrl}}/internal/training/cohorts/PASTE_COHORT_ID/members
+Authorization: Bearer PASTE_SYSADMIN_ACCESS_TOKEN
+
+### Graduates and their placement status (outcome=NONE|UNVERIFIED|VERIFIED)
+GET {{baseUrl}}/internal/outcomes?outcome=NONE&page=1&limit=20
+Authorization: Bearer PASTE_SYSADMIN_ACCESS_TOKEN

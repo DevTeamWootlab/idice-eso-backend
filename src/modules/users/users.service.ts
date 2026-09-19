@@ -135,6 +135,10 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
     await this.userRepo.update(id, { isActive });
-    return { ...user, isActive };
+    // Return the entity instance (not a spread copy): a plain object has no
+    // class-transformer metadata, so ClassSerializerInterceptor would not strip the
+    // @Exclude()d passwordHash from the response.
+    user.isActive = isActive;
+    return user;
   }
 }

@@ -64,6 +64,9 @@ export class ValidationService {
         statuses: [
           ApplicationStatus.SHORTLISTED,
           ApplicationStatus.PENDING_ECOSYSTEM_VALIDATION,
+          // Score-variance escalations: resolveVariance() below only accepts this
+          // status, so if it isn't in the queue a validator has no way to find them.
+          ApplicationStatus.PENDING_VALIDATION,
         ],
       })
       .orderBy('application.shortlistedAt', 'ASC')

@@ -8,14 +8,21 @@ import { Application } from '../applications/entities/application.entity';
 import { ReviewerAssignment } from '../applications/entities/reviewer-assignment.entity';
 import { ScoringService } from './scoring.service';
 import { ScoringController } from './scoring.controller';
+import { RubricConfiguration } from './entities/rubric-configuration.entity';
+import { ScoringSettingsController } from './scoring-settings.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ScoreCard, Application, ReviewerAssignment]),
+    TypeOrmModule.forFeature([
+      ScoreCard,
+      Application,
+      ReviewerAssignment,
+      RubricConfiguration,
+    ]),
     ApplicationsModule,
     NotificationsModule,
   ],
-  controllers: [ScoringController],
+  controllers: [ScoringController, ScoringSettingsController],
   providers: [ScoringService],
 })
 export class ScoringModule {}

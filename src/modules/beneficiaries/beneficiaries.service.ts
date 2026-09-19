@@ -1,10 +1,4 @@
-import {
-  Injectable,
-  ConflictException,
-  UnprocessableEntityException,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, ConflictException, UnprocessableEntityException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { randomUUID } from 'crypto';
@@ -22,6 +16,15 @@ import { StorageService } from '../storage/storage.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { encrypt, decrypt, hashDeterministic } from '@/common/utils/encryption';
 import { ConfigService } from '@nestjs/config';
+import { Institution } from '@/modules/institutions/entities/institution.entity';
+import { ListBeneficiariesDto } from './dto/list-beneficiaries.dto';
+import { UpdateBeneficiaryStatusDto } from './dto/update-beneficiary-status.dto';
+import { canTransitionBeneficiary } from './beneficiary-lifecycle';
+import {
+  clampPagination,
+  escapeLikePattern,
+  totalPagesFor,
+} from '@/modules/applications/admin-applications.query';
 @Injectable()
 export class BeneficiariesService {
   constructor(
@@ -39,6 +42,139 @@ export class BeneficiariesService {
   /**
    * Handles public intake registration with strict NDPA security & conditional validation
    */
+  async listForAdmin(query: ListBeneficiariesDto) {
+    const { page, limit, skip } = clampPagination(query.page, query.limit);
+
+    const qb = this.beneficiaryRepo
+      .createQueryBuilder('b')
+      .leftJoin('b.assignedInstitution', 'institution')
+      .select([
+        'b.id',
+        'b.referenceId',
+        'b.fullName',
+        'b.gender',
+        'b.email',
+        'b.phoneNumber',
+        'b.pillar',
+        'b.status',
+        'b.stateOfResidence',
+        'b.assignedInstitutionId',
+        'b.createdAt',
+      ])
+      .addSelect(['institution.id', 'institution.name', 'institution.state']);
+
+    if (query.status) qb.andWhere('b.status = :status', { status: query.status });
+    if (query.pillar) qb.andWhere('b.pillar = :pillar', { pillar: query.pillar });
+    if (query.institutionId) {
+      qb.andWhere('b.assignedInstitutionId = :institutionId', {
+        institutionId: query.institutionId,
+      });
+    }
+    const term = query.search?.trim();
+    if (term) {
+      qb.andWhere(
+        '(b.fullName ILIKE :term OR b.email ILIKE :term OR b.referenceId ILIKE :term)',
+        { term: `%${escapeLikePattern(term)}%` },
+      );
+    }
+
+    const [items, total] = await qb
+      .orderBy('b.createdAt', 'DESC')
+      .addOrderBy('b.id', 'ASC')
+      .offset(skip)
+      .limit(limit)
+      .getManyAndCount();
+
+    return { items, total, page, limit, totalPages: totalPagesFor(total, limit) };
+  }
+
+  async updateStatusForAdmin(id: string, dto: UpdateBeneficiaryStatusDto) {
+    const beneficiary = await this.beneficiaryRepo.findOne({ where: { id } });
+    if (!beneficiary) throw new NotFoundException('Beneficiary not found');
+
+    if (!canTransitionBeneficiary(beneficiary.status, dto.status)) {
+      throw new BadRequestException(
+        `Cannot move a beneficiary from ${beneficiary.status} to ${dto.status}`,
+      );
+    }
+
+    let allocatedInstitutionName: string | null = null;
+    if (dto.status === BeneficiaryStatus.ALLOCATED) {
+      const institutionId = dto.institutionId ?? beneficiary.assignedInstitutionId;
+      if (!institutionId) {
+        throw new BadRequestException(
+          'institutionId is required to allocate a beneficiary',
+        );
+      }
+      const institution = await this.dataSource
+        .getRepository(Institution)
+        .findOne({ where: { id: institutionId, isActive: true } });
+      if (!institution) {
+        throw new BadRequestException('Institution not found or inactive');
+      }
+      if (institution.beneficiaryCapacity > 0) {
+        const allocated = await this.beneficiaryRepo.count({
+          where: {
+            assignedInstitutionId: institutionId,
+            status: BeneficiaryStatus.ALLOCATED,
+          },
+        });
+        if (allocated >= institution.beneficiaryCapacity) {
+          throw new ConflictException(
+            `${institution.name} is at capacity (${institution.beneficiaryCapacity})`,
+          );
+        }
+      }
+      beneficiary.assignedInstitutionId = institutionId;
+      allocatedInstitutionName = institution.name;
+    } else if (dto.institutionId) {
+      throw new BadRequestException(
+        'institutionId is only accepted when allocating',
+      );
+    }
+
+    beneficiary.status = dto.status;
+    await this.beneficiaryRepo.save(beneficiary);
+
+    if (allocatedInstitutionName) {
+      try {
+        await this.notificationsService.sendBeneficiaryAllocated(
+          beneficiary.email,
+          beneficiary.phoneNumber,
+          beneficiary.referenceId,
+          allocatedInstitutionName,
+        );
+      } catch {
+        // The allocation is already saved; a failed email must not undo or fail it.
+      }
+    }
+
+    const updated = await this.beneficiaryRepo.findOneOrFail({
+      where: { id },
+      relations: { assignedInstitution: true },
+    });
+    return {
+      id: updated.id,
+      referenceId: updated.referenceId,
+      fullName: updated.fullName,
+      gender: updated.gender,
+      email: updated.email,
+      phoneNumber: updated.phoneNumber,
+      pillar: updated.pillar,
+      status: updated.status,
+      stateOfResidence: updated.stateOfResidence,
+      assignedInstitutionId: updated.assignedInstitutionId ?? null,
+      assignedInstitution: updated.assignedInstitution
+        ? {
+            id: updated.assignedInstitution.id,
+            name: updated.assignedInstitution.name,
+            state: updated.assignedInstitution.state,
+          }
+        : null,
+      createdAt: updated.createdAt,
+    };
+  }
+
   async registerIntake(dto: CreateBeneficiaryDto): Promise<Beneficiary> {
     // ---- 1. Server-Side Conditional Pillar Payload Rules ----
     this.validatePillarPayloads(dto);
@@ -63,7 +199,7 @@ export class BeneficiariesService {
     );
 
     const existingNin = await this.beneficiaryRepo.findOne({
-      where: { nin: hashedNin },
+      where: { ninHash: hashedNin },
     });
     if (existingNin) {
       throw new ConflictException(

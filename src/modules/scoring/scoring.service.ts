@@ -1,12 +1,10 @@
 // modules/scoring/scoring.service.ts
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
+import { RubricConfiguration } from './entities/rubric-configuration.entity';
+import { UpdateScoringWeightsDto } from './dto/scoring-weights.dto';
+import { JwtPayload } from '@/common/interfaces/jwt-payload.interface';
 import { ScoreCard } from './entities/score-card.entity';
 import { Application } from '../applications/entities/application.entity';
 import { ReviewerAssignment } from '../applications/entities/reviewer-assignment.entity';
@@ -16,24 +14,7 @@ import { ReviewerQueueType } from '@/common/enums/reviewer.enum';
 import { SubmitScoreDto } from './dto/submit-score.dto';
 import { AuditLogService } from '@/modules/audit-log/audit-log.service';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
-
-// Was a plain Record indexed dynamically via `keyof SubmitScoreDto` cast — since
-// SubmitScoreDto also has an optional `comments?: string` field, TypeScript widened
-// every lookup to `number | string | undefined` (the union of *all* the DTO's
-// property types), which is why `raw / 5.0` failed to compile ("possibly undefined",
-// "left-hand side must be number"). An explicit tuple list keyed to only the six
-// required number fields keeps each lookup correctly typed as `number`.
-const SCORE_DIMENSIONS: {
-  key: keyof Omit<SubmitScoreDto, 'comments'>;
-  weight: number;
-}[] = [
-  { key: 'localPresenceScore', weight: 20 },
-  { key: 'teamExpertiseScore', weight: 20 },
-  { key: 'incubationExperienceScore', weight: 15 },
-  { key: 'credibilityGovernanceScore', weight: 15 },
-  { key: 'deliveryTrackRecordScore', weight: 15 },
-  { key: 'institutionalAlignmentScore', weight: 15 },
-];
+import { RUBRIC_DIMENSIONS, compositePercent, resolveWeights, validateWeightsInput, RubricWeights } from './scoring-weights';
 
 const VARIANCE_THRESHOLD = 15; // percentage points
 const QUALIFICATION_THRESHOLD = 70.0; // percent
@@ -43,6 +24,8 @@ export class ScoringService {
   constructor(
     @InjectRepository(ScoreCard)
     private readonly scoreCardRepo: Repository<ScoreCard>,
+    @InjectRepository(RubricConfiguration)
+    private readonly rubricRepo: Repository<RubricConfiguration>,
     @InjectRepository(Application)
     private readonly applicationRepo: Repository<Application>,
     @InjectRepository(ReviewerAssignment)
@@ -147,7 +130,8 @@ export class ScoringService {
         'You have already submitted your score for this application',
       );
     }
-    const compositePercentage = this.calculateComposite(dto);
+    const weights = await this.loadWeights();
+    const compositePercentage = this.calculateComposite(dto, weights);
     if (!card) {
       const existingCount = await this.scoreCardRepo.count({
         where: { applicationId },
@@ -187,12 +171,79 @@ export class ScoringService {
     return this.tryFinalize(applicationId, reviewerId, application.primaryContactEmail);
   }
 
-  private calculateComposite(scores: SubmitScoreDto): number {
-    let total = 0;
-    for (const { key, weight } of SCORE_DIMENSIONS) {
-      total += (scores[key] / 5.0) * weight;
+  private calculateComposite(
+    scores: SubmitScoreDto,
+    weights: RubricWeights,
+  ): number {
+    return compositePercent(scores, weights);
+  }
+
+  private async loadWeights(): Promise<RubricWeights> {
+    const rows = await this.rubricRepo.find({ where: { isActive: true } });
+    return resolveWeights(rows);
+  }
+
+  async getWeightsState() {
+    const rows = await this.rubricRepo.find({ where: { isActive: true } });
+    const weights = resolveWeights(rows);
+    const labels = new Map(rows.map((row) => [row.dimensionCode, row.label]));
+    const submitted = await this.scoreCardRepo.count({
+      where: { submitted: true },
+    });
+    const locked = submitted > 0;
+    return {
+      weights: RUBRIC_DIMENSIONS.map((dimension) => ({
+        dimensionCode: dimension.code,
+        label: labels.get(dimension.code) ?? dimension.label,
+        weightPercentage: weights[dimension.code],
+      })),
+      locked,
+      lockedReason: locked
+        ? 'Scoring has started: at least one score card has been submitted, so the weights are locked to keep every application scored on the same basis.'
+        : null,
+    };
+  }
+
+  async updateWeights(dto: UpdateScoringWeightsDto, actor: JwtPayload) {
+    const problem = validateWeightsInput(dto.weights);
+    if (problem) throw new BadRequestException(problem);
+
+    const before = await this.getWeightsState();
+    if (before.locked) {
+      throw new ConflictException(before.lockedReason as string);
     }
-    return Math.round(total * 100) / 100;
+
+    await this.rubricRepo.manager.transaction(async (manager: EntityManager) => {
+      const repo = manager.getRepository(RubricConfiguration);
+      for (const input of dto.weights) {
+        const dimension = RUBRIC_DIMENSIONS.find(
+          (d) => d.code === input.dimensionCode,
+        );
+        await repo.upsert(
+          {
+            dimensionCode: input.dimensionCode,
+            label: dimension?.label ?? input.dimensionCode,
+            weightPercentage: input.weightPercentage,
+            isActive: true,
+          },
+          ['dimensionCode'],
+        );
+      }
+    });
+
+    await this.auditLogService.record({
+      actorId: actor.sub,
+      actorRole: actor.role,
+      action: 'SCORING_WEIGHTS_UPDATED',
+      entityType: 'RubricConfiguration',
+      entityId: 'scoring-weights',
+      metadata: {
+        before: before.weights,
+        after: dto.weights,
+      },
+    });
+
+    return this.getWeightsState();
   }
 
   /**
