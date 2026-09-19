@@ -25,7 +25,7 @@ import {
   isOpenForEnrolment,
 } from './training-rules';
 
-interface Rejection {
+export interface Rejection {
   beneficiaryId: string;
   reason: string;
 }
