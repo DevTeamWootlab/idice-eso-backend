@@ -7,7 +7,7 @@ import {
   Body,
   Post,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags, ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 import { ScoringService } from './scoring.service';
 import { SubmitScoreDto } from './dto/submit-score.dto';
 import { Roles } from '@/common/decorators/roles.decorator';
@@ -22,12 +22,14 @@ import { JwtPayload } from '@/common/interfaces/jwt-payload.interface';
 export class ScoringController {
   constructor(private readonly scoringService: ScoringService) {}
 
+  @ApiOkResponse({ description: 'Get my scoring queue.' })
   @ApiOperation({ summary: 'Get my scoring queue', description: 'Requires role: ROLE_SCORING_REVIEWER' })
   @Get('queue/scoring')
   getQueue(@CurrentUser() user: JwtPayload) {
     return this.scoringService.getQueue(user.sub);
   }
 
+  @ApiOkResponse({ description: 'Get an application dossier for scoring.' })
   @ApiOperation({ summary: 'Get an application dossier for scoring', description: 'Requires role: ROLE_SCORING_REVIEWER' })
   @Get(':id/scoring')
   getDossier(
@@ -43,6 +45,7 @@ export class ScoringController {
       'Requires role: ROLE_SCORING_REVIEWER. Reviewer 1 and 2 are blind to each other until ' +
       'both have submitted — always returns only the caller\'s own card.',
   })
+  @ApiOkResponse({ description: 'Get my own score card.' })
   @Get(':id/scoring/mine')
   getMyScore(
     @CurrentUser() user: JwtPayload,
@@ -51,6 +54,7 @@ export class ScoringController {
     return this.scoringService.getMyScore(id, user.sub);
   }
 
+  @ApiCreatedResponse({ description: 'Submit my score card.' })
   @ApiOperation({ summary: 'Submit my score card', description: 'Requires role: ROLE_SCORING_REVIEWER' })
   @Post(':id/scoring/submit')
   submitScore(

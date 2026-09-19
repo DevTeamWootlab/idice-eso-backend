@@ -7,7 +7,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
 import { randomUUID } from 'crypto';
 
 import { Application } from './entities/application.entity';
@@ -28,6 +28,19 @@ import { Role } from '../../common/enums/role.enum';
 import { AuditLogService } from '@/modules/audit-log/audit-log.service';
 import { UsersService } from '@/modules/users/users.service';
 import { JwtPayload } from '@/common/interfaces/jwt-payload.interface';
+import { ListAdminApplicationsDto } from './dto/list-admin-applications.dto';
+import { toApplicantActivity } from './applicant-activity';
+import {
+  ADMIN_LIST_COLUMNS,
+  buildStatusCounts,
+  clampPagination,
+  escapeLikePattern,
+  parseStatusFilter,
+  totalPagesFor,
+} from './admin-applications.query';
+import { Match } from '@/modules/matching/entities/match.entity';
+import { NotificationsService } from '@/modules/notifications/notifications.service';
+import { validateReviewerPair, validateReassignSlot } from '@/modules/users/user-rules';
 
 const EDITABLE_STATUSES = [
   ApplicationStatus.DRAFT,
@@ -52,6 +65,7 @@ export class ApplicationsService {
     private readonly storageService: StorageService,
     private readonly auditLogService: AuditLogService,
     private readonly usersService: UsersService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async findMine(userId: string): Promise<Application[]> {
@@ -97,6 +111,127 @@ export class ApplicationsService {
     });
     if (!application) throw new NotFoundException('Application not found');
     return application;
+  }
+
+  /**
+   * SYSADMIN-only paginated list. Backs GET /internal/admin/applications — previously
+   * only the single-application-by-ID route existed, so an administrator had no way to
+   * browse, search, or count applications at all.
+   *
+   * DRAFT applications are excluded unless the caller asks for them explicitly via
+   * ?status=DRAFT: an unsubmitted draft is the applicant's private work in progress and
+   * would otherwise inflate "total applications".
+   */
+  async listForAdmin(query: ListAdminApplicationsDto) {
+    const { page, limit, skip } = clampPagination(query.page, query.limit);
+
+    const { valid, invalid } = parseStatusFilter(query.status);
+    if (invalid.length > 0) {
+      throw new BadRequestException(
+        `Unknown application status: ${invalid.join(', ')}`,
+      );
+    }
+
+    const qb = this.applicationRepo
+      .createQueryBuilder('application')
+      .leftJoin('application.preferredInstitution', 'institution')
+      .select(ADMIN_LIST_COLUMNS.map((column) => `application.${column}`))
+      .addSelect(['institution.id', 'institution.name', 'institution.state']);
+
+    if (valid.length > 0) {
+      qb.where('application.status IN (:...statuses)', { statuses: valid });
+    } else {
+      qb.where('application.status != :draft', {
+        draft: ApplicationStatus.DRAFT,
+      });
+    }
+
+    if (query.state) {
+      qb.andWhere(':state = ANY(application.statesOfOperation)', {
+        state: query.state,
+      });
+    }
+
+    const term = query.search?.trim();
+    if (term) {
+      qb.andWhere(
+        '(application.organisationLegalName ILIKE :term OR application.applicationRef ILIKE :term)',
+        { term: `%${escapeLikePattern(term)}%` },
+      );
+    }
+
+    // The only join is to-one (preferredInstitution), so offset/limit cannot
+    // multiply or truncate rows.
+    const [items, total] = await qb
+      .orderBy('application.updated_at', 'DESC')
+      .addOrderBy('application.id', 'ASC')
+      .offset(skip)
+      .limit(limit)
+      .getManyAndCount();
+
+    return { items, total, page, limit, totalPages: totalPagesFor(total, limit) };
+  }
+
+  /** SYSADMIN-only funnel counts. Backs GET /internal/admin/applications/stats. */
+  async getAdminStats() {
+    const rows = await this.applicationRepo
+      .createQueryBuilder('application')
+      .select('application.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('application.status')
+      .getRawMany<{ status: string; count: string }>();
+
+    const awaitingReviewerAssignment = await this.applicationRepo
+      .createQueryBuilder('application')
+      .where('application.status = :status', {
+        status: ApplicationStatus.IN_REVIEW_SCORING,
+      })
+      .andWhere((qb: SelectQueryBuilder<Application>) => {
+        const assigned = qb
+          .subQuery()
+          .select('COUNT(*)')
+          .from(ReviewerAssignment, 'ra')
+          .where('ra.applicationId = application.id')
+          .andWhere('ra.queueType = :scoringQueue')
+          .getQuery();
+        return `${assigned} < 2`;
+      })
+      .setParameter('scoringQueue', ReviewerQueueType.SCORING)
+      .getCount();
+
+    return { ...buildStatusCounts(rows), awaitingReviewerAssignment };
+  }
+
+  /** Applicant-safe timeline: whitelisted milestones only (see applicant-activity.ts). */
+  async getApplicantActivity(userId: string, id: string) {
+    await this.findOneOwned(userId, id);
+    const rows = await this.auditLogService.findForEntity('Application', id);
+    return toApplicantActivity(rows);
+  }
+
+  /**
+   * The applicant's confirmed host institution. Nothing is returned until the
+   * application is MATCHED, and never the match score or its breakdown.
+   */
+  async getApplicantMatch(userId: string, id: string) {
+    const application = await this.findOneOwned(userId, id);
+    if (application.status !== ApplicationStatus.MATCHED) {
+      return { matched: false, matchedAt: null, institution: null };
+    }
+    const match = await this.dataSource
+      .getRepository(Match)
+      .findOne({ where: { applicationId: id }, relations: { institution: true } });
+    return {
+      matched: true,
+      matchedAt: match?.matchedAt ? new Date(match.matchedAt).toISOString() : null,
+      institution: match?.institution
+        ? {
+            name: match.institution.name,
+            state: match.institution.state,
+            hubType: match.institution.hubType,
+          }
+        : null,
+    };
   }
 
   private async findOrCreateDraft(userId: string): Promise<Application> {
@@ -246,28 +381,16 @@ export class ApplicationsService {
       );
     }
 
-    if (reviewerIds[0] === reviewerIds[1]) {
-      throw new BadRequestException(
-        'The two scoring reviewers must be different people',
-      );
-    }
-
-    for (const reviewerId of reviewerIds) {
-      const reviewer = await this.usersService.findById(reviewerId);
-      if (!reviewer) {
-        throw new NotFoundException(`Reviewer ${reviewerId} not found`);
-      }
-      if (reviewer.role !== Role.SCORING_REVIEWER) {
-        throw new BadRequestException(
-          `User ${reviewer.email} does not hold the Scoring Reviewer role`,
-        );
-      }
-      if (!reviewer.isActive) {
-        throw new BadRequestException(
-          `User ${reviewer.email} is not an active account`,
-        );
-      }
-    }
+    const found = await Promise.all(reviewerIds.map((id) => this.usersService.findById(id)));
+    const pairProblem = validateReviewerPair(
+      reviewerIds,
+      found.flatMap((r) =>
+        r
+          ? [{ id: r.id, email: r.email, role: r.role, isActive: r.isActive, scoringSlot: r.scoringSlot ?? null }]
+          : [],
+      ),
+    );
+    if (pairProblem) throw new BadRequestException(pairProblem);
 
     const existing = await this.reviewerAssignmentRepo.find({
       where: { applicationId, queueType: ReviewerQueueType.SCORING },
@@ -296,6 +419,17 @@ export class ApplicationsService {
       entityId: applicationId,
       metadata: { reviewerIds },
     });
+
+    await Promise.all(
+      reviewerIds.map((reviewerId) =>
+        this.notificationsService.notifyUser(
+          reviewerId,
+          'New scoring assignment',
+          `You have been assigned to score ${application.organisationLegalName || application.applicationRef}.`,
+          `/internal/applications/${applicationId}`,
+        ),
+      ),
+    );
 
     return saved;
   }
@@ -331,6 +465,12 @@ export class ApplicationsService {
         'The incoming reviewer must be an active Scoring Reviewer account',
       );
     }
+    const outgoingReviewer = await this.usersService.findById(outgoingReviewerId);
+    const slotProblem = validateReassignSlot(
+      outgoingReviewer?.scoringSlot ?? null,
+      incomingReviewer.scoringSlot ?? null,
+    );
+    if (slotProblem) throw new BadRequestException(slotProblem);
 
     const otherAssignment = await this.reviewerAssignmentRepo.findOne({
       where: { applicationId, queueType: ReviewerQueueType.SCORING },
@@ -354,6 +494,13 @@ export class ApplicationsService {
       entityId: applicationId,
       metadata: { outgoingReviewerId, incomingReviewerId },
     });
+
+    await this.notificationsService.notifyUser(
+      incomingReviewerId,
+      'New scoring assignment',
+      'You have been assigned an application to score.',
+      `/internal/applications/${applicationId}`,
+    );
 
     return saved;
   }

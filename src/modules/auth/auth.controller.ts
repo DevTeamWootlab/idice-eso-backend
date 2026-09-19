@@ -41,7 +41,8 @@ import {
 import { Public } from '@/common/decorators/public.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { JwtPayload } from '@/common/interfaces/jwt-payload.interface';
-import { ApiOkResponse, ApiCreatedResponse, ApiTags, ApiNoContentResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiOkResponse, ApiCreatedResponse, ApiTags, ApiNoContentResponse, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { MeResponseDto } from './dto/me-response.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -52,6 +53,11 @@ export class AuthController {
     private readonly usersService: UsersService,
   ) {}
 
+  @ApiOperation({
+    summary: 'Register an ESO applicant account',
+    description:
+      'Public. Creates the account and emails a verification link. The account cannot sign in until the email is verified.',
+  })
   @Public()
   @ApiCreatedResponse({ description: 'User registered successfully', type: RegisterResponseDto })
   @Post('register')
@@ -59,6 +65,11 @@ export class AuthController {
     return this.authService.register(dto);
   }
 
+  @ApiOperation({
+    summary: 'Verify an email address',
+    description:
+      'Public. Consumes the token from the emailed link (`token` query parameter). Single-use.',
+  })
   @Public()
   @ApiOkResponse({ description: 'Email verified successfully', type: EmailVerificationResponseDto })
   @Get('verify-email')
@@ -66,6 +77,11 @@ export class AuthController {
     return this.authService.verifyEmail(dto.token);
   }
 
+  @ApiOperation({
+    summary: 'Sign in with email and password',
+    description:
+      'Public. Returns access and refresh tokens; internal roles (and ESOs with two-factor on) instead receive `mfaRequired` or `mfaSetupRequired` with a short-lived token to complete sign-in.',
+  })
   @Public()
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOkResponse({ description: 'User logged in successfully', type: LoginResponseDto })
@@ -78,6 +94,11 @@ export class AuthController {
     return this.authService.login(dto, { ipAddress: ip, userAgent });
   }
 
+  @ApiOperation({
+    summary: 'Complete sign-in with a two-factor code',
+    description:
+      'Public. Accepts an authenticator code or an unused backup code together with the token returned by login.',
+  })
   @Public()
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOkResponse({ description: 'User Verified', type: LoginResponseDto })
@@ -93,6 +114,11 @@ export class AuthController {
     });
   }
 
+  @ApiOperation({
+    summary: 'Exchange a refresh token for new tokens',
+    description:
+      'Public. The refresh token in the body is rotated; the previous one stops working.',
+  })
   @Public()
   @UseGuards(AuthGuard('jwt-refresh'))
   @ApiOkResponse({ description: 'Token refreshed successfully', type: LoginResponseDto })
@@ -101,6 +127,11 @@ export class AuthController {
     return this.authService.refresh(req.user);
   }
 
+  @ApiOperation({
+    summary: 'Sign out this session',
+    description:
+      'Revokes the supplied refresh token.',
+  })
   @ApiBearerAuth()
   @Post('logout')
   @ApiNoContentResponse({ description: 'User logged out successfully' })
@@ -108,6 +139,11 @@ export class AuthController {
     return this.authService.logout(dto.refreshToken);
   }
 
+  @ApiOperation({
+    summary: 'Sign out on every device',
+    description:
+      'Revokes every refresh token for the signed-in user.',
+  })
   @ApiBearerAuth()
   @Post('logout-all')
   @ApiNoContentResponse({ description: 'All user sessions logged out successfully' })
@@ -116,12 +152,35 @@ export class AuthController {
   }
 
   @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Current user profile',
+    description:
+      'Any authenticated role. The access token only carries id, email and role, so clients use this to show the ' +
+      "user's name and (for validators) assigned state.",
+  })
+  @ApiOkResponse({ description: 'Profile of the signed-in user', type: MeResponseDto })
+  @Get('me')
+  me(@CurrentUser() user: JwtPayload) {
+    return this.authService.getProfile(user.sub);
+  }
+
+  @ApiOperation({
+    summary: 'List active sessions',
+    description:
+      'Devices (refresh tokens) currently signed in for the user, newest first.',
+  })
+  @ApiBearerAuth()
   @Get('sessions')
   @ApiOkResponse({ description: 'User sessions listed successfully', type: [SessionResponseDto] })
   listSessions(@CurrentUser() user: JwtPayload) {
     return this.authService.listSessions(user.sub);
   }
 
+  @ApiOperation({
+    summary: 'Request a password-reset email',
+    description:
+      'Public and rate-limited. Always responds the same way whether or not the email exists.',
+  })
   @Public()
   @Throttle({ default: { limit: 3, ttl: 900000 } })
   @ApiOkResponse({ description: 'Password reset email sent successfully' })
@@ -130,6 +189,11 @@ export class AuthController {
     return this.authService.forgotPassword(dto.email);
   }
 
+  @ApiOperation({
+    summary: 'Reset the password with an emailed token',
+    description:
+      'Public. Single-use token from the reset email; revokes every session.',
+  })
   @Public()
   @ApiOkResponse({ description: 'Password reset successfully' })
   @Post('reset-password')
@@ -137,6 +201,11 @@ export class AuthController {
     return this.authService.resetPassword(dto.token, dto.newPassword);
   }
 
+  @ApiOperation({
+    summary: 'Change the password',
+    description:
+      'Requires the current password. Signs the user out everywhere.',
+  })
   @ApiBearerAuth()
   @ApiOkResponse({ description: 'Password changed successfully' })
   @Post('change-password')
@@ -153,6 +222,11 @@ export class AuthController {
 
   // --- MFA setup — called with the setupToken returned from a login that required enrolment ---
 
+  @ApiOperation({
+    summary: 'Start authenticator enrolment',
+    description:
+      'Public (uses the setup token from login). Returns the secret and QR code URI to add to an authenticator app.',
+  })
   @Public()
   @ApiOkResponse({ description: 'MFA setup initiated successfully', type: MfaSetupResponseDto })
   @Post('mfa/setup')
@@ -165,6 +239,11 @@ export class AuthController {
     return this.mfaService.generateSetup(userId, user.email);
   }
 
+  @ApiOperation({
+    summary: 'Confirm enrolment and receive backup codes',
+    description:
+      'Public (uses the setup token from login). Verifies the first code, enables two-factor and returns one-time backup codes.',
+  })
   @Public()
   @ApiOkResponse({ description: 'MFA enabled successfully', type: MfaEnableResponseDto })
   @Post('mfa/enable')
@@ -175,6 +254,11 @@ export class AuthController {
 
   // --- MFA management for an already-authenticated, already-enrolled user ---
 
+  @ApiOperation({
+    summary: 'Disable two-factor authentication',
+    description:
+      'Requires the account password. Internal roles are prompted to enrol again at next sign-in.',
+  })
   @ApiBearerAuth()
   @ApiOkResponse({ description: 'MFA disabled successfully' })
   @Post('mfa/disable')
@@ -193,6 +277,11 @@ export class AuthController {
     return { message: 'MFA has been disabled for your account' };
   }
 
+  @ApiOperation({
+    summary: 'Generate new backup codes',
+    description:
+      'Replaces the stored codes; previous codes stop working. Only valid while two-factor is enabled.',
+  })
   @ApiBearerAuth()
   @ApiOkResponse({ description: 'MFA backup codes regenerated successfully', type: MfaEnableResponseDto })
   @Post('mfa/backup-codes/regenerate')

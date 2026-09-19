@@ -1,10 +1,6 @@
 import { NestFactory, Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
-import {
-  ClassSerializerInterceptor,
-  ValidationPipe,
-  VersioningType,
-} from '@nestjs/common';
+import { ClassSerializerInterceptor, ValidationPipe, VersioningType, Logger } from '@nestjs/common';
 import helmet from 'helmet';
 import compression from 'compression';
 import { json, urlencoded } from 'express';
@@ -15,6 +11,7 @@ import { LoggingInterceptor } from '@common/interceptors/logger.interceptor';
 import { initSwagger } from '@/docs/swagger';
 import logger from '@config/logger/winston-logger';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { probeEmailedLinks, describeLinkProblems } from './common/utils/probe-emailed-links';
 // ...
 
 
@@ -46,6 +43,8 @@ async function bootstrap() {
       return callback(new Error(`Origin ${requestOrigin} is not allowed by CORS`), false);
     },
     credentials: true,
+    // Lets the portal read the real filename of a downloaded report (CSV / Excel / PDF).
+    exposedHeaders: ['Content-Disposition'],
   });
 
   app.enableVersioning({
@@ -78,7 +77,28 @@ async function bootstrap() {
 
   const port = configService.get<number>('app.port', 3000);
   const host = configService.get<string>('app.host', '0.0.0.0');
+  const frontendUrl = configService.get<string>('app.frontendUrl') ?? '';
+  if (
+    configService.get<string>('app.env') === 'production' &&
+    (!/^https:\/\//.test(frontendUrl) || /localhost|127\.0\.0\.1/.test(frontendUrl))
+  ) {
+    new Logger('Bootstrap').warn(
+      `FRONTEND_URL is "${frontendUrl}" in production — verification and password-reset emails will link there. Set it to this environment's public portal URL (https).`,
+    );
+  }
+
   await app.listen(port, host);
+
+  if (
+    configService.get<string>('app.env') === 'production' &&
+    /^https:\/\//.test(frontendUrl) &&
+    !/localhost|127\.0\.0\.1/.test(frontendUrl)
+  ) {
+    void probeEmailedLinks(frontendUrl).then((results) => {
+      const problem = describeLinkProblems(frontendUrl, results);
+      if (problem) new Logger('Bootstrap').error(problem);
+    });
+  }
 
   logger.log(`Application running on http://${host}:${port}`);
 }

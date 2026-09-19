@@ -6,7 +6,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Application } from './entities/application.entity';
+import { Institution } from '@/modules/institutions/entities/institution.entity';
+import { NotificationsService } from '@/modules/notifications/notifications.service';
 import { ApplicationStatus } from '@/common/enums/application.enum';
+import { Role } from '@/common/enums/role.enum';
 
 export interface TransitionOptions {
   targetStatus: ApplicationStatus;
@@ -62,6 +65,7 @@ export class ApplicationsStateMachineService {
   constructor(
     @InjectRepository(Application)
     private readonly applicationRepo: Repository<Application>,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   /**
@@ -99,6 +103,52 @@ export class ApplicationsStateMachineService {
       { status: targetStatus },
     );
 
-    // Placeholder for state machine guard validation, transition hooks, or audit log persistence
+    await this.announceQueueEntry(application, targetStatus);
+  }
+
+  /**
+   * Tells the people whose queue an application just entered. Best-effort: a failed
+   * notification must never fail or roll back the transition itself.
+   */
+  private async announceQueueEntry(application: Application, target: ApplicationStatus) {
+    try {
+      const label = application.organisationLegalName || application.applicationRef;
+      const href = `/internal/applications/${application.id}`;
+      const notify = this.notificationsService;
+      const validatorState = async () => {
+        if (!application.preferredInstitutionId) return undefined;
+        const institution = await this.applicationRepo.manager
+          .getRepository(Institution)
+          .findOne({ where: { id: application.preferredInstitutionId } });
+        return institution?.state;
+      };
+
+      switch (target) {
+        case ApplicationStatus.SUBMITTED:
+          await notify.notifyRole(Role.ELIGIBILITY_REVIEWER, 'New application to review', `${label} is waiting in the eligibility queue.`, href);
+          break;
+        case ApplicationStatus.IN_REVIEW_SCORING:
+          await notify.notifyRole(Role.SYSADMIN, 'Application ready for scoring', `${label} passed eligibility. Assign Reviewer 1 and Reviewer 2 to begin scoring.`, href);
+          break;
+        case ApplicationStatus.PENDING_VALIDATION: {
+          const state = await validatorState();
+          if (state) await notify.notifyRole(Role.VALIDATOR, 'Score variance escalated', `The two scoring reviewers' results for ${label} differ by more than 15 points. It needs your review.`, href, { state });
+          break;
+        }
+        case ApplicationStatus.SHORTLISTED:
+        case ApplicationStatus.PENDING_ECOSYSTEM_VALIDATION: {
+          const state = await validatorState();
+          if (state) await notify.notifyRole(Role.VALIDATOR, 'Application awaiting field validation', `${label} is in your validation queue.`, href, { state });
+          break;
+        }
+        case ApplicationStatus.VALIDATED_SHORTLISTED:
+          await notify.notifyRole(Role.SYSADMIN, 'Application ready for matching', `${label} has been validated and can be included in the next match run.`, '/internal/match-engine');
+          break;
+        default:
+          break;
+      }
+    } catch {
+      // Notifications are advisory.
+    }
   }
 }

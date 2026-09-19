@@ -9,7 +9,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags, ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 import { ValidationService } from './validation.service';
 import { SubmitValidationDto } from './dto/submit-validation.dto';
 import { ResolveVarianceDto } from './dto/resolve-variance.dto';
@@ -33,11 +33,13 @@ export class ValidationController {
       'Requires role: ROLE_VALIDATOR. Scoped to the validator\'s assignedState via the ' +
       'application\'s preferredInstitution.state.',
   })
+  @ApiOkResponse({ description: 'Get my field validation queue.' })
   @Get('queue/validation')
   getQueue(@CurrentUser() user: JwtPayload) {
     return this.validationService.getQueue(user.sub);
   }
 
+  @ApiOkResponse({ description: 'Get an application dossier for field validation.' })
   @ApiOperation({ summary: 'Get an application dossier for field validation', description: 'Requires role: ROLE_VALIDATOR' })
   @Get(':id/validation')
   getDossier(
@@ -47,6 +49,7 @@ export class ValidationController {
     return this.validationService.getDossier(id, user.sub);
   }
 
+  @ApiCreatedResponse({ description: 'Submit a field validation record.' })
   @ApiOperation({ summary: 'Submit a field validation record', description: 'Requires role: ROLE_VALIDATOR' })
   @Post(':id/validation/submit')
   submitValidation(
@@ -65,6 +68,7 @@ export class ValidationController {
       "client-side and includes the full array in the submit-validation call's " +
       'geotaggedPhotos field, since a ValidationRecord does not exist until submission.',
   })
+  @ApiCreatedResponse({ description: 'Upload a geotagged site-visit photo.' })
   @ApiConsumes('multipart/form-data')
   @Post(':id/validation/photos')
   @UseInterceptors(FileInterceptor('file', documentUploadOptions))
@@ -93,6 +97,7 @@ export class ValidationController {
       'applies (>=70 -> SHORTLISTED, otherwise REJECTED). Scoped to the validator\'s ' +
       "assigned state, same as the rest of this controller.",
   })
+  @ApiCreatedResponse({ description: 'Reconcile a >15% score-variance escalation.' })
   @Post(':id/resolve-variance')
   resolveVariance(
     @CurrentUser() user: JwtPayload,

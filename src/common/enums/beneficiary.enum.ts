@@ -79,3 +79,10 @@ export enum StateOfNigeria {
   YOBE = 'YOBE',
   ZAMFARA = 'ZAMFARA',
 }
+
+export enum AcademicStatus {
+  STUDENT = 'STUDENT',
+  RECENT_GRADUATE = 'RECENT_GRADUATE',
+  NEET = 'NEET',
+  OTHER = 'OTHER',
+}

@@ -1,11 +1,14 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags, ApiCreatedResponse, ApiOkResponse, ApiConflictResponse } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { ProvisionInternalUserDto } from './dto/provision-internal-user.dto';
 import { ListInternalUsersDto } from './dto/list-internal-users.dto';
+import { UpdateInternalUserDto } from './dto/update-internal-user.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { Roles } from '@/common/decorators/roles.decorator';
 import { Role } from '@/common/enums/role.enum';
+import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { JwtPayload } from '@/common/interfaces/jwt-payload.interface';
 
 @ApiTags('Users (SYSADMIN)')
 @ApiBearerAuth()
@@ -22,6 +25,7 @@ export class UsersController {
       'filtered to one role via ?role=. Used to populate reviewer/validator assignment ' +
       "pickers — never returns ROLE_ESO applicants.",
   })
+  @ApiOkResponse({ description: 'List internal users.' })
   @Get()
   list(@Query() query: ListInternalUsersDto) {
     return this.usersService.listInternalUsers(query.role);
@@ -34,6 +38,7 @@ export class UsersController {
       'ROLE_SCORING_REVIEWER, ROLE_VALIDATOR, or ROLE_SYSADMIN accounts. ROLE_ESO applicants ' +
       'self-register via POST /auth/register instead.',
   })
+  @ApiCreatedResponse({ description: 'Provision an internal user.' })
   @Post()
   provision(@Body() dto: ProvisionInternalUserDto) {
     return this.usersService.provisionInternalUser(dto);
@@ -43,8 +48,41 @@ export class UsersController {
     summary: 'Activate or suspend an internal user',
     description: 'Requires role: ROLE_SYSADMIN.',
   })
+  @ApiOkResponse({ description: 'Activate or suspend an internal user.' })
   @Patch(':id/status')
-  updateStatus(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateUserStatusDto) {
-    return this.usersService.setActive(id, dto.isActive);
+  updateStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateUserStatusDto,
+    @CurrentUser() actor: JwtPayload,
+  ) {
+    return this.usersService.setActive(id, dto.isActive, actor.sub);
+  }
+
+  @ApiOperation({
+    summary: 'Edit an internal user',
+    description:
+      'Requires role: ROLE_SYSADMIN. Change name, role, validator state or scoring-reviewer slot. ' +
+      'Refused when it would leave no active administrator, orphan unscored review work, or exceed two scoring reviewers.',
+  })
+  @ApiOkResponse({ description: 'The updated user.' })
+  @ApiConflictResponse({ description: 'Reviewer slot taken or more than two active scoring reviewers' })
+  @Patch(':id')
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateInternalUserDto,
+    @CurrentUser() actor: JwtPayload,
+  ) {
+    return this.usersService.updateInternalUser(id, dto, actor.sub);
+  }
+
+  @ApiOperation({
+    summary: 'Resend the invitation email',
+    description:
+      'Requires role: ROLE_SYSADMIN. Re-sends the activation link to an invited user who has not yet verified their email. Limited to one per minute.',
+  })
+  @ApiCreatedResponse({ description: 'The invitation was re-sent.' })
+  @Post(':id/resend-invite')
+  resendInvite(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: JwtPayload) {
+    return this.usersService.resendInvite(id, actor.sub);
   }
 }

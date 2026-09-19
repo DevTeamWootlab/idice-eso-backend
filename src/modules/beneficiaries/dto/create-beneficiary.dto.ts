@@ -13,11 +13,7 @@ import {
   IsNotEmpty,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import {
-  Pillar,
-  Gender,
-  StateOfNigeria,
-} from '@/common/enums/beneficiary.enum';
+import { Pillar, Gender, StateOfNigeria, AcademicStatus } from '@/common/enums/beneficiary.enum';
 import { MaxWords } from '@/common/validators/max-word.validator';
 
 import { CreateSkillsProfileDto } from './create-skills-profile.dto';
@@ -87,6 +83,14 @@ export class CreateBeneficiaryDto {
   @ApiProperty({ example: false })
   @IsBoolean()
   isRecentGraduate!: boolean;
+
+  @ApiProperty({
+    enum: AcademicStatus,
+    example: AcademicStatus.RECENT_GRADUATE,
+    description: 'Academic / employment status — compulsory. Must agree with isCurrentStudent, isRecentGraduate and isNeet (OTHER = none of them).',
+  })
+  @IsEnum(AcademicStatus)
+  academicStatus!: AcademicStatus;
 
   @ApiPropertyOptional({ example: 'Mary Doe' })
   @IsOptional()

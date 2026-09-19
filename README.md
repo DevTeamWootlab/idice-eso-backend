@@ -105,6 +105,17 @@ again safely; it inserts or updates reference data without duplicating it.
 Keep `synchronize` disabled. Review generated migrations before applying them
 to a shared or production database.
 
+## Emailed links (FRONTEND_URL)
+
+Verification and password-reset emails link to `${FRONTEND_URL}/verify-email?token=…` and
+`${FRONTEND_URL}/reset-password/confirm?token=…`. `FRONTEND_URL` must be the public **https**
+URL of the portal build that talks to *this* backend (e.g. staging backend →
+`https://staging.idice.eso.wootlab.ng`, production backend → `https://idice.eso.wootlab.ng`),
+and that portal build must include the `/verify-email` and `/reset-password/confirm` pages.
+A mismatch shows up as a 404 (host serves an older portal build) or an "invalid token"
+message (host talks to a different backend/database). The API logs a warning at startup when
+it runs in production with a localhost or non-https `FRONTEND_URL`.
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
@@ -160,3 +171,74 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+
+## Deploying: order of operations
+
+1. **Schema.** The in-app notification inbox added a table (`in_app_notifications`). With `synchronize`
+   off, it only exists once a migration is applied. Against a database at the previous schema run
+   `yarn db:migration:generate`, review the generated file, commit it, then apply with `yarn deploy:prod`
+   (`db:migrate:prod` + `db:seed:prod`).
+2. **Seed.** `yarn db:seed:prod` loads the CoEs, the full course catalogue and the six scoring rubric
+   dimensions. It is safe to run on every deploy: the rubric seed only inserts *missing* dimensions and never
+   overwrites weights an administrator has edited.
+3. **`FRONTEND_URL`.** Must be the public https URL of the portal build that talks to this API. Emailed links
+   (`/verify-email`, `/reset-password/confirm`, `/eso/dashboard`) are built from it. After deploying the portal,
+   gate the release:
+
+   ```bash
+   FRONTEND_URL=https://portal.example npm run check:emailed-links
+   ```
+
+   In production the API also probes those pages on startup and logs an error if they do not resolve.
+
+## Verifying against a real database
+
+`npm run test:sql` runs the query-builder SQL (admin applications list and stats, PCU aggregation,
+graduates/outcomes list, cohort members, beneficiary list, rubric re-seed) against a real PostgreSQL and asserts
+exact figures. It **drops and recreates the schema**, so `TEST_DB_NAME` must end in `_test`:
+
+```bash
+docker compose up -d postgres
+createdb idice_eso_test        # or create it with any client
+TEST_DB_NAME=idice_eso_test npm run test:sql
+```
+
+Connection settings come from `TEST_DB_HOST/PORT/USERNAME/PASSWORD`, falling back to `DB_*`. Fixtures are built
+from the live schema (required columns are introspected), so schema changes rarely need test edits.
+
+## Staging smoke test
+
+`scripts/staging-smoke.mjs` exercises the real deployed API end to end: public intake, allocate, cohort,
+enrol, complete, verified placement, then checks the PCU dashboard moved by exactly the expected amounts.
+
+```bash
+API_URL=https://staging-api.example/api/v1 \
+ACCESS_TOKEN=<SYSADMIN access token> \
+SMOKE_CONFIRM=I_UNDERSTAND_THIS_WRITES_DATA \
+node scripts/staging-smoke.mjs
+```
+
+Internal roles require MFA, so sign in once (portal or Swagger) and pass that access token. The script writes
+data (one youth named "SMOKE TEST …", one cohort, one outcome) and there are no delete endpoints, so use staging.
+It exits non-zero on any failed step.
+
+## API documentation (Swagger)
+
+Interactive docs are served at `/api/docs`. Every successful response is wrapped as
+`{ "status": true, "timestamp": <ms>, "data": … }`; the documented schemas describe `data`.
+
+`npm run docs:check` fails when a route lacks `@ApiOperation`, an auth annotation (unless `@Public`) or a
+documented response, repeats a decorator, or when a request DTO property lacks `@ApiProperty`. It compares against
+`scripts/swagger-baseline.json` (currently empty), so any new gap fails CI. Run it with `--update-baseline` only
+to record deliberate exceptions.
+
+## Behaviour worth knowing
+
+- **Scoring weights** are stored in `rubric_configurations`, editable by SYSADMIN at
+  `PUT /internal/settings/scoring-weights` (must total 100). They lock as soon as any score card is submitted, so
+  every application is scored on the same basis. If stored rows are incomplete or do not total 100, scoring falls
+  back to the PRD defaults (20/20/15/15/15/15).
+- **Applicant visibility.** `GET /applications/:id/activity` returns only whitelisted milestones
+  (`src/modules/applications/applicant-activity.ts`); `GET /applications/:id/match` returns the host institution
+  only once the application is MATCHED, never the match score. Widen these deliberately, with a test.
+- **In-app notifications** are created best-effort next to the existing emails and never block or fail them.

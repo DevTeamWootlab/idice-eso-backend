@@ -67,6 +67,14 @@ export class Beneficiary extends BaseEntity {
   @Column({ default: false })
   isRecentGraduate!: boolean;
 
+  // Compulsory on new intakes; null only for rows created before the field existed.
+  @Column({ type: 'varchar', nullable: true })
+  academicStatus!: string | null;
+
+  // Set when the youth is allocated to a Centre of Excellence (drives the PCU period filter).
+  @Column({ type: 'timestamptz', nullable: true })
+  allocatedAt!: Date | null;
+
   @Column({ nullable: true })
   emergencyContactName?: string;
 

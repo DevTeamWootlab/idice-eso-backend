@@ -7,7 +7,7 @@ import {
   StreamableFile,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags, ApiOkResponse } from '@nestjs/swagger';
 import { ApplicationsService } from './applications.service';
 import { Roles } from '@/common/decorators/roles.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
@@ -41,6 +41,7 @@ export class InternalApplicationAccessController {
       '(scoring: must be one of the two assigned reviewers; validator: must match the ' +
       "application's state).",
   })
+  @ApiOkResponse({ description: 'Download a document as an internal reviewer.' })
   @Get(':id/documents/:documentId/download')
   async downloadDocument(
     @CurrentUser() user: JwtPayload,
@@ -63,6 +64,7 @@ export class InternalApplicationAccessController {
       'Requires role: ROLE_ELIGIBILITY_REVIEWER, ROLE_SCORING_REVIEWER, ROLE_VALIDATOR, ' +
       'or ROLE_SYSADMIN. Same scoping as the document download route above.',
   })
+  @ApiOkResponse({ description: 'Get an application.' })
   @Get(':id/audit-log')
   getAuditLog(
     @CurrentUser() user: JwtPayload,

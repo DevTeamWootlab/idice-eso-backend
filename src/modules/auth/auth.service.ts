@@ -232,6 +232,20 @@ export class AuthService {
     return { message: 'Logged out' };
   }
 
+  async getProfile(userId: string) {
+    const user = await this.usersService.findById(userId);
+    if (!user || !user.isActive) throw new UnauthorizedException();
+    return {
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      role: user.role,
+      assignedState: user.assignedState ?? null,
+      mfaEnabled: user.mfaEnabled,
+      isEmailVerified: user.isEmailVerified,
+    };
+  }
+
   async logoutAll(userId: string) {
     await this.refreshTokenRepo.update(
       { userId, revoked: false },

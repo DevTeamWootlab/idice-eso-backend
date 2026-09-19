@@ -13,6 +13,7 @@ import { ApplicationCompletenessService } from './application-completeness.servi
 import { ApplicationsController } from './applications.controller';
 import { AdminApplicationsController } from './admin-applications.controller';
 import { InternalApplicationAccessController } from './internal-application-access.controller';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { InternalApplicationAccessController } from './internal-application-acce
     ]),
     StorageModule,
     UsersModule,
+    NotificationsModule,
   ],
   controllers: [
     ApplicationsController,

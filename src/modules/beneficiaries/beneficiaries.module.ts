@@ -8,6 +8,7 @@ import { BeneficiaryAccelerationProfile } from './entities/beneficiary-accelerat
 import { Institution } from '@/modules/institutions/entities/institution.entity';
 
 import { BeneficiariesController } from './beneficiaries.controller';
+import { InternalBeneficiariesController } from './internal-beneficiaries.controller';
 import { BeneficiariesService } from './beneficiaries.service';
 import { GeoAllocationService } from './services/geo-allocation.service';
 
@@ -26,7 +27,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     StorageModule,
     NotificationsModule,
   ],
-  controllers: [BeneficiariesController],
+  controllers: [BeneficiariesController, InternalBeneficiariesController],
   providers: [BeneficiariesService, GeoAllocationService],
   exports: [BeneficiariesService],
 })

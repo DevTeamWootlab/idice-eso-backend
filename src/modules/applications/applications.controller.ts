@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags, ApiOkResponse, ApiCreatedResponse, ApiNoContentResponse } from '@nestjs/swagger';
 import { ApplicationsService } from './applications.service';
 import { SaveDraftDto } from './dto/save-draft.dto';
 import { SubmitApplicationDto } from './dto/submit-application.dto';
@@ -23,6 +23,7 @@ import { CurrentUser } from '@common/decorators/current-user.decorator';
 import { Role } from '@common/enums/role.enum';
 import { JwtPayload } from '@common/interfaces/jwt-payload.interface';
 import { documentUploadOptions } from '@/config/multer.config';
+import { ApplicantActivityEventDto, ApplicantMatchDto, CompletenessResultDto } from './dto/applicant-views.dto';
 
 @ApiTags('Applications (ESO applicant)')
 @ApiBearerAuth()
@@ -31,12 +32,42 @@ import { documentUploadOptions } from '@/config/multer.config';
 export class ApplicationsController {
   constructor(private readonly applicationsService: ApplicationsService) {}
 
+  @ApiOkResponse({ description: 'The signed-in applicant\'s applications' })
   @ApiOperation({ summary: 'List my applications', description: 'Requires role: ROLE_ESO' })
   @Get('mine')
   findMine(@CurrentUser() user: JwtPayload) {
     return this.applicationsService.findMine(user.sub);
   }
 
+  @ApiOperation({
+    summary: 'My application timeline',
+    description:
+      'Requires role: ROLE_ESO (owner only). Applicant-safe milestones only — no reviewer identities, scores or internal escalations.',
+  })
+  @ApiOkResponse({ type: [ApplicantActivityEventDto] })
+  @Get(':id/activity')
+  activity(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.applicationsService.getApplicantActivity(user.sub, id);
+  }
+
+  @ApiOperation({
+    summary: 'My confirmed host institution',
+    description:
+      'Requires role: ROLE_ESO (owner only). Returns matched=false until the application is MATCHED. Match scores are never exposed.',
+  })
+  @ApiOkResponse({ type: ApplicantMatchDto })
+  @Get(':id/match')
+  match(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.applicationsService.getApplicantMatch(user.sub, id);
+  }
+
+  @ApiOkResponse({ description: 'The application with its documents, personnel and references' })
   @ApiOperation({ summary: 'Get one of my applications by ID', description: 'Requires role: ROLE_ESO' })
   @Get(':id')
   findOne(
@@ -46,6 +77,7 @@ export class ApplicationsController {
     return this.applicationsService.findOneOwned(user.sub, id);
   }
 
+  @ApiOkResponse({ type: CompletenessResultDto })
   @ApiOperation({ summary: 'Get completeness checklist for an application', description: 'Requires role: ROLE_ESO' })
   @Get(':id/completeness')
   completeness(
@@ -55,12 +87,14 @@ export class ApplicationsController {
     return this.applicationsService.getCompleteness(user.sub, id);
   }
 
+  @ApiCreatedResponse({ description: 'The saved draft (create-or-update); use the returned `version` when submitting' })
   @ApiOperation({ summary: 'Autosave/upsert the draft application', description: 'Requires role: ROLE_ESO' })
   @Post('draft')
   saveDraft(@CurrentUser() user: JwtPayload, @Body() dto: SaveDraftDto) {
     return this.applicationsService.saveDraft(user.sub, dto);
   }
 
+  @ApiCreatedResponse({ description: 'The stored document record' })
   @ApiOperation({ summary: 'Upload a supporting document', description: 'Requires role: ROLE_ESO' })
   @Post(':id/upload-document')
   @UseInterceptors(FileInterceptor('file', documentUploadOptions))
@@ -78,6 +112,7 @@ export class ApplicationsController {
     );
   }
 
+  @ApiOkResponse({ description: 'The file contents (binary)' })
   @ApiOperation({ summary: 'Download a document', description: 'Requires role: ROLE_ESO' })
   @Get(':id/documents/:documentId/download')
   async downloadDocument(
@@ -95,6 +130,7 @@ export class ApplicationsController {
     return new StreamableFile(buffer);
   }
 
+  @ApiOkResponse({ description: 'The document was removed' })
   @ApiOperation({ summary: 'Remove a document', description: 'Requires role: ROLE_ESO' })
   @Delete(':id/documents/:documentId')
   removeDocument(
@@ -112,6 +148,7 @@ export class ApplicationsController {
       'DRAFT/REWORK_REQUIRED -> SUBMITTED. Pass expectedVersion to get a 409 Conflict ' +
       'instead of a silent overwrite if the application changed since you last loaded it.',
   })
+  @ApiCreatedResponse({ description: 'The application, now SUBMITTED. 422 lists what is missing; 409 means it changed since `version`.' })
   @Post('submit')
   submit(@CurrentUser() user: JwtPayload, @Body() dto: SubmitApplicationDto) {
     return this.applicationsService.submit(

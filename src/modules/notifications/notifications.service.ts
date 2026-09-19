@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { MailProvider } from './providers/mail.provider';
 import { SmsProvider } from './providers/sms.provider';
 import { ConfigService } from '@nestjs/config';
+import { InAppNotificationsService } from './in-app-notifications.service';
 
 @Injectable()
 export class NotificationsService {
@@ -9,6 +10,7 @@ export class NotificationsService {
     private readonly mail: MailProvider,
     private readonly sms: SmsProvider,
     private readonly configService: ConfigService,
+    private readonly inApp: InAppNotificationsService,
   ) {}
 
   /**
@@ -22,10 +24,10 @@ export class NotificationsService {
    * FRONTEND_URL isn't set.
    */
   private frontendUrl(): string {
-    return (
+    const configured =
       this.configService.get<string>('app.frontendUrl') ||
-      'http://idice.eso.wootlab.ng'
-    );
+      'http://localhost:3000';
+    return configured.trim().replace(/\/+$/, '');
   }
 
   async sendEmailVerification(applicantEmail: string, token: string) {
@@ -61,6 +63,7 @@ export class NotificationsService {
   }
 
   async sendEligibilityRejection(email: string, remarks: string) {
+    await this.tryInApp(email, 'Application not successful', `Your application was not successful at the eligibility stage. Reason: ${remarks}`);
     await this.mail.send(
       email,
       'Application Update — iDICE ESO Portal',
@@ -68,12 +71,13 @@ export class NotificationsService {
         'Application update',
         `Your application was not successful at the eligibility stage. Reason: ${remarks}`,
         'Review application status',
-        `${this.frontendUrl()}/applications`,
+        `${this.frontendUrl()}/eso/dashboard`,
       ),
     );
   }
 
   async sendReworkRequested(email: string, notes: string[]) {
+    await this.tryInApp(email, 'Action required', `Please review and resubmit your application. Notes: ${notes.join('; ')}`);
     await this.mail.send(
       email,
       'Action Required — iDICE ESO Application',
@@ -81,12 +85,13 @@ export class NotificationsService {
         'Action required',
         `Please review and resubmit your application. Notes: ${notes.join('; ')}`,
         'Open application',
-        `${this.frontendUrl()}/applications`,
+        `${this.frontendUrl()}/eso/dashboard`,
       ),
     );
   }
 
   async sendShortlistedNotification(email: string, scorePercent: number) {
+    await this.tryInApp(email, 'You have been shortlisted', 'Your application has been shortlisted for the next stage.');
     await this.mail.send(
       email,
       'Application Shortlisted — iDICE ESO Portal',
@@ -94,12 +99,13 @@ export class NotificationsService {
         'Your application has been shortlisted',
         `Your application scored ${scorePercent}% and has been shortlisted for local ecosystem validation.`,
         'View application',
-        `${this.frontendUrl()}/applications`,
+        `${this.frontendUrl()}/eso/dashboard`,
       ),
     );
   }
 
   async sendMatchedNotification(email: string, institutionName: string) {
+    await this.tryInApp(email, 'You have been matched', `Your organisation has been matched with ${institutionName}.`);
     await this.mail.send(
       email,
       'You have been matched — iDICE ESO Portal',
@@ -107,12 +113,13 @@ export class NotificationsService {
         'Partner match confirmed',
         `Congratulations — your organisation has been matched to ${institutionName} as its Enterprise Support Organisation partner.`,
         'View application',
-        `${this.frontendUrl()}/applications`,
+        `${this.frontendUrl()}/eso/dashboard`,
       ),
     );
   }
 
   async sendDisqualificationNotification(email: string, reason: string) {
+    await this.tryInApp(email, 'Application update', `Your application was not successful. Reason: ${reason}`);
     await this.mail.send(
       email,
       'Application status — iDICE ESO Portal',
@@ -120,7 +127,7 @@ export class NotificationsService {
         'Application status update',
         `Your application has been discontinued from the current selection cycle. Reason: ${reason}`,
         'View update',
-        `${this.frontendUrl()}/applications`,
+        `${this.frontendUrl()}/eso/dashboard`,
       ),
     );
   }
@@ -155,6 +162,62 @@ export class NotificationsService {
     await this.sms.send(
       phone,
       `iDICE: We received your application. Your reference number is ${referenceId}. Keep it for your records.`,
+    );
+  }
+
+  /** In-app inbox entries are best-effort: they must never block or fail the email. */
+  private async tryInApp(email: string, title: string, message: string) {
+    try {
+      await this.inApp.createForEmail(email, title, message, '/eso/dashboard');
+    } catch {
+      return;
+    }
+  }
+
+  /** Best-effort in-app notification for a known user (never throws). */
+  async notifyUser(userId: string, title: string, message: string, href?: string) {
+    try {
+      await this.inApp.create(userId, title, message, href);
+    } catch {
+      return;
+    }
+  }
+
+  /** Best-effort in-app notification for everyone holding a role (never throws). */
+  async notifyRole(
+    role: string,
+    title: string,
+    message: string,
+    href?: string,
+    scope: { state?: string } = {},
+  ) {
+    try {
+      await this.inApp.createForRole(role, title, message, href, scope);
+    } catch {
+      return;
+    }
+  }
+
+  async sendBeneficiaryAllocated(
+    email: string,
+    phone: string,
+    referenceId: string,
+    institutionName: string,
+  ) {
+    await this.mail.send(
+      email,
+      'You have been placed — iDICE Youth Programme',
+      this.renderHtmlTemplate(
+        'You have been placed',
+        `Good news — your application (reference <strong>${referenceId}</strong>) has been accepted and you have been allocated to <strong>${institutionName}</strong>. ` +
+          `The centre will contact you with your start date and next steps.`,
+        'iDICE Youth Programme',
+        this.frontendUrl(),
+      ),
+    );
+    await this.sms.send(
+      phone,
+      `iDICE: You have been allocated to ${institutionName}. Reference ${referenceId}. The centre will contact you with next steps.`,
     );
   }
 
