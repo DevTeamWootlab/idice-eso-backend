@@ -20,6 +20,7 @@ export const APPLICANT_VISIBLE_ACTIONS: Record<string, string> = {
   SCORE_FINALIZED_SHORTLISTED: 'Shortlisted',
   SCORE_FINALIZED_REJECTED: 'Not successful at the scoring stage',
   FIELD_VALIDATION_SUBMITTED: 'Field validation completed',
+  PARTNER_MATCH_COMMITTED: 'Matched with a host institution',
 };
 
 export function toApplicantActivity(

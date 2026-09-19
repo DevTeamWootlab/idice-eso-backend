@@ -43,6 +43,8 @@ async function bootstrap() {
       return callback(new Error(`Origin ${requestOrigin} is not allowed by CORS`), false);
     },
     credentials: true,
+    // Lets the portal read the real filename of a downloaded report (CSV / Excel / PDF).
+    exposedHeaders: ['Content-Disposition'],
   });
 
   app.enableVersioning({

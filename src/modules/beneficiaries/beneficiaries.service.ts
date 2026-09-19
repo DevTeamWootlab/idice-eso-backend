@@ -25,6 +25,7 @@ import {
   escapeLikePattern,
   totalPagesFor,
 } from '@/modules/applications/admin-applications.query';
+import { checkAcademicStatus } from './academic-status';
 @Injectable()
 export class BeneficiariesService {
   constructor(
@@ -127,6 +128,7 @@ export class BeneficiariesService {
       }
       beneficiary.assignedInstitutionId = institutionId;
       allocatedInstitutionName = institution.name;
+      beneficiary.allocatedAt = new Date();
     } else if (dto.institutionId) {
       throw new BadRequestException(
         'institutionId is only accepted when allocating',
@@ -178,6 +180,8 @@ export class BeneficiariesService {
   async registerIntake(dto: CreateBeneficiaryDto): Promise<Beneficiary> {
     // ---- 1. Server-Side Conditional Pillar Payload Rules ----
     this.validatePillarPayloads(dto);
+    const statusProblem = checkAcademicStatus(dto);
+    if (statusProblem) throw new BadRequestException(statusProblem);
 
     // ---- 2. Email & NIN Deduplication Check ----
     const existingEmail = await this.beneficiaryRepo.findOne({
@@ -234,6 +238,7 @@ export class BeneficiariesService {
         institutionName: dto.institutionName,
         studentMatricNumber: dto.studentMatricNumber,
         isRecentGraduate: dto.isRecentGraduate,
+        academicStatus: dto.academicStatus,
         emergencyContactName: dto.emergencyContactName,
         emergencyContactRelationship: dto.emergencyContactRelationship,
         emergencyContactPhone: dto.emergencyContactPhone,

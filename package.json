@@ -19,6 +19,7 @@
     "lint": "oxlint src/ test/",
     "docs:check": "node scripts/check-swagger-coverage.mjs",
     "check:emailed-links": "node scripts/check-emailed-links.mjs",
+    "check:deployed-routes": "node scripts/check-deployed-routes.mjs",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",

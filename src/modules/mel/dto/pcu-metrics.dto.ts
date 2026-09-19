@@ -84,3 +84,65 @@ export class PcuMetricsDto {
   @ApiProperty({ type: [PerCoeDto] })
   perCoe!: PerCoeDto[];
 }
+
+class CoeIdentityDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+  @ApiProperty()
+  name!: string;
+  @ApiProperty()
+  state!: string;
+  @ApiProperty({ enum: ['STANDARD', 'GAMING', 'VR', 'CREATIVE'] })
+  hubType!: string;
+  @ApiProperty()
+  beneficiaryCapacity!: number;
+  @ApiProperty({ enum: ['NUC', 'NBTE', 'OTHER'] })
+  regulator!: string;
+  @ApiProperty()
+  isActive!: boolean;
+}
+
+class BreakdownItemDto {
+  @ApiProperty({ description: 'Pillar or gender value' })
+  key!: string;
+  @ApiProperty()
+  count!: number;
+}
+
+class CoeCohortDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+  @ApiProperty()
+  name!: string;
+  @ApiProperty({ type: String, nullable: true })
+  courseTitle!: string | null;
+  @ApiProperty({ type: String, nullable: true })
+  tier!: string | null;
+  @ApiProperty()
+  status!: string;
+  @ApiProperty({ example: '2026-10-05' })
+  startDate!: string;
+  @ApiProperty({ type: String, nullable: true })
+  endDate!: string | null;
+  @ApiProperty({ description: '0 means no cap' })
+  capacity!: number;
+  @ApiProperty()
+  members!: number;
+  @ApiProperty()
+  completed!: number;
+}
+
+export class PcuCoeDetailDto {
+  @ApiProperty({ type: CoeIdentityDto })
+  institution!: CoeIdentityDto;
+  @ApiProperty({ type: PcuMetricsDto, description: 'The same KPIs, restricted to this Centre of Excellence' })
+  metrics!: PcuMetricsDto;
+  @ApiProperty({ type: Number, nullable: true, description: 'Youth enrolled as a share of the CoE capacity' })
+  capacityUtilisationPercent!: number | null;
+  @ApiProperty({ type: [BreakdownItemDto] })
+  pillars!: BreakdownItemDto[];
+  @ApiProperty({ type: [BreakdownItemDto] })
+  genders!: BreakdownItemDto[];
+  @ApiProperty({ type: [CoeCohortDto] })
+  cohorts!: CoeCohortDto[];
+}

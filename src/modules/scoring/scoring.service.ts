@@ -15,6 +15,7 @@ import { SubmitScoreDto } from './dto/submit-score.dto';
 import { AuditLogService } from '@/modules/audit-log/audit-log.service';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
 import { RUBRIC_DIMENSIONS, compositePercent, resolveWeights, validateWeightsInput, RubricWeights } from './scoring-weights';
+import { User } from '@/modules/users/entities/user.entity';
 
 const VARIANCE_THRESHOLD = 15; // percentage points
 const QUALIFICATION_THRESHOLD = 70.0; // percent
@@ -144,7 +145,9 @@ export class ScoringService {
       card = this.scoreCardRepo.create({
         applicationId,
         reviewerId,
-        reviewerSlot: existingCount + 1, // 1 for the first reviewer to touch it, 2 for the second
+        // The reviewer's designated slot (Reviewer 1 / Reviewer 2); falls back to arrival order
+        // only for legacy accounts that were provisioned before slots existed.
+        reviewerSlot: (await this.reviewerSlotOf(reviewerId)) ?? existingCount + 1,
       });
     }
     Object.assign(card, dto);
@@ -155,6 +158,19 @@ export class ScoringService {
 
     assignment.completed = true;
     await this.assignmentRepo.save(assignment);
+
+    // Tell the other reviewer their counterpart has scored (without revealing the score).
+    const counterparts = await this.assignmentRepo.find({
+      where: { applicationId, queueType: ReviewerQueueType.SCORING },
+    });
+    for (const other of counterparts.filter((a) => a.reviewerId !== reviewerId && !a.completed)) {
+      await this.notificationsService.notifyUser(
+        other.reviewerId,
+        'Your counterpart has submitted their score',
+        `The other scoring reviewer has scored ${application.organisationLegalName || application.applicationRef}. Submit your score to complete scoring.`,
+        `/internal/applications/${applicationId}`,
+      );
+    }
 
     await this.auditLogService.record({
       actorId: reviewerId,
@@ -176,6 +192,13 @@ export class ScoringService {
     weights: RubricWeights,
   ): number {
     return compositePercent(scores, weights);
+  }
+
+  private async reviewerSlotOf(reviewerId: string): Promise<number | null> {
+    const reviewer = await this.applicationRepo.manager
+      .getRepository(User)
+      .findOne({ where: { id: reviewerId } });
+    return reviewer?.scoringSlot ?? null;
   }
 
   private async loadWeights(): Promise<RubricWeights> {

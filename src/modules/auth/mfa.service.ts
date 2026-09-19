@@ -68,7 +68,7 @@ export class MfaService {
       this.configService.getOrThrow<string>('mfa.encryptionKey');
     const secret = decrypt(record.encryptedSecret, encryptionKey);
 
-    const valid = authenticator.verify({ token: code, secret });
+    const valid = authenticator.verify({ token: (code ?? '').trim(), secret });
     if (!valid) {
       throw new UnauthorizedException('Invalid verification code');
     }
@@ -116,7 +116,9 @@ export class MfaService {
       this.configService.getOrThrow<string>('mfa.encryptionKey');
     const secret = decrypt(record.encryptedSecret, encryptionKey);
 
-    if (authenticator.verify({ token: code, secret })) {
+    // Tolerate stray whitespace, and backup codes typed in lower case (they are issued upper-case).
+    const submitted = code.trim();
+    if (authenticator.verify({ token: submitted, secret })) {
       return true;
     }
     // console.log('DEBUG — secret in DB:', secret);
@@ -126,7 +128,7 @@ export class MfaService {
     //   authenticator.generate(secret),
     // );
 
-    return this.tryConsumeBackupCode(record, code);
+    return this.tryConsumeBackupCode(record, submitted.toUpperCase());
   }
 
   async disable(userId: string) {

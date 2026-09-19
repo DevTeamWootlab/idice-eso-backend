@@ -1,10 +1,4 @@
-import {
-  IsEmail,
-  IsString,
-  IsEnum,
-  IsOptional,
-  MinLength,
-} from 'class-validator';
+import { IsEmail, IsString, IsEnum, IsOptional, MinLength, IsIn, IsInt } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Role } from '@/common/enums/role.enum';
 
@@ -37,4 +31,14 @@ export class ProvisionInternalUserDto {
   @IsOptional()
   @IsString()
   assignedState?: string; // required in practice for VALIDATOR, enforced in service
+
+  @ApiPropertyOptional({
+    description:
+      'Scoring Reviewers only: 1 = Reviewer 1, 2 = Reviewer 2. Omit to take the first free slot. At most two scoring reviewers can be active.',
+    enum: [1, 2],
+  })
+  @IsOptional()
+  @IsInt()
+  @IsIn([1, 2])
+  scoringSlot?: number;
 }

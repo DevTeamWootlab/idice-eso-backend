@@ -86,7 +86,7 @@ await step('public intake accepts a Skills-pillar youth', async () => {
     auth: false,
     body: {
       fullName: `SMOKE TEST ${stamp}`, dateOfBirth: '2002-05-14', gender: 'FEMALE', phoneNumber: `+234${digits().slice(0, 10)}`,
-      email: state.email, nin: digits(), isNeet: false, isCurrentStudent: false, isRecentGraduate: true,
+      email: state.email, nin: digits(), isNeet: false, isCurrentStudent: false, isRecentGraduate: true, academicStatus: 'RECENT_GRADUATE',
       stateOfOrigin: 'BENUE', stateOfResidence: 'BENUE', lga: 'Makurdi', homeAddress: '1 Smoke Test Road',
       pillar: 'SKILLS', preferredInstitutionId: state.institution.id, ndprConsentGiven: true, codeOfConductAccepted: true,
       skillsProfile: { preferredHubType: 'STANDARD', skillTier: 'FOUNDATIONAL', specificSkillArea: 'Customer service', highestEducationLevel: 'OND', ownsPersonalDevice: true, hasReliableInternet: true },

@@ -34,6 +34,33 @@ export class InAppNotificationsService {
     return this.create(user.id, title, message, href);
   }
 
+  /** Notify every active user of a role (validators can be scoped to their assigned state). */
+  async createForRole(
+    role: string,
+    title: string,
+    message: string,
+    href?: string,
+    scope: { state?: string } = {},
+  ): Promise<number> {
+    const query = this.dataSource
+      .getRepository(User)
+      .createQueryBuilder('user')
+      .select('user.id')
+      .where('user.role = :role', { role })
+      .andWhere('user.isActive = true');
+    if (scope.state) {
+      query.andWhere('UPPER(user.assignedState) = UPPER(:state)', { state: scope.state.trim() });
+    }
+    const users = await query.getMany();
+    if (users.length === 0) return 0;
+    await this.repo.save(
+      users.map((user) =>
+        this.repo.create({ userId: user.id, title, message, href: href ?? null, readAt: null }),
+      ),
+    );
+    return users.length;
+  }
+
   async listMine(userId: string, limit = DEFAULT_LIMIT) {
     const [rows, unreadCount] = await Promise.all([
       this.repo.find({

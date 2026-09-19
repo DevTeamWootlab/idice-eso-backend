@@ -17,4 +17,7 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   assignedState?: string; // only relevant for ROLE_VALIDATOR
+
+  @IsOptional()
+  scoringSlot?: number | null; // only relevant for ROLE_SCORING_REVIEWER
 }

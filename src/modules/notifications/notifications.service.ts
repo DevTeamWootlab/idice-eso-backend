@@ -183,6 +183,21 @@ export class NotificationsService {
     }
   }
 
+  /** Best-effort in-app notification for everyone holding a role (never throws). */
+  async notifyRole(
+    role: string,
+    title: string,
+    message: string,
+    href?: string,
+    scope: { state?: string } = {},
+  ) {
+    try {
+      await this.inApp.createForRole(role, title, message, href, scope);
+    } catch {
+      return;
+    }
+  }
+
   async sendBeneficiaryAllocated(
     email: string,
     phone: string,

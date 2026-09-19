@@ -40,6 +40,7 @@ import {
 } from './admin-applications.query';
 import { Match } from '@/modules/matching/entities/match.entity';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
+import { validateReviewerPair, validateReassignSlot } from '@/modules/users/user-rules';
 
 const EDITABLE_STATUSES = [
   ApplicationStatus.DRAFT,
@@ -380,28 +381,16 @@ export class ApplicationsService {
       );
     }
 
-    if (reviewerIds[0] === reviewerIds[1]) {
-      throw new BadRequestException(
-        'The two scoring reviewers must be different people',
-      );
-    }
-
-    for (const reviewerId of reviewerIds) {
-      const reviewer = await this.usersService.findById(reviewerId);
-      if (!reviewer) {
-        throw new NotFoundException(`Reviewer ${reviewerId} not found`);
-      }
-      if (reviewer.role !== Role.SCORING_REVIEWER) {
-        throw new BadRequestException(
-          `User ${reviewer.email} does not hold the Scoring Reviewer role`,
-        );
-      }
-      if (!reviewer.isActive) {
-        throw new BadRequestException(
-          `User ${reviewer.email} is not an active account`,
-        );
-      }
-    }
+    const found = await Promise.all(reviewerIds.map((id) => this.usersService.findById(id)));
+    const pairProblem = validateReviewerPair(
+      reviewerIds,
+      found.flatMap((r) =>
+        r
+          ? [{ id: r.id, email: r.email, role: r.role, isActive: r.isActive, scoringSlot: r.scoringSlot ?? null }]
+          : [],
+      ),
+    );
+    if (pairProblem) throw new BadRequestException(pairProblem);
 
     const existing = await this.reviewerAssignmentRepo.find({
       where: { applicationId, queueType: ReviewerQueueType.SCORING },
@@ -476,6 +465,12 @@ export class ApplicationsService {
         'The incoming reviewer must be an active Scoring Reviewer account',
       );
     }
+    const outgoingReviewer = await this.usersService.findById(outgoingReviewerId);
+    const slotProblem = validateReassignSlot(
+      outgoingReviewer?.scoringSlot ?? null,
+      incomingReviewer.scoringSlot ?? null,
+    );
+    if (slotProblem) throw new BadRequestException(slotProblem);
 
     const otherAssignment = await this.reviewerAssignmentRepo.findOne({
       where: { applicationId, queueType: ReviewerQueueType.SCORING },

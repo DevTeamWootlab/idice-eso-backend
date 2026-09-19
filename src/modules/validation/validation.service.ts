@@ -59,7 +59,7 @@ export class ValidationService {
     return this.applicationRepo
       .createQueryBuilder('application')
       .innerJoinAndSelect('application.preferredInstitution', 'institution')
-      .where('institution.state = :state', { state: validator.assignedState })
+      .where('UPPER(institution.state) = UPPER(:state)', { state: validator.assignedState.trim() })
       .andWhere('application.status IN (:...statuses)', {
         statuses: [
           ApplicationStatus.SHORTLISTED,

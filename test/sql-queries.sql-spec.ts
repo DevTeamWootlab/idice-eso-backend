@@ -261,4 +261,44 @@ describe('new SQL against a real PostgreSQL', () => {
       expect(Number(rows.find((r: { dimensionCode: string }) => r.dimensionCode === 'LOCAL_PRESENCE').weightPercentage)).toBe(30);
     });
   });
+  describe('PCU filters and CoE drill-down', () => {
+    const metrics = (filters: object) => new MelService(ds).getPcuMetrics(filters as never);
+
+    it('narrows by state (case-insensitive), CoE and regulator', async () => {
+      expect((await metrics({ state: 'benue' })).youthEnrolled.value).toBe(4);
+      expect((await metrics({ state: 'Kwara' })).youthEnrolled.value).toBe(1);
+      expect((await metrics({ institutionId: ids.i2 })).youthEnrolled.value).toBe(1);
+      expect((await metrics({ regulator: 'NBTE' })).youthEnrolled.value).toBe(1); // "Beta Poly"
+      expect((await metrics({ regulator: 'NUC' })).youthEnrolled.value).toBe(4); // "Alpha University"
+      expect((await metrics({ state: 'Niger' })).youthEnrolled.value).toBe(0);
+    });
+    it('narrows by cohort, counting only that cohort\'s members, completions and placements', async () => {
+      const co1 = await metrics({ cohortId: ids.co1 });
+      expect(co1.youthEnrolled.value).toBe(4);
+      expect(co1.jobPlacement).toMatchObject({ completers: 3, placed: 1 });
+      const co2 = await metrics({ cohortId: ids.co2 });
+      expect(co2.youthEnrolled.value).toBe(1);
+      expect(co2.jobPlacement).toMatchObject({ completers: 1, placed: 1 });
+    });
+    it('narrows by time period (a bare end date covers that whole day)', async () => {
+      expect((await metrics({ from: '2000-01-01', to: '2999-12-31' })).youthEnrolled.value).toBe(5);
+      expect((await metrics({ from: '2999-01-01' })).youthEnrolled.value).toBe(0);
+      expect((await metrics({ to: '2000-01-01' })).youthEnrolled.value).toBe(0);
+      expect((await metrics({ from: '2999-01-01' })).jobPlacement.completers).toBe(0);
+    });
+    it('drills into one CoE with its mix of youth and every cohort', async () => {
+      const detail = await new MelService(ds).getCoeDetail(ids.i1);
+      expect(detail.institution).toMatchObject({ name: 'Alpha University', regulator: 'NUC' });
+      expect(detail.metrics.youthEnrolled.value).toBe(4);
+      expect(detail.pillars).toEqual([{ key: 'SKILLS', count: 4 }]);
+      expect(detail.cohorts).toHaveLength(2);
+      const web = detail.cohorts.find((c) => c.name === 'Cohort 1')!;
+      expect(web).toMatchObject({ members: 4, completed: 3 });
+    });
+    it('reports a missing CoE as not found', async () => {
+      let message = '';
+      try { await new MelService(ds).getCoeDetail('00000000-0000-4000-8000-000000000000'); } catch (e) { message = String((e as Error).message); }
+      expect(message).toContain('not found');
+    });
+  });
 });
