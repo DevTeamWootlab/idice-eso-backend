@@ -28,15 +28,38 @@ import { toOperatingState } from '@/common/utils/parse-env';
 const DEFAULT_PASSWORD = 'ChangeMe@123';
 const CSV_DIRECTORY = path.resolve(__dirname, '../../../ESO-tables');
 
-const INSTITUTION_BY_STATE: Record<string, string> = {
-  NIGER: '13dcbafd-ff86-443d-a2a7-d6cc8f0802d5',
-  BENUE: 'bc7259b7-1f7c-4c58-80b6-f60d111f84af',
-  KOGI: 'cff2081e-98be-47d7-b379-bb13a3a02189',
-  NASARAWA: 'd902d0b7-704c-40cf-b9c0-f0ad32c54c3b',
-  KWARA: '9f8d08e3-f252-4811-8a34-9338a68e33d2',
-  PLATEAU: 'a40e2f03-679a-4968-a50a-3ca0c4b7fdbc',
-  FCT: '9ffb3115-9348-4003-a9c2-c48dc5c48602',
+const VALID_INSTITUTIONS_BY_STATE: Record<string, string[]> = {
+  BENUE: ['b1e4938d-24b1-4188-ad1c-cfb8a677ca04'],
+  KWARA: ['99706fbd-93da-4dd5-bdd4-f78bf54655f8', 'f6a1ddb3-3fd4-4fdc-82e9-c0cc752677e0'],
+  NIGER: ['f54bbae0-1e38-4cad-8002-2d28fa7f2132', '178d3d19-2b8e-4f07-ab4e-18d0763d293c'],
+  KOGI: ['4e23500d-e934-463b-889f-e1fdd072bc3f', '126dc2f1-9881-49d4-888c-3d99f0af5e42', 'af4c3ea5-cef6-4ad4-b20e-606c1f24cafa'],
+  FCT: ['b1f1db86-c9b3-432d-9c62-e5c26c9bb800'],
+  NASARAWA: ['4aec9a58-c323-4b35-9ddc-dabf0796cba6'],
+  PLATEAU: ['bdda738c-c1c4-4726-8dbb-99e053ca1fc9'],
 };
+
+function resolveValidInstitutionId(
+  rawState: string | undefined,
+  preferredInstitutionId: string | undefined,
+): string | undefined {
+  const stateKey = normalizeText(rawState).toUpperCase();
+  const allowedIds = VALID_INSTITUTIONS_BY_STATE[stateKey] ?? [];
+  if (!allowedIds.length) {
+    return undefined;
+  }
+
+  const candidate = normalizeText(preferredInstitutionId);
+  if (candidate) {
+    const isAllowed = allowedIds.some(
+      (id) => id.toLowerCase() === candidate.toLowerCase(),
+    );
+    if (isAllowed) {
+      return candidate;
+    }
+  }
+
+  return allowedIds[0];
+}
 
 const missingFields: Record<string, string[]> = {};
 const warnings: string[] = [];
@@ -495,9 +518,18 @@ async function seedApplications(dataSource: DataSource) {
 
     const rawFallbackState = row.state || row.sa_state || row.stateOfOperation;
     const fallbackStateEnum = toOperatingState(rawFallbackState);
-    const institutionId =
-      INSTITUTION_BY_STATE[normalizeText(rawFallbackState).toUpperCase()] ||
-      sourceInstitutionId;
+    const institutionId = resolveValidInstitutionId(
+      rawFallbackState,
+      sourceInstitutionId,
+    );
+
+    if (!institutionId) {
+      warnings.push(
+        `eso_applications row skipped: no valid institution mapping for state '${rawFallbackState}' and application ref '${sourceApplicationRef}'.`,
+      );
+      skipped++;
+      continue;
+    }
 
     const parsedStatesOfOperation: OperatingState[] =
       statesOfOperation.length > 0
