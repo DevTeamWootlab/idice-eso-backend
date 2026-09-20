@@ -71,7 +71,7 @@ the PRD reference data:
 
 ```bash
 docker compose up -d postgres
-npm.cmd run db:migration:generate
+npm.cmd run db:migration:generate --name=AddExampleTable
 npm.cmd run db:migrate
 npm.cmd run db:seed
 ```
@@ -82,7 +82,7 @@ The seed is idempotent and loads the 11 Centres of Excellence, the full
 To generate the first schema migration from the current entities:
 
 ```bash
-npm.cmd run db:migration:generate
+npm.cmd run db:migration:generate --name=InitialSchema
 npm.cmd run db:migrate
 ```
 
@@ -175,8 +175,8 @@ Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
 ## Deploying: order of operations
 
 1. **Schema.** The in-app notification inbox added a table (`in_app_notifications`). With `synchronize`
-   off, it only exists once a migration is applied. Against a database at the previous schema run
-   `yarn db:migration:generate`, review the generated file, commit it, then apply with `yarn deploy:prod`
+  off, it only exists once a migration is applied. Against a database at the previous schema run
+  `yarn db:migration:generate --name=AddInAppNotifications`, review the generated file, commit it, then apply with `yarn deploy:prod`
    (`db:migrate:prod` + `db:seed:prod`).
 2. **Seed.** `yarn db:seed:prod` loads the CoEs, the full course catalogue and the six scoring rubric
    dimensions. It is safe to run on every deploy: the rubric seed only inserts *missing* dimensions and never
