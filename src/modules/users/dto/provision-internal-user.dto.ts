@@ -22,15 +22,14 @@ export class ProvisionInternalUserDto {
     example: Role.VALIDATOR,
   })
   @IsEnum(Role)
-  role!: Role; // ELIGIBILITY_REVIEWER, SCORING_REVIEWER, VALIDATOR, or SYSADMIN
-
+  role!: Role; 
   @ApiPropertyOptional({
     description: 'State this user is scoped to — required when role is ROLE_VALIDATOR',
     example: 'FCT',
   })
   @IsOptional()
   @IsString()
-  assignedState?: string; // required in practice for VALIDATOR, enforced in service
+  assignedState?: string;
 
   @ApiPropertyOptional({
     description:

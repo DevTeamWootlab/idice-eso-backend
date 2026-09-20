@@ -76,6 +76,17 @@ export class UsersController {
   }
 
   @ApiOperation({
+    summary: "Reset a user's two-factor authentication",
+    description:
+      'Requires role: ROLE_SYSADMIN. Removes the internal user\'s authenticator secret and backup codes so they are asked to enrol again at their next sign-in. Use when someone is locked out.',
+  })
+  @ApiCreatedResponse({ description: 'Two-factor authentication was reset.' })
+  @Post(':id/reset-mfa')
+  resetMfa(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: JwtPayload) {
+    return this.usersService.resetMfa(id, actor.sub);
+  }
+
+  @ApiOperation({
     summary: 'Resend the invitation email',
     description:
       'Requires role: ROLE_SYSADMIN. Re-sends the activation link to an invited user who has not yet verified their email. Limited to one per minute.',

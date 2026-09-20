@@ -1,4 +1,3 @@
-// modules/users/entities/user.entity.ts
 import { Entity, Column, OneToOne } from 'typeorm';
 import { Exclude } from 'class-transformer';
 import { BaseEntity } from '@common/entities/base.entity';
@@ -9,10 +8,6 @@ export class User extends BaseEntity {
   @Column({ unique: true })
   email!: string;
 
-  // Never serialised on the wire — ClassSerializerInterceptor (registered globally in
-  // main.ts) strips this from every response, including POST /internal/users (which
-  // previously returned the raw entity) and any relation eagerly loaded elsewhere
-  // (e.g. reviewer-assignments' `reviewer: true`).
   @Exclude()
   @Column()
   passwordHash!: string;
@@ -32,12 +27,11 @@ export class User extends BaseEntity {
   @Column({ default: true })
   isActive!: boolean;
 
-  // Only populated for ROLE_VALIDATOR — enforces the state-restricted queue filter (TC-VAL-01)
+
   @Column({ nullable: true })
   assignedState!: string;
 
-  // Only for ROLE_SCORING_REVIEWER: 1 = "Reviewer 1", 2 = "Reviewer 2". At most two scoring
-  // reviewers are active at once, each holding a different slot (double-blind scoring).
+
   @Column({ type: 'smallint', nullable: true })
   scoringSlot!: number | null;
 }

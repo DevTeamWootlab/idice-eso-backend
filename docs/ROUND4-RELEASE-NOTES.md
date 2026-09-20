@@ -2,8 +2,10 @@
 
 ## Deploy checklist (in this order)
 
-1. **Run the migration** — `yarn db:migrate:prod`. Adds `users.scoringSlot`, `beneficiaries.academicStatus`,
-   `beneficiaries.allocatedAt` (idempotent: `IF NOT EXISTS`).
+1. **Run the migrations** — `yarn db:migrate:prod`. Two files: `1789820000000-InAppNotifications` (creates the
+   `in_app_notifications` table) and `1789830000000-CorrectionsRound4` (adds `users.scoringSlot`,
+   `beneficiaries.academicStatus`, `beneficiaries.allocatedAt`). Both idempotent. **See DEPLOYMENT-RUNBOOK.md for the full,
+   ordered procedure.**
 2. **Set reviewer slots** — Users & Roles → *Edit* each existing Scoring Reviewer → choose Reviewer 1 or Reviewer 2.
    Until then, assigning reviewers to an application is refused ("has no reviewer slot"). If more than two Scoring
    Reviewers are currently active, suspend the extras first — the new cap of two applies to edits too.
@@ -40,3 +42,37 @@
   only in the PCU report). There is no regulator column yet.
 - **Period filter**: enrolment counts by allocation date, completions and placements by their own dates.
 - **Deleting a user** is not offered (accounts are suspended, not removed).
+
+## Two-factor sign-in: "Invalid or expired MFA code" for every code
+
+The server returns that message only when both the authenticator code and the backup-code check fail. Causes
+fixed in this release:
+
+- **Enrolment re-issued a new secret on every visit** to the setup page (refresh, second sign-in), leaving stale
+  entries in the authenticator app that no longer matched. An unconfirmed secret is now reused.
+- **Backup codes stored in a text column could never match** (read back as a string, iterated character by
+  character). They are now read defensively, and the migration converts the column to jsonb.
+- **Strict clock window** — a code from the adjacent 30-second step is now accepted.
+- The server now logs *why* a check failed (no secret on file / no code matched, with the number of backup codes on
+  file — never the codes themselves).
+- **New: Users & Roles → Reset 2FA** (`POST /internal/users/:id/reset-mfa`, audit-logged) removes someone's secret and
+  backup codes so they enrol again at the next sign-in.
+
+### Unlocking an account right now (before the UI is deployed, or if the only administrator is locked out)
+
+Check what state the account is in:
+
+```sql
+SELECT u.email, u."mfaEnabled", (m.id IS NOT NULL) AS has_secret,
+       pg_typeof(m."backupCodes") AS backup_column_type
+FROM users u LEFT JOIN mfa_secrets m ON m."userId" = u.id
+WHERE u.email = 'admin@idice.eso.wootlab.ng';
+```
+
+Then reset it (the person is asked to enrol again at next sign-in; **delete every old entry for this account in the
+authenticator app first**, then scan the new QR code once):
+
+```sql
+DELETE FROM mfa_secrets WHERE "userId" = (SELECT id FROM users WHERE email = 'admin@idice.eso.wootlab.ng');
+UPDATE users SET "mfaEnabled" = false WHERE email = 'admin@idice.eso.wootlab.ng';
+```

@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -15,9 +11,16 @@ import { randomBytes } from 'crypto';
 import { MfaSecret } from './entities/mfa-secret.entity';
 import { UsersService } from '../users/users.service';
 import { encrypt, decrypt } from '@/common/utils/encryption';
+import { readBackupHashes } from './mfa-utils';
+
+// Accept the code from the neighbouring 30-second step too, so a normal few seconds of clock
+// difference between the phone and the server does not reject a correct code.
+authenticator.options = { ...authenticator.options, window: 1 };
 
 @Injectable()
 export class MfaService {
+  private readonly logger = new Logger(MfaService.name);
+
   constructor(
     @InjectRepository(MfaSecret)
     private readonly mfaSecretRepo: Repository<MfaSecret>,
@@ -32,26 +35,35 @@ export class MfaService {
     }
 
     // 1. Generate a valid Base32 secret string automatically
-    const secret = authenticator.generateSecret();
+    const encryptionKey = this.configService.getOrThrow<string>('mfa.encryptionKey');
     const issuer = this.configService.getOrThrow<string>('mfa.issuer');
 
-    // 2. Generate a valid URL key for authenticator app registration
+    // Setup can be opened many times before it is confirmed (a refresh, a second sign-in). Issuing a
+    // new secret each time left the authenticator app holding stale entries that no longer matched
+    // the database, so every code — and the backup codes — appeared to fail. An unconfirmed secret
+    // is therefore reused until enrolment is completed.
+    const pending = await this.mfaSecretRepo.findOne({ where: { userId: userId } as any });
+    let secret = '';
+    if (pending) {
+      try {
+        secret = decrypt(pending.encryptedSecret, encryptionKey);
+      } catch {
+        secret = '';
+      }
+    }
+    if (!secret) {
+      secret = authenticator.generateSecret();
+      await this.mfaSecretRepo.delete({ userId: userId } as any);
+      await this.mfaSecretRepo.save(
+        this.mfaSecretRepo.create({
+          userId,
+          encryptedSecret: encrypt(secret, encryptionKey),
+          backupCodes: [],
+        } as any),
+      );
+    }
     const otpauthUrl = authenticator.keyuri(email, issuer, secret);
     const qrCodeDataUrl = await qrcode.toDataURL(otpauthUrl);
-
-    const encryptionKey =
-      this.configService.getOrThrow<string>('mfa.encryptionKey');
-    const encryptedSecret = encrypt(secret, encryptionKey);
-
-    await this.mfaSecretRepo.delete({ userId: userId } as any);
-    await this.mfaSecretRepo.save(
-      this.mfaSecretRepo.create({
-        userId,
-        encryptedSecret,
-        backupCodes: [],
-      } as any),
-    );
-
     return { qrCodeDataUrl, manualEntryKey: secret };
   }
   async enable(userId: string, code: string) {
@@ -110,7 +122,12 @@ export class MfaService {
     const record = await this.mfaSecretRepo.findOne({
       where: { userId: userId } as any,
     });
-    if (!record) return false;
+    if (!record) {
+      this.logger.warn(
+        `MFA verification failed for user ${userId}: no authenticator secret on file (flagged as enrolled but never enrolled, or reset)`,
+      );
+      return false;
+    }
 
     const encryptionKey =
       this.configService.getOrThrow<string>('mfa.encryptionKey');
@@ -128,7 +145,14 @@ export class MfaService {
     //   authenticator.generate(secret),
     // );
 
-    return this.tryConsumeBackupCode(record, submitted.toUpperCase());
+    const usedBackup = await this.tryConsumeBackupCode(record, submitted.toUpperCase());
+    if (!usedBackup) {
+      // Reasons only — never the codes or the secret.
+      this.logger.warn(
+        `MFA verification failed for user ${userId}: authenticator code did not match and none of the ${readBackupHashes(record.backupCodes).length} backup code(s) on file matched`,
+      );
+    }
+    return usedBackup;
   }
 
   async disable(userId: string) {
@@ -173,14 +197,14 @@ export class MfaService {
     if (
       !code ||
       typeof code !== 'string' ||
-      !record.backupCodes ||
-      record.backupCodes.length === 0
+      readBackupHashes(record.backupCodes).length === 0
     ) {
       return false;
     }
 
-    for (let i = 0; i < record.backupCodes.length; i++) {
-      const hash = record.backupCodes[i];
+    const hashes = readBackupHashes(record.backupCodes);
+    for (let i = 0; i < hashes.length; i++) {
+      const hash = hashes[i];
 
       if (!hash || typeof hash !== 'string' || !hash.startsWith('$argon2')) {
         continue;
@@ -188,7 +212,8 @@ export class MfaService {
 
       try {
         if (await argon2.verify(hash, code.trim())) {
-          record.backupCodes.splice(i, 1);
+          hashes.splice(i, 1);
+          record.backupCodes = hashes;
           await this.mfaSecretRepo.save(record);
           return true;
         }

@@ -8,6 +8,7 @@ import { UpdateInternalUserDto } from './dto/update-internal-user.dto';
 import { planScoringSlot, validateUserUpdate } from './user-rules';
 import { ReviewerAssignment } from '@/modules/applications/entities/reviewer-assignment.entity';
 import { ReviewerQueueType } from '@/common/enums/reviewer.enum';
+import { MfaSecret } from '../auth/entities/mfa-secret.entity';
 import { AuditLogService } from '@/modules/audit-log/audit-log.service';
 import { ProvisionInternalUserDto } from './dto/provision-internal-user.dto';
 import { Role } from '@/common/enums/role.enum';
@@ -242,6 +243,30 @@ export class UsersService {
       },
     });
     return updated;
+  }
+
+  /**
+   * Unlocks someone who can no longer pass two-factor sign-in (lost phone, lost backup codes, stale
+   * authenticator entry): removes their authenticator secret and backup codes, so the next sign-in
+   * walks them through enrolment again. Internal accounts only.
+   */
+  async resetMfa(id: string, actorId: string): Promise<{ reset: true }> {
+    const user = await this.findById(id);
+    if (!user) throw new NotFoundException('User not found');
+    if (!INTERNAL_ROLES.includes(user.role)) {
+      throw new BadRequestException('Applicant accounts do not use two-factor sign-in');
+    }
+    await this.dataSource.getRepository(MfaSecret).delete({ userId: id } as any);
+    await this.userRepo.update(id, { mfaEnabled: false });
+    await this.auditLogService.record({
+      actorId,
+      actorRole: 'ROLE_SYSADMIN',
+      action: 'USER_MFA_RESET',
+      entityType: 'User',
+      entityId: id,
+      metadata: { email: user.email },
+    });
+    return { reset: true };
   }
 
   /** Re-sends the activation email to an invited (not yet verified) internal user. */

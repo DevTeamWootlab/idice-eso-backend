@@ -6,10 +6,6 @@ export interface SlotHolder {
   scoringSlot: number | null;
 }
 
-/**
- * Double-blind scoring needs exactly two reviewers, "Reviewer 1" and "Reviewer 2". At most
- * two Scoring Reviewer accounts may be active, each holding a distinct slot.
- */
 export function planScoringSlot(
   activeReviewers: SlotHolder[],
   requested?: number | null,
@@ -44,7 +40,7 @@ export interface PairReviewer {
   scoringSlot: number | null;
 }
 
-/** Null when the two chosen people are a valid Reviewer 1 / Reviewer 2 pair. */
+
 export function validateReviewerPair(ids: string[], reviewers: PairReviewer[]): string | null {
   if (ids.length !== 2) return 'Exactly two scoring reviewers (Reviewer 1 and Reviewer 2) are required';
   if (ids[0] === ids[1]) return 'The two scoring reviewers must be different people';
@@ -81,7 +77,7 @@ export interface UserUpdateCheck {
   pendingScoringAssignments: number;
 }
 
-/** Null when the edit is allowed. */
+
 export function validateUserUpdate(check: UserUpdateCheck): string | null {
   const { target, newRole } = check;
   if (target.role === 'ROLE_ESO') return 'Applicant accounts cannot be edited here';
@@ -102,7 +98,6 @@ export function validateUserUpdate(check: UserUpdateCheck): string | null {
   return null;
 }
 
-/** A replacement must hold the same reviewer slot as the person they replace. */
 export function validateReassignSlot(outgoingSlot: number | null, incomingSlot: number | null): string | null {
   if (incomingSlot === null || incomingSlot === undefined) {
     return 'The incoming reviewer has no reviewer slot — open Users & Roles and set them as Reviewer 1 or Reviewer 2';
