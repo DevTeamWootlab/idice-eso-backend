@@ -12,9 +12,50 @@ import { MfaSecret } from '../auth/entities/mfa-secret.entity';
 import { AuditLogService } from '@/modules/audit-log/audit-log.service';
 import { ProvisionInternalUserDto } from './dto/provision-internal-user.dto';
 import { Role } from '@/common/enums/role.enum';
-import { randomUUID } from 'crypto';
+import { randomUUID, randomInt } from 'crypto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailVerificationToken } from '../auth/entities/email-verification-token.entity';
+import { ResetInternalUserPasswordDto } from './dto/reset-internal-user-password.dto';
+import { Application } from '@/modules/applications/entities/application.entity';
+import { ApplicationStatus } from '@/common/enums/application.enum';
+
+const VALIDATION_QUEUE_STATUSES = [
+  ApplicationStatus.SHORTLISTED,
+  ApplicationStatus.PENDING_ECOSYSTEM_VALIDATION,
+  ApplicationStatus.PENDING_VALIDATION,
+];
+
+/**
+ * Generates a one-time temporary password server-side: 14 characters, guaranteed to
+ * include an uppercase letter, a lowercase letter, a digit and a symbol. Used for the
+ * "Reset password" recovery path, where there is no earlier client-generated password
+ * to fall back on (the original plaintext is never recoverable — only the hash is
+ * stored), so the server must be the one to generate it.
+ */
+function generateTemporaryPassword(): string {
+  const groups = ['ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnopqrstuvwxyz', '23456789', '!@#$%*?'];
+  const all = groups.join('');
+  const pick = (pool: string) => pool[randomInt(pool.length)];
+  const chars = [
+    ...groups.map((g) => pick(g)),
+    ...Array.from({ length: 14 - groups.length }, () => pick(all)),
+  ];
+  for (let i = chars.length - 1; i > 0; i -= 1) {
+    const j = randomInt(i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join('');
+}
+
+export interface DeactivationImpact {
+  pendingScoringAssignments: number;
+  pendingScoringApplications: { applicationId: string; organisationName: string; queueSlot: number | null }[];
+  isSoleActiveValidatorForState: boolean;
+  pendingValidationsInState: number;
+  isLastActiveAdmin: boolean;
+  blocked: boolean;
+  blockers: string[];
+}
 
 // The four roles UsersController's GET / and PATCH /:id/status are meant to manage —
 // ROLE_ESO applicants always go through self-registration (POST /auth/register), never
@@ -107,10 +148,166 @@ export class UsersService {
     });
     await this.sendVerificationEmail(user.id, user.email);
 
+    await this.auditLogService.record({
+      actorId: user.id,
+      actorRole: 'ROLE_SYSADMIN',
+      action: 'USER_PROVISIONED',
+      entityType: 'User',
+      entityId: user.id,
+      metadata: { email: user.email, role: user.role },
+    });
+    // The generated password is shown once to the provisioning administrator via the
+    // persistent credentials panel on the frontend — recorded here as a reveal event,
+    // distinct from (and always alongside) provisioning itself.
+    await this.auditLogService.record({
+      actorId: user.id,
+      actorRole: 'ROLE_SYSADMIN',
+      action: 'USER_CREDENTIALS_REVEALED',
+      entityType: 'User',
+      entityId: user.id,
+      metadata: { email: user.email, context: 'provisioning' },
+    });
+
+    if (dto.sendCredentialsEmail) {
+      await this.notificationsService.sendCredentialsEmail(user.email, dto.password, user.fullName);
+      await this.auditLogService.record({
+        actorId: user.id,
+        actorRole: 'ROLE_SYSADMIN',
+        action: 'USER_CREDENTIALS_EMAILED',
+        entityType: 'User',
+        entityId: user.id,
+        metadata: { email: user.email, context: 'provisioning' },
+      });
+    }
+
     return user;
 
     // isEmailVerified stays false — they still verify their own email before first login,
     // isActive defaults true so they show up once verified
+  }
+
+  /**
+   * Recovery path for lost credentials: there is no way to recover the original
+   * plaintext password (only its hash is stored), so this generates a brand new
+   * temporary one server-side, hashes and stores it, and returns the plaintext once
+   * so the admin can hand it off through the same persistent credentials panel used
+   * at provisioning time.
+   */
+  async resetPassword(
+    id: string,
+    actorId: string,
+    dto: ResetInternalUserPasswordDto,
+  ): Promise<{ email: string; temporaryPassword: string }> {
+    const user = await this.findById(id);
+    if (!user) throw new NotFoundException('User not found');
+    if (!INTERNAL_ROLES.includes(user.role)) {
+      throw new BadRequestException('Applicant accounts use self-service password reset instead');
+    }
+
+    const temporaryPassword = generateTemporaryPassword();
+    const passwordHash = await argon2.hash(temporaryPassword);
+    await this.userRepo.update(id, { passwordHash });
+
+    await this.auditLogService.record({
+      actorId,
+      actorRole: 'ROLE_SYSADMIN',
+      action: 'USER_PASSWORD_RESET',
+      entityType: 'User',
+      entityId: id,
+      metadata: { email: user.email },
+    });
+    await this.auditLogService.record({
+      actorId,
+      actorRole: 'ROLE_SYSADMIN',
+      action: 'USER_CREDENTIALS_REVEALED',
+      entityType: 'User',
+      entityId: id,
+      metadata: { email: user.email, context: 'password-reset' },
+    });
+
+    if (dto.sendCredentialsEmail) {
+      await this.notificationsService.sendCredentialsEmail(user.email, temporaryPassword, user.fullName);
+      await this.auditLogService.record({
+        actorId,
+        actorRole: 'ROLE_SYSADMIN',
+        action: 'USER_CREDENTIALS_EMAILED',
+        entityType: 'User',
+        entityId: id,
+        metadata: { email: user.email, context: 'password-reset' },
+      });
+    }
+
+    return { email: user.email, temporaryPassword };
+  }
+
+  /**
+   * What is tied to this account, for the "Deactivate" confirmation flow. A scoring
+   * reviewer with uncompleted assignments, or the only active validator covering a
+   * state that still has applications waiting in its validation queue, cannot be
+   * silently deactivated — the admin needs to reassign that work first.
+   */
+  async getDeactivationImpact(id: string): Promise<DeactivationImpact> {
+    const user = await this.findById(id);
+    if (!user) throw new NotFoundException('User not found');
+
+    let pendingScoringApplications: DeactivationImpact['pendingScoringApplications'] = [];
+    if (user.role === Role.SCORING_REVIEWER) {
+      const assignments = await this.dataSource.getRepository(ReviewerAssignment).find({
+        where: { reviewerId: id, queueType: ReviewerQueueType.SCORING, completed: false },
+        relations: ['application'],
+      });
+      pendingScoringApplications = assignments.map((a) => ({
+        applicationId: a.applicationId,
+        organisationName: a.application?.organisationLegalName ?? a.applicationId,
+        queueSlot: user.scoringSlot ?? null,
+      }));
+    }
+
+    let isSoleActiveValidatorForState = false;
+    let pendingValidationsInState = 0;
+    if (user.role === Role.VALIDATOR && user.assignedState) {
+      const otherValidators = await this.userRepo.count({
+        where: { role: Role.VALIDATOR, isActive: true, assignedState: user.assignedState },
+      });
+      isSoleActiveValidatorForState = user.isActive && otherValidators <= 1;
+      if (isSoleActiveValidatorForState) {
+        pendingValidationsInState = await this.dataSource
+          .getRepository(Application)
+          .createQueryBuilder('application')
+          .innerJoin('application.preferredInstitution', 'institution')
+          .where('UPPER(institution.state) = UPPER(:state)', { state: user.assignedState.trim() })
+          .andWhere('application.status IN (:...statuses)', { statuses: VALIDATION_QUEUE_STATUSES })
+          .getCount();
+      }
+    }
+
+    const isLastActiveAdmin =
+      user.role === Role.SYSADMIN && user.isActive && (await this.countActiveAdmins()) <= 1;
+
+    const blockers: string[] = [];
+    if (pendingScoringApplications.length > 0) {
+      blockers.push(
+        `${pendingScoringApplications.length} unscored application(s) are still assigned to this reviewer — reassign them first (from each application's detail page) or nominate a replacement below.`,
+      );
+    }
+    if (isSoleActiveValidatorForState && pendingValidationsInState > 0) {
+      blockers.push(
+        `This is the only active validator for ${user.assignedState} and ${pendingValidationsInState} application(s) are waiting in that state's validation queue — assign another validator to ${user.assignedState} first, or nominate a replacement below.`,
+      );
+    }
+    if (isLastActiveAdmin) {
+      blockers.push('This is the last active administrator — assign another administrator first.');
+    }
+
+    return {
+      pendingScoringAssignments: pendingScoringApplications.length,
+      pendingScoringApplications,
+      isSoleActiveValidatorForState,
+      pendingValidationsInState,
+      isLastActiveAdmin,
+      blocked: blockers.length > 0,
+      blockers,
+    };
   }
 
   setMfaEnabled(id: string, enabled: boolean) {
@@ -149,7 +346,13 @@ export class UsersService {
     return this.userRepo.count({ where: { role: Role.SYSADMIN, isActive: true } });
   }
 
-  async setActive(id: string, isActive: boolean, actorId?: string): Promise<User> {
+  async setActive(
+    id: string,
+    isActive: boolean,
+    actorId?: string,
+    reason?: string,
+    acknowledgeOpenWork?: boolean,
+  ): Promise<User> {
     const user = await this.findById(id);
     if (!user) {
       throw new NotFoundException('User not found');
@@ -160,6 +363,30 @@ export class UsersService {
       }
       if (user.role === Role.SYSADMIN && user.isActive && (await this.countActiveAdmins()) <= 1) {
         throw new ConflictException('This is the last active administrator — assign another administrator first');
+      }
+
+      const impact = await this.getDeactivationImpact(id);
+      if (impact.blocked) {
+        // The last-active-administrator case is a hard stop — there is no acknowledgment
+        // that makes deactivating the only admin account safe.
+        if (impact.isLastActiveAdmin) {
+          throw new ConflictException('This is the last active administrator — assign another administrator first');
+        }
+        // Everything else (unscored assignments, sole validator coverage of a state)
+        // is a soft stop: the first attempt is refused with the breakdown below so this
+        // can never happen silently, but a second, explicit acknowledgment is allowed
+        // to proceed — the platform has no way to force a same-slot replacement to
+        // exist right now (Scoring Reviewer accounts are capped at two active at a
+        // time, so a slot only frees up once its holder is deactivated), so open
+        // scoring assignments necessarily outlive the reviewer being deactivated and
+        // must be reassigned per-application afterwards, once a replacement is in place.
+        if (!acknowledgeOpenWork) {
+          throw new ConflictException({
+            message: "This account has open work tied to it. Review what's open before deactivating.",
+            blockers: impact.blockers,
+            impact,
+          });
+        }
       }
     }
     if (isActive && !user.isActive && user.role === Role.SCORING_REVIEWER) {
@@ -178,7 +405,11 @@ export class UsersService {
       action: isActive ? 'USER_REACTIVATED' : 'USER_SUSPENDED',
       entityType: 'User',
       entityId: id,
-      metadata: { email: user.email },
+      metadata: {
+        email: user.email,
+        ...(reason ? { reason } : {}),
+        ...(!isActive && acknowledgeOpenWork ? { deactivatedWithOpenWork: true } : {}),
+      },
     });
     return user;
   }

@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsEnum, IsOptional, MinLength, IsIn, IsInt } from 'class-validator';
+import { IsEmail, IsString, IsEnum, IsOptional, MinLength, IsIn, IsInt, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Role } from '@/common/enums/role.enum';
 
@@ -40,4 +40,14 @@ export class ProvisionInternalUserDto {
   @IsInt()
   @IsIn([1, 2])
   scoringSlot?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Off by default. When true, the email address and generated password are sent directly to the ' +
+      'user via email, in addition to being shown once to the administrator provisioning the account.',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  sendCredentialsEmail?: boolean;
 }
