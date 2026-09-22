@@ -254,7 +254,7 @@ export class UsersService {
     if (user.role === Role.SCORING_REVIEWER) {
       const assignments = await this.dataSource.getRepository(ReviewerAssignment).find({
         where: { reviewerId: id, queueType: ReviewerQueueType.SCORING, completed: false },
-        relations: ['application'],
+        relations: { application: true },
       });
       pendingScoringApplications = assignments.map((a) => ({
         applicationId: a.applicationId,
