@@ -62,6 +62,31 @@ export class NotificationsService {
     );
   }
 
+  /**
+   * Opt-in only — triggered by an explicit, off-by-default "Also email these
+   * credentials to the user" checkbox at provisioning/reset time. Never sent
+   * automatically. Puts the plaintext temporary password in the body, which is a
+   * real tradeoff (a password sitting in an inbox), so this is deliberately not
+   * the default delivery path — the persistent on-screen panel is.
+   */
+  async sendCredentialsEmail(email: string, password: string, fullName: string) {
+    const link = `${this.frontendUrl()}/login`;
+    await this.mail.send(
+      email,
+      'Your iDICE ESO Portal account',
+      this.renderHtmlTemplate(
+        'Your account is ready',
+        `Hi ${fullName}, an account has been created for you on the iDICE ESO Portal.<br /><br />` +
+          `Email: <strong>${email}</strong><br />` +
+          `Temporary password: <strong>${password}</strong><br /><br />` +
+          `You'll be asked to verify your email and set up two-factor authentication the first time you sign in. ` +
+          `For your security, please sign in and change this password as soon as possible, and do not forward this email.`,
+        'Sign in',
+        link,
+      ),
+    );
+  }
+
   async sendEligibilityRejection(email: string, remarks: string) {
     await this.tryInApp(email, 'Application not successful', `Your application was not successful at the eligibility stage. Reason: ${remarks}`);
     await this.mail.send(

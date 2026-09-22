@@ -81,7 +81,7 @@ export class TrainingController {
   enroll(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: EnrollBeneficiariesDto,
-  ) {
+  ): Promise<EnrolResultDto> {
     return this.trainingService.enroll(id, dto);
   }
 
@@ -96,7 +96,7 @@ export class TrainingController {
   recordCompletions(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RecordCompletionsDto,
-  ) {
+  ): Promise<CompletionsResultDto> {
     return this.trainingService.recordCompletions(id, dto);
   }
 }

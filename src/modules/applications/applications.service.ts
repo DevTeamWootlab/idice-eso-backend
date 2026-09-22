@@ -38,7 +38,8 @@ import {
   parseStatusFilter,
   totalPagesFor,
 } from './admin-applications.query';
-import { Match } from '@/modules/matching/entities/match.entity';
+import { Match, MatchStatus } from '@/modules/matching/entities/match.entity';
+import { BeneficiariesService } from '@/modules/beneficiaries/beneficiaries.service';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
 import { validateReviewerPair, validateReassignSlot } from '@/modules/users/user-rules';
 
@@ -66,6 +67,7 @@ export class ApplicationsService {
     private readonly auditLogService: AuditLogService,
     private readonly usersService: UsersService,
     private readonly notificationsService: NotificationsService,
+    private readonly beneficiariesService: BeneficiariesService,
   ) {}
 
   async findMine(userId: string): Promise<Application[]> {
@@ -232,6 +234,35 @@ export class ApplicationsService {
           }
         : null,
     };
+  }
+
+  /**
+   * Correction: a beneficiary must be visible to (and only to) the specific ESO
+   * matched — and committed — to the Centre of Excellence that beneficiary was
+   * actually allocated to, and only once the ESO matching process has produced that
+   * commitment. Resolves institutionId from this ESO's own ACCEPTED Match record —
+   * never from anything the client supplies — so there is no way for one ESO to see
+   * another's cohort by passing a different institution. Uses the same MATCHED gate
+   * as getApplicantMatch above: an application that hasn't been committed yet gets a
+   * 403, not an empty list, so the difference between "not matched yet" and "matched,
+   * nobody allocated yet" stays visible to the caller.
+   */
+  async getApplicantBeneficiaries(userId: string, id: string) {
+    const application = await this.findOneOwned(userId, id);
+    if (application.status !== ApplicationStatus.MATCHED) {
+      throw new ForbiddenException(
+        'This application has not been matched to a Centre of Excellence yet',
+      );
+    }
+    const match = await this.dataSource
+      .getRepository(Match)
+      .findOne({ where: { applicationId: id, status: MatchStatus.ACCEPTED } });
+    if (!match) {
+      throw new ForbiddenException(
+        'This application has not been matched to a Centre of Excellence yet',
+      );
+    }
+    return this.beneficiariesService.listForEso(match.institutionId);
   }
 
   private async findOrCreateDraft(userId: string): Promise<Application> {

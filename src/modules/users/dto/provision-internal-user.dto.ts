@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsEnum, IsOptional, MinLength, IsIn, IsInt } from 'class-validator';
+import { IsEmail, IsString, IsEnum, IsOptional, MinLength, IsIn, IsInt, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Role } from '@/common/enums/role.enum';
 
@@ -22,15 +22,14 @@ export class ProvisionInternalUserDto {
     example: Role.VALIDATOR,
   })
   @IsEnum(Role)
-  role!: Role; // ELIGIBILITY_REVIEWER, SCORING_REVIEWER, VALIDATOR, or SYSADMIN
-
+  role!: Role; 
   @ApiPropertyOptional({
     description: 'State this user is scoped to — required when role is ROLE_VALIDATOR',
     example: 'FCT',
   })
   @IsOptional()
   @IsString()
-  assignedState?: string; // required in practice for VALIDATOR, enforced in service
+  assignedState?: string;
 
   @ApiPropertyOptional({
     description:
@@ -41,4 +40,14 @@ export class ProvisionInternalUserDto {
   @IsInt()
   @IsIn([1, 2])
   scoringSlot?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Off by default. When true, the email address and generated password are sent directly to the ' +
+      'user via email, in addition to being shown once to the administrator provisioning the account.',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  sendCredentialsEmail?: boolean;
 }

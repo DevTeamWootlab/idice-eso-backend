@@ -67,6 +67,21 @@ export class ApplicationsController {
     return this.applicationsService.getApplicantMatch(user.sub, id);
   }
 
+  @ApiOperation({
+    summary: 'My matched cohort of beneficiaries',
+    description:
+      'Requires role: ROLE_ESO (owner only). Only beneficiaries ALLOCATED to the Centre of Excellence ' +
+      'this application is matched to — 403 until the match is committed (application status MATCHED).',
+  })
+  @ApiOkResponse({ description: 'The institution this ESO is matched to, and its allocated beneficiaries.' })
+  @Get(':id/beneficiaries')
+  beneficiaries(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.applicationsService.getApplicantBeneficiaries(user.sub, id);
+  }
+
   @ApiOkResponse({ description: 'The application with its documents, personnel and references' })
   @ApiOperation({ summary: 'Get one of my applications by ID', description: 'Requires role: ROLE_ESO' })
   @Get(':id')

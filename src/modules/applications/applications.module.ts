@@ -14,6 +14,7 @@ import { ApplicationsController } from './applications.controller';
 import { AdminApplicationsController } from './admin-applications.controller';
 import { InternalApplicationAccessController } from './internal-application-access.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { BeneficiariesModule } from '../beneficiaries/beneficiaries.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     StorageModule,
     UsersModule,
     NotificationsModule,
+    BeneficiariesModule,
   ],
   controllers: [
     ApplicationsController,
