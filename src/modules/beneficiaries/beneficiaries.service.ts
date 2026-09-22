@@ -26,6 +26,13 @@ import {
   totalPagesFor,
 } from '@/modules/applications/admin-applications.query';
 import { checkAcademicStatus } from './academic-status';
+import {
+  EsoBeneficiaryAccelerationDto,
+  EsoBeneficiaryDto,
+  EsoBeneficiaryIncubationDto,
+  EsoBeneficiaryListDto,
+  EsoBeneficiarySkillsDto,
+} from './dto/eso-beneficiary-response.dto';
 @Injectable()
 export class BeneficiariesService {
   constructor(
@@ -87,6 +94,111 @@ export class BeneficiariesService {
       .getManyAndCount();
 
     return { items, total, page, limit, totalPages: totalPagesFor(total, limit) };
+  }
+
+  /**
+   * A matched ESO's own view of their cohort: only beneficiaries actually ALLOCATED
+   * (by a SYSADMIN, via updateStatusForAdmin) to the Centre of Excellence this ESO is
+   * matched to — never everyone who merely typed that CoE as a preference at intake,
+   * and never NIN (not selected off the entity by default) or other KYC fields an ESO
+   * doesn't need to run training/incubation/acceleration.
+   *
+   * The caller (ApplicationsService.getApplicantBeneficiaries) is responsible for
+   * resolving institutionId from the ESO's own committed Match record — this method
+   * trusts whatever institutionId it is given, so it must never be called with one
+   * sourced from client input.
+   */
+  async listForEso(institutionId: string): Promise<EsoBeneficiaryListDto> {
+    const institution = await this.dataSource.getRepository(Institution).findOne({
+      where: { id: institutionId },
+    });
+    if (!institution) throw new NotFoundException('Institution not found');
+
+    const beneficiaries = await this.beneficiaryRepo.find({
+      where: { assignedInstitutionId: institutionId, status: BeneficiaryStatus.ALLOCATED },
+      relations: { skillsProfile: true, incubationProfile: true, accelerationProfile: true },
+      order: { allocatedAt: 'DESC' },
+    });
+
+    return {
+      institution: { id: institution.id, name: institution.name, state: institution.state },
+      items: beneficiaries.map((b) => this.toEsoBeneficiaryDto(b)),
+    };
+  }
+
+  private toEsoBeneficiaryDto(b: Beneficiary): EsoBeneficiaryDto {
+    const skillsProfile: EsoBeneficiarySkillsDto | null = b.skillsProfile
+      ? {
+          preferredHubType: b.skillsProfile.preferredHubType,
+          skillTier: b.skillsProfile.skillTier,
+          specificSkillArea: b.skillsProfile.specificSkillArea,
+          priorExperience: b.skillsProfile.priorExperience ?? null,
+          highestEducationLevel: b.skillsProfile.highestEducationLevel,
+          ownsPersonalDevice: b.skillsProfile.ownsPersonalDevice,
+          hasReliableInternet: b.skillsProfile.hasReliableInternet,
+          portfolioLink: b.skillsProfile.portfolioLink ?? null,
+        }
+      : null;
+
+    const incubationProfile: EsoBeneficiaryIncubationDto | null = b.incubationProfile
+      ? {
+          ventureName: b.incubationProfile.ventureName ?? null,
+          sectorFocus: b.incubationProfile.sectorFocus,
+          problemStatement: b.incubationProfile.problemStatement,
+          proposedSolution: b.incubationProfile.proposedSolution,
+          targetCustomer: b.incubationProfile.targetCustomer,
+          currentStage: b.incubationProfile.currentStage,
+          teamSizeAndRoles: b.incubationProfile.teamSizeAndRoles,
+          technologyPlatform: b.incubationProfile.technologyPlatform ?? null,
+          supportNeeded: b.incubationProfile.supportNeeded ?? null,
+          availableForFullDuration: b.incubationProfile.availableForFullDuration,
+        }
+      : null;
+
+    const accelerationProfile: EsoBeneficiaryAccelerationDto | null = b.accelerationProfile
+      ? {
+          registeredBusinessName: b.accelerationProfile.registeredBusinessName,
+          cacRegistrationNumber: b.accelerationProfile.cacRegistrationNumber,
+          yearFounded: b.accelerationProfile.yearFounded,
+          sector: b.accelerationProfile.sector,
+          employeeCount: b.accelerationProfile.employeeCount ?? null,
+          estimatedMonthlyRevenueNgn: b.accelerationProfile.estimatedMonthlyRevenueNgn ?? null,
+          keyTraction: b.accelerationProfile.keyTraction ?? null,
+          hasRaisedExternalFunding: b.accelerationProfile.hasRaisedExternalFunding,
+          fundingSourceDetails: b.accelerationProfile.fundingSourceDetails ?? null,
+          primaryGrowthChallenge: b.accelerationProfile.primaryGrowthChallenge,
+          supportNeeded: b.accelerationProfile.supportNeeded ?? null,
+          twelveMonthGrowthTarget: b.accelerationProfile.twelveMonthGrowthTarget ?? null,
+          liveProductUrl: b.accelerationProfile.liveProductUrl ?? null,
+          hasPitchDeck: !!b.accelerationProfile.pitchDeckStorageKey,
+        }
+      : null;
+
+    return {
+      id: b.id,
+      referenceId: b.referenceId,
+      fullName: b.fullName,
+      gender: b.gender,
+      email: b.email,
+      phoneNumber: b.phoneNumber,
+      isNeet: b.isNeet,
+      isCurrentStudent: b.isCurrentStudent,
+      isRecentGraduate: b.isRecentGraduate,
+      academicStatus: b.academicStatus ?? null,
+      institutionName: b.institutionName ?? null,
+      studentMatricNumber: b.studentMatricNumber ?? null,
+      pwdAssistiveRequirement: b.pwdAssistiveRequirement ?? null,
+      stateOfOrigin: b.stateOfOrigin,
+      stateOfResidence: b.stateOfResidence,
+      lga: b.lga,
+      pillar: b.pillar,
+      status: b.status,
+      allocatedAt: b.allocatedAt ? new Date(b.allocatedAt).toISOString() : null,
+      statementOfPurpose: b.statementOfPurpose ?? null,
+      skillsProfile,
+      incubationProfile,
+      accelerationProfile,
+    };
   }
 
   async updateStatusForAdmin(id: string, dto: UpdateBeneficiaryStatusDto) {
