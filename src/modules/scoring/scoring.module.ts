@@ -10,6 +10,8 @@ import { ScoringService } from './scoring.service';
 import { ScoringController } from './scoring.controller';
 import { RubricConfiguration } from './entities/rubric-configuration.entity';
 import { ScoringSettingsController } from './scoring-settings.controller';
+import { ScoringIntegrityController } from './scoring-integrity.controller';
+import { ScoringIntegrityService } from './scoring-integrity.service';
 
 @Module({
   imports: [
@@ -22,7 +24,7 @@ import { ScoringSettingsController } from './scoring-settings.controller';
     ApplicationsModule,
     NotificationsModule,
   ],
-  controllers: [ScoringController, ScoringSettingsController],
-  providers: [ScoringService],
+  controllers: [ScoringController, ScoringSettingsController, ScoringIntegrityController],
+  providers: [ScoringService, ScoringIntegrityService],
 })
 export class ScoringModule {}

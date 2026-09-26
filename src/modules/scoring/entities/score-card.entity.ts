@@ -4,6 +4,7 @@ import { Application } from '@/modules/applications/entities/application.entity'
 import { User } from '@modules/users/entities/user.entity';
 import { IsNotEmpty, IsNumber, Max, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { decimalTransformer } from '@/common/utils/decimal.transformer';
 
 export enum ScoringReviewerSlot {
   REVIEWER_ONE = 'REVIEWER_ONE',
@@ -90,10 +91,10 @@ export class ScoreCard extends BaseEntity {
   @IsNotEmpty()
   @Min(0)
   @Max(5)
-  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true, transformer: decimalTransformer })
   compositeScore?: number | null;
 
-  @Column({ type: 'decimal', precision: 5, scale: 2 })
+  @Column({ type: 'decimal', precision: 5, scale: 2, transformer: decimalTransformer })
   @ApiProperty({ example: 4 })
   @IsNumber()
   @IsNotEmpty()

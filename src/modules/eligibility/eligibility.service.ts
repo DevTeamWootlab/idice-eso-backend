@@ -223,6 +223,7 @@ export class EligibilityService {
       await this.notificationsService.sendEligibilityRejection(
         application.primaryContactEmail,
         rejectionRemarks,
+        application.applicationRef,
       );
     }
 
@@ -267,6 +268,7 @@ export class EligibilityService {
     await this.notificationsService.sendReworkRequested(
       application.primaryContactEmail,
       [notes],
+      application.applicationRef,
     );
     return { message: 'Rework requested' };
   }

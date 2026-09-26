@@ -31,6 +31,7 @@ export const ADMIN_LIST_COLUMNS = [
   'updated_at',
   'finalScorePercent',
   'scoreVarianceFlagged',
+  'scoringIntegrityError',
 ] as const;
 
 const ALL_STATUSES = Object.values(ApplicationStatus) as string[];

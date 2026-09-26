@@ -14,6 +14,7 @@ import { TrainingCompletion } from './entities/training-completion.entity';
 import {
   CreateCohortDto,
   EnrollBeneficiariesDto,
+  UpdateCohortDto,
   RecordCompletionsDto,
   UpdateCohortStatusDto,
 } from './dto/training.dto';
@@ -22,8 +23,11 @@ import {
   canTransitionCohort,
   completionBlocker,
   enrolmentBlocker,
+  isEditable,
   isOpenForEnrolment,
 } from './training-rules';
+import { AuditLogService } from '@/modules/audit-log/audit-log.service';
+import { JwtPayload } from '@/common/interfaces/jwt-payload.interface';
 
 interface Rejection {
   beneficiaryId: string;
@@ -43,6 +47,7 @@ export class TrainingService {
     private readonly completionRepo: Repository<TrainingCompletion>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   listCourses() {
@@ -101,15 +106,81 @@ export class TrainingService {
     return this.cohortRepo.save(cohort);
   }
 
-  async updateCohortStatus(id: string, dto: UpdateCohortStatusDto) {
+  async updateCohortStatus(id: string, dto: UpdateCohortStatusDto, actor?: JwtPayload) {
     const cohort = await this.requireCohort(id);
     if (!canTransitionCohort(cohort.status, dto.status)) {
       throw new BadRequestException(
         `Cannot move a cohort from ${cohort.status} to ${dto.status}`,
       );
     }
+    const from = cohort.status;
     cohort.status = dto.status;
-    return this.cohortRepo.save(cohort);
+    const saved = await this.cohortRepo.save(cohort);
+    if (actor) {
+      await this.auditLogService.record({
+        actorId: actor.sub,
+        actorRole: actor.role,
+        action: 'COHORT_STATUS_CHANGED',
+        entityType: 'Cohort',
+        entityId: id,
+        metadata: { from, to: dto.status },
+      });
+    }
+    return saved;
+  }
+
+  async updateCohort(id: string, dto: UpdateCohortDto, actor: JwtPayload) {
+    const cohort = await this.requireCohort(id);
+    if (!isEditable(cohort.status)) {
+      throw new BadRequestException(`A ${cohort.status} cohort can no longer be edited`);
+    }
+
+    const before = {
+      name: cohort.name,
+      startDate: this.dateOnly(cohort.startDate),
+      endDate: cohort.endDate ? this.dateOnly(cohort.endDate) : null,
+      capacity: cohort.capacity,
+    };
+    const next = {
+      name: dto.name !== undefined ? dto.name.trim() : before.name,
+      startDate: dto.startDate ?? before.startDate,
+      endDate: dto.endDate !== undefined ? dto.endDate : before.endDate,
+      capacity: dto.capacity ?? before.capacity,
+    };
+
+    if (!next.name) throw new BadRequestException('Cohort name cannot be empty');
+    if (next.endDate && next.endDate < next.startDate) {
+      throw new BadRequestException('endDate cannot be before startDate');
+    }
+    if (next.capacity > 0) {
+      const taken = await this.memberRepo.count({ where: { cohortId: id, isActive: true } });
+      if (next.capacity < taken) {
+        throw new BadRequestException(
+          `Capacity cannot be lower than the ${taken} trainees already enrolled`,
+        );
+      }
+    }
+
+    cohort.name = next.name;
+    cohort.startDate = next.startDate as unknown as Date;
+    cohort.endDate = (next.endDate ?? null) as unknown as Date;
+    cohort.capacity = next.capacity;
+    await this.cohortRepo.save(cohort);
+
+    await this.auditLogService.record({
+      actorId: actor.sub,
+      actorRole: actor.role,
+      action: 'COHORT_UPDATED',
+      entityType: 'Cohort',
+      entityId: id,
+      metadata: { before, after: next },
+    });
+
+    return this.cohortRepo.findOne({ where: { id }, relations: { institution: true, course: true } });
+  }
+
+  private dateOnly(value: Date | string): string {
+    return typeof value === 'string' ? value.slice(0, 10) : value.toISOString().slice(0, 10);
   }
 
   async enroll(cohortId: string, dto: EnrollBeneficiariesDto) {

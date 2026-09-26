@@ -2,6 +2,7 @@ import { Entity, Column, OneToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from '@common/entities/base.entity';
 import { Application } from '@/modules/applications/entities/application.entity';
 import { Institution } from '@modules/institutions/entities/institution.entity';
+import { decimalTransformer } from '@/common/utils/decimal.transformer';
 
 export enum MatchStatus {
   GENERATED = 'GENERATED',
@@ -25,7 +26,7 @@ export class Match extends BaseEntity {
   @Column()
   institutionId!: string;
 
-  @Column({ type: 'decimal', precision: 5, scale: 2 })
+  @Column({ type: 'decimal', precision: 5, scale: 2, transformer: decimalTransformer })
   matchCompatibilityIndex!: number;
 
   // The three named MCI components (see computeMci in matching-rules.ts) — persisted

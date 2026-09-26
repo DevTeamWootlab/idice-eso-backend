@@ -162,6 +162,7 @@ export class MatchingService {
         await this.notificationsService.sendMatchedNotification(
           application.primaryContactEmail,
           match.institution?.name ?? 'your host institution',
+          application.applicationRef,
         );
       }
       committed += 1;

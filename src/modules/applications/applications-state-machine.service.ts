@@ -10,6 +10,7 @@ import { Institution } from '@/modules/institutions/entities/institution.entity'
 import { NotificationsService } from '@/modules/notifications/notifications.service';
 import { ApplicationStatus } from '@/common/enums/application.enum';
 import { Role } from '@/common/enums/role.enum';
+import { applicationLabel } from './application-label';
 
 export interface TransitionOptions {
   targetStatus: ApplicationStatus;
@@ -106,13 +107,30 @@ export class ApplicationsStateMachineService {
     await this.announceQueueEntry(application, targetStatus);
   }
 
+  async applyScoringCorrection(
+    applicationId: string,
+    targetStatus: ApplicationStatus.SHORTLISTED | ApplicationStatus.PENDING_VALIDATION,
+  ): Promise<void> {
+    const application = await this.applicationRepo.findOne({ where: { id: applicationId } });
+    if (!application) {
+      throw new NotFoundException(`Application with ID '${applicationId}' not found`);
+    }
+    if (application.status !== ApplicationStatus.REJECTED) {
+      throw new BadRequestException(
+        `Scoring corrections only apply to rejected applications; this one is ${application.status}`,
+      );
+    }
+    await this.applicationRepo.update({ id: applicationId }, { status: targetStatus });
+    await this.announceQueueEntry(application, targetStatus);
+  }
+
   /**
    * Tells the people whose queue an application just entered. Best-effort: a failed
    * notification must never fail or roll back the transition itself.
    */
   private async announceQueueEntry(application: Application, target: ApplicationStatus) {
     try {
-      const label = application.organisationLegalName || application.applicationRef;
+      const label = applicationLabel(application);
       const href = `/internal/applications/${application.id}`;
       const notify = this.notificationsService;
       const validatorState = async () => {

@@ -15,8 +15,11 @@ import {
   CreateCohortDto,
   EnrollBeneficiariesDto,
   RecordCompletionsDto,
+  UpdateCohortDto,
   UpdateCohortStatusDto,
 } from './dto/training.dto';
+import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { JwtPayload } from '@/common/interfaces/jwt-payload.interface';
 import { CourseDto, CohortDto, CohortMemberDto, EnrolResultDto, CompletionsResultDto } from './dto/training-responses.dto';
 
 @ApiTags('Training (SYSADMIN)')
@@ -48,7 +51,7 @@ export class TrainingController {
   }
 
   @ApiOperation({
-    summary: 'Move a cohort PLANNED → ACTIVE → COMPLETED (or CANCELLED)',
+    summary: 'Move a cohort PLANNED → ACTIVE → COMPLETED, pause or resume it, or cancel it',
     description: 'Requires role: ROLE_SYSADMIN',
   })
   @ApiOkResponse({ type: CohortDto })
@@ -56,8 +59,24 @@ export class TrainingController {
   updateCohortStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateCohortStatusDto,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.trainingService.updateCohortStatus(id, dto);
+    return this.trainingService.updateCohortStatus(id, dto, user);
+  }
+
+  @ApiOperation({
+    summary: 'Edit a cohort’s name, dates or capacity',
+    description:
+      'Requires role: ROLE_SYSADMIN. Only planned, active or paused cohorts can be edited. Capacity cannot drop below the number of trainees already enrolled.',
+  })
+  @ApiOkResponse({ type: CohortDto })
+  @Patch('cohorts/:id')
+  updateCohort(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateCohortDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.trainingService.updateCohort(id, dto, user);
   }
 
   @ApiOperation({

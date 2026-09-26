@@ -24,6 +24,7 @@ import { Role } from '@common/enums/role.enum';
 import { JwtPayload } from '@common/interfaces/jwt-payload.interface';
 import { documentUploadOptions } from '@/config/multer.config';
 import { ApplicantActivityEventDto, ApplicantMatchDto, CompletenessResultDto } from './dto/applicant-views.dto';
+import { contentDisposition, resolveContentType, resolveFileName } from '@/common/utils/content-disposition';
 
 @ApiTags('Applications (ESO applicant)')
 @ApiBearerAuth()
@@ -139,8 +140,10 @@ export class ApplicationsController {
     const { buffer, document } =
       await this.applicationsService.downloadDocument(user.sub, id, documentId);
     res.set({
-      'Content-Type': document.mimeType,
-      'Content-Disposition': `attachment; filename="${document.originalFileName}"`,
+      'Content-Type': resolveContentType(document.mimeType, document.originalFileName, document.storageKey),
+      'Content-Disposition': contentDisposition(resolveFileName(document.originalFileName, document.storageKey)),
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'private, no-store',
     });
     return new StreamableFile(buffer);
   }

@@ -1,6 +1,7 @@
 import { Entity, Column, ManyToOne, Index } from 'typeorm';
 import { BaseEntity } from '@/common/entities/base.entity';
 import { Institution } from '@/modules/institutions/entities/institution.entity';
+import { decimalTransformer } from '@/common/utils/decimal.transformer';
 
 @Entity('mel_kpi_snapshots')
 @Index(['institutionId', 'snapshotDate'])
@@ -32,9 +33,9 @@ export class MELKpiSnapshot extends BaseEntity {
   @Column({ type: 'int', default: 0 })
   employmentOutcomes!: number;
 
-  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true, transformer: decimalTransformer })
   completionRate!: number;
 
-  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true, transformer: decimalTransformer })
   certificationRate!: number;
 }

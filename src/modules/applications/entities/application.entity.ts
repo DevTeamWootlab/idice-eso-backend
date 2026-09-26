@@ -14,6 +14,7 @@ import { ApplicationDocument } from './application-document.entity';
 import { ApplicationReference } from './application-reference.entity';
 import { ApplicationPersonnel } from './application-personnel.entity';
 import { ScoreCard } from '../../scoring/entities/score-card.entity';
+import { decimalTransformer } from "@/common/utils/decimal.transformer";
 
 @Entity("applications")
 @Index(["status"])
@@ -219,11 +220,14 @@ export class Application extends BaseEntity {
 
   // ---- Technical scoring outcome (persisted once both reviewers submit, or once a
   // >15% variance is reconciled by the Validator / Lead Evaluator) ----
-  @Column({ type: "decimal", precision: 5, scale: 2, nullable: true })
+  @Column({ type: "decimal", precision: 5, scale: 2, nullable: true, transformer: decimalTransformer })
   finalScorePercent!: number | null;
 
   @Column({ default: false })
   scoreVarianceFlagged!: boolean;
+
+  @Column({ type: "text", nullable: true })
+  scoringIntegrityError!: string | null;
 
   @Column({ type: "text", nullable: true })
   scoreVarianceResolutionNote!: string | null;
