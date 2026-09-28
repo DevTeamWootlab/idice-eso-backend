@@ -2,6 +2,7 @@ import {
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -15,6 +16,7 @@ import { IStorageProvider } from '@/common/interfaces/storage-provider.interface
 
 @Injectable()
 export class S3StorageProvider implements IStorageProvider {
+  private readonly logger = new Logger(S3StorageProvider.name);
   private readonly s3Client: S3Client;
   private readonly bucketName: string;
 
@@ -74,7 +76,13 @@ export class S3StorageProvider implements IStorageProvider {
       }
       return Buffer.concat(chunks);
     } catch (error) {
-      throw new NotFoundException(`File not found in S3: ${storageKey}`);
+      const name = (error as { name?: string; Code?: string })?.name ?? (error as { Code?: string })?.Code;
+      const status = (error as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode;
+      if (name === 'NoSuchKey' || name === 'NotFound' || status === 404) {
+        throw new NotFoundException(`File not found in storage: ${storageKey}`);
+      }
+      this.logger.error(`S3 read failed for ${storageKey}: ${(error as Error).message}`);
+      throw new InternalServerErrorException('The file storage service could not be reached');
     }
   }
 

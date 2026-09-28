@@ -85,6 +85,8 @@ export class ApplicationSummaryDto {
   primaryContactEmail!: string | null;
   @ApiProperty({ type: Number, nullable: true })
   finalScorePercent!: number | null;
+  @ApiProperty({ type: String, nullable: true, description: 'Set when score finalization failed or a scoring-gate rejection needs review' })
+  scoringIntegrityError!: string | null;
   @ApiProperty({ format: 'date-time', nullable: true, type: String })
   submittedAt!: string | null;
   @ApiProperty({ format: 'date-time' })

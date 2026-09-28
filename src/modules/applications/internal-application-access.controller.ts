@@ -13,6 +13,7 @@ import { Roles } from '@/common/decorators/roles.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { Role } from '@/common/enums/role.enum';
 import { JwtPayload } from '@/common/interfaces/jwt-payload.interface';
+import { contentDisposition, resolveContentType, resolveFileName } from '@/common/utils/content-disposition';
 
 /**
  * Shared read access for the four internal reviewer roles — document downloads and the
@@ -52,8 +53,10 @@ export class InternalApplicationAccessController {
     const { buffer, document } =
       await this.applicationsService.getDocumentForReviewer(id, documentId, user);
     res.set({
-      'Content-Type': document.mimeType,
-      'Content-Disposition': `attachment; filename="${document.originalFileName}"`,
+      'Content-Type': resolveContentType(document.mimeType, document.originalFileName, document.storageKey),
+      'Content-Disposition': contentDisposition(resolveFileName(document.originalFileName, document.storageKey)),
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'private, no-store',
     });
     return new StreamableFile(buffer);
   }

@@ -61,6 +61,7 @@ export interface PcuMetricsResponse {
     target: number;
   };
   startupsIncubated: { value: number; targetPerCoe: number; coeCount: number };
+  pillars: { skills: number; incubation: number; acceleration: number };
   jobPlacement: {
     placed: number;
     completers: number;
@@ -75,6 +76,7 @@ export interface PcuMetricsResponse {
     state: string;
     youthEnrolled: number;
     startupsIncubated: number;
+    enterprisesAccelerated: number;
   }[];
 }
 
@@ -104,8 +106,11 @@ export function buildPcuMetrics(input: PcuInputs): PcuMetricsResponse {
   let female = 0;
   let inclusion = 0;
   let startups = 0;
+  let skills = 0;
+  let accelerated = 0;
   const youthByInstitution = new Map<string, number>();
   const startupsByInstitution = new Map<string, number>();
+  const acceleratedByInstitution = new Map<string, number>();
 
   for (const row of input.enrolled) {
     const count = toNumber(row.count);
@@ -113,12 +118,21 @@ export function buildPcuMetrics(input: PcuInputs): PcuMetricsResponse {
     inclusion += toNumber(row.inclusionCount);
     if (row.gender === Gender.FEMALE) female += count;
     const isStartup = row.pillar === Pillar.INCUBATION;
+    const isAccelerated = row.pillar === Pillar.ACCELERATION;
     if (isStartup) startups += count;
+    if (isAccelerated) accelerated += count;
+    if (row.pillar === Pillar.SKILLS) skills += count;
     if (row.institutionId) {
       youthByInstitution.set(
         row.institutionId,
         (youthByInstitution.get(row.institutionId) ?? 0) + count,
       );
+      if (isAccelerated) {
+        acceleratedByInstitution.set(
+          row.institutionId,
+          (acceleratedByInstitution.get(row.institutionId) ?? 0) + count,
+        );
+      }
       if (isStartup) {
         startupsByInstitution.set(
           row.institutionId,
@@ -139,6 +153,7 @@ export function buildPcuMetrics(input: PcuInputs): PcuMetricsResponse {
       state: institution.state,
       youthEnrolled: youthByInstitution.get(institution.id) ?? 0,
       startupsIncubated: startupsByInstitution.get(institution.id) ?? 0,
+      enterprisesAccelerated: acceleratedByInstitution.get(institution.id) ?? 0,
       isActive: institution.isActive,
     }))
     .filter((coe) => coe.isActive || coe.youthEnrolled > 0)
@@ -157,6 +172,7 @@ export function buildPcuMetrics(input: PcuInputs): PcuMetricsResponse {
       targetPerCoe: PCU_TARGETS.startupsPerCoe,
       coeCount: input.institutions.filter((i) => i.isActive).length,
     },
+    pillars: { skills, incubation: startups, acceleration: accelerated },
     jobPlacement: {
       placed: input.placed,
       completers: input.completers,

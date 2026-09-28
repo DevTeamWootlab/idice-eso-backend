@@ -64,6 +64,17 @@ class PerCoeDto {
   youthEnrolled!: number;
   @ApiProperty()
   startupsIncubated!: number;
+  @ApiProperty()
+  enterprisesAccelerated!: number;
+}
+
+class PillarCountsDto {
+  @ApiProperty({ description: 'Enrolled youth in Digital and Creative Talent Development (SKILLS)' })
+  skills!: number;
+  @ApiProperty({ description: 'Enrolled beneficiaries in Startup Incubation' })
+  incubation!: number;
+  @ApiProperty({ description: 'Enrolled beneficiaries in Enterprise Acceleration' })
+  acceleration!: number;
 }
 
 export class PcuMetricsDto {
@@ -75,6 +86,8 @@ export class PcuMetricsDto {
   femaleParticipation!: FemaleParticipationDto;
   @ApiProperty({ type: StartupsIncubatedDto })
   startupsIncubated!: StartupsIncubatedDto;
+  @ApiProperty({ type: PillarCountsDto })
+  pillars!: PillarCountsDto;
   @ApiProperty({ type: JobPlacementDto })
   jobPlacement!: JobPlacementDto;
   @ApiProperty({ type: NeetPwdInclusionDto })

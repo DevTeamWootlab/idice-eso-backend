@@ -85,3 +85,17 @@ export function compositePercent(
   }
   return Math.round(total * 100) / 100;
 }
+
+export function toValidPercent(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n) || n < 0 || n > 100) return null;
+  return n;
+}
+
+export function averageOfPercents(a: unknown, b: unknown): number | null {
+  const x = toValidPercent(a);
+  const y = toValidPercent(b);
+  if (x === null || y === null) return null;
+  return toValidPercent(Math.round(((x + y) / 2) * 100) / 100);
+}

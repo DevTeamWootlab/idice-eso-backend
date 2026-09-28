@@ -50,6 +50,30 @@ export class CreateCohortDto {
   capacity?: number;
 }
 
+export class UpdateCohortDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  name?: string;
+
+  @ApiPropertyOptional({ example: '2026-10-05' })
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
+  @ApiPropertyOptional({ example: '2026-12-18', nullable: true })
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
+
+  @ApiPropertyOptional({ description: '0 means no cap' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  capacity?: number;
+}
+
 export class UpdateCohortStatusDto {
   @ApiProperty({ enum: CohortStatus })
   @IsEnum(CohortStatus)

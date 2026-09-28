@@ -4,6 +4,10 @@ import { SmsProvider } from './providers/sms.provider';
 import { ConfigService } from '@nestjs/config';
 import { InAppNotificationsService } from './in-app-notifications.service';
 
+function refPrefix(applicationRef?: string): string {
+  return applicationRef ? `Application ${applicationRef}: ` : '';
+}
+
 @Injectable()
 export class NotificationsService {
   constructor(
@@ -87,70 +91,70 @@ export class NotificationsService {
     );
   }
 
-  async sendEligibilityRejection(email: string, remarks: string) {
-    await this.tryInApp(email, 'Application not successful', `Your application was not successful at the eligibility stage. Reason: ${remarks}`);
+  async sendEligibilityRejection(email: string, remarks: string, applicationRef?: string) {
+    await this.tryInApp(email, 'Application not successful', `${refPrefix(applicationRef)}Your application was not successful at the eligibility stage. Reason: ${remarks}`);
     await this.mail.send(
       email,
       'Application Update — iDICE ESO Portal',
       this.renderHtmlTemplate(
         'Application update',
-        `Your application was not successful at the eligibility stage. Reason: ${remarks}`,
+        `${refPrefix(applicationRef)}Your application was not successful at the eligibility stage. Reason: ${remarks}`,
         'Review application status',
         `${this.frontendUrl()}/eso/dashboard`,
       ),
     );
   }
 
-  async sendReworkRequested(email: string, notes: string[]) {
-    await this.tryInApp(email, 'Action required', `Please review and resubmit your application. Notes: ${notes.join('; ')}`);
+  async sendReworkRequested(email: string, notes: string[], applicationRef?: string) {
+    await this.tryInApp(email, 'Action required', `${refPrefix(applicationRef)}Please review and resubmit your application. Notes: ${notes.join('; ')}`);
     await this.mail.send(
       email,
       'Action Required — iDICE ESO Application',
       this.renderHtmlTemplate(
         'Action required',
-        `Please review and resubmit your application. Notes: ${notes.join('; ')}`,
+        `${refPrefix(applicationRef)}Please review and resubmit your application. Notes: ${notes.join('; ')}`,
         'Open application',
         `${this.frontendUrl()}/eso/dashboard`,
       ),
     );
   }
 
-  async sendShortlistedNotification(email: string, scorePercent: number) {
-    await this.tryInApp(email, 'You have been shortlisted', 'Your application has been shortlisted for the next stage.');
+  async sendShortlistedNotification(email: string, scorePercent: number, applicationRef?: string) {
+    await this.tryInApp(email, 'You have been shortlisted', `${refPrefix(applicationRef)}Your application has been shortlisted for the next stage.`);
     await this.mail.send(
       email,
       'Application Shortlisted — iDICE ESO Portal',
       this.renderHtmlTemplate(
         'Your application has been shortlisted',
-        `Your application scored ${scorePercent}% and has been shortlisted for local ecosystem validation.`,
+        `${refPrefix(applicationRef)}Your application scored ${scorePercent}% and has been shortlisted for local ecosystem validation.`,
         'View application',
         `${this.frontendUrl()}/eso/dashboard`,
       ),
     );
   }
 
-  async sendMatchedNotification(email: string, institutionName: string) {
-    await this.tryInApp(email, 'You have been matched', `Your organisation has been matched with ${institutionName}.`);
+  async sendMatchedNotification(email: string, institutionName: string, applicationRef?: string) {
+    await this.tryInApp(email, 'You have been matched', `${refPrefix(applicationRef)}Your organisation has been matched with ${institutionName}.`);
     await this.mail.send(
       email,
       'You have been matched — iDICE ESO Portal',
       this.renderHtmlTemplate(
         'Partner match confirmed',
-        `Congratulations — your organisation has been matched to ${institutionName} as its Enterprise Support Organisation partner.`,
+        `${refPrefix(applicationRef)}Congratulations — your organisation has been matched to ${institutionName} as its Enterprise Support Organisation partner.`,
         'View application',
         `${this.frontendUrl()}/eso/dashboard`,
       ),
     );
   }
 
-  async sendDisqualificationNotification(email: string, reason: string) {
-    await this.tryInApp(email, 'Application update', `Your application was not successful. Reason: ${reason}`);
+  async sendDisqualificationNotification(email: string, reason: string, applicationRef?: string) {
+    await this.tryInApp(email, 'Application update', `${refPrefix(applicationRef)}Your application was not successful. Reason: ${reason}`);
     await this.mail.send(
       email,
       'Application status — iDICE ESO Portal',
       this.renderHtmlTemplate(
         'Application status update',
-        `Your application has been discontinued from the current selection cycle. Reason: ${reason}`,
+        `${refPrefix(applicationRef)}Your application has been discontinued from the current selection cycle. Reason: ${reason}`,
         'View update',
         `${this.frontendUrl()}/eso/dashboard`,
       ),

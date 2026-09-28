@@ -1,5 +1,5 @@
 // modules/scoring/scoring.service.ts
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, ConflictException, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager } from 'typeorm';
 import { RubricConfiguration } from './entities/rubric-configuration.entity';
@@ -14,7 +14,9 @@ import { ReviewerQueueType } from '@/common/enums/reviewer.enum';
 import { SubmitScoreDto } from './dto/submit-score.dto';
 import { AuditLogService } from '@/modules/audit-log/audit-log.service';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
-import { RUBRIC_DIMENSIONS, compositePercent, resolveWeights, validateWeightsInput, RubricWeights } from './scoring-weights';
+import { RUBRIC_DIMENSIONS, compositePercent, resolveWeights, validateWeightsInput, RubricWeights, toValidPercent, averageOfPercents } from './scoring-weights';
+import { Role } from '@/common/enums/role.enum';
+import { applicationLabel } from '../applications/application-label';
 import { User } from '@/modules/users/entities/user.entity';
 
 const VARIANCE_THRESHOLD = 15; // percentage points
@@ -132,7 +134,12 @@ export class ScoringService {
       );
     }
     const weights = await this.loadWeights();
-    const compositePercentage = this.calculateComposite(dto, weights);
+    const compositePercentage = toValidPercent(this.calculateComposite(dto, weights));
+    if (compositePercentage === null) {
+      throw new BadRequestException(
+        'The composite score could not be calculated from the submitted dimension scores. Check that all six dimensions have a score between 0 and 5.',
+      );
+    }
     if (!card) {
       const existingCount = await this.scoreCardRepo.count({
         where: { applicationId },
@@ -167,7 +174,7 @@ export class ScoringService {
       await this.notificationsService.notifyUser(
         other.reviewerId,
         'Your counterpart has submitted their score',
-        `The other scoring reviewer has scored ${application.organisationLegalName || application.applicationRef}. Submit your score to complete scoring.`,
+        `The other scoring reviewer has scored ${applicationLabel(application)}. Submit your score to complete scoring.`,
         `/internal/applications/${applicationId}`,
       );
     }
@@ -292,7 +299,17 @@ export class ScoringService {
     }
 
     const [s1, s2] = cards;
-    const variance = Math.abs(s1.compositePercentage - s2.compositePercentage);
+    const r1 = toValidPercent(s1.compositePercentage);
+    const r2 = toValidPercent(s2.compositePercentage);
+    if (r1 === null || r2 === null) {
+      return this.blockFinalization(
+        applicationId,
+        actorId,
+        'A submitted score card has a missing or invalid composite percentage.',
+        { reviewer1Score: String(s1.compositePercentage), reviewer2Score: String(s2.compositePercentage) },
+      );
+    }
+    const variance = Math.round(Math.abs(r1 - r2) * 100) / 100;
 
     if (variance > VARIANCE_THRESHOLD) {
       // TC-SCO-04 — escalate to validator/lead evaluator, do NOT auto-average.
@@ -300,15 +317,15 @@ export class ScoringService {
       // (ValidationService.resolveVariance).
       await this.applicationRepo.update(
         { id: applicationId },
-        { scoreVarianceFlagged: true },
+        { scoreVarianceFlagged: true, scoringIntegrityError: null },
       );
       await this.stateMachine.transition(applicationId, {
         targetStatus: ApplicationStatus.PENDING_VALIDATION,
         actorId,
         role: 'ROLE_SCORING_REVIEWER',
         metadata: {
-          reviewer1Score: s1.compositePercentage,
-          reviewer2Score: s2.compositePercentage,
+          reviewer1Score: r1,
+          reviewer2Score: r2,
           variance,
         },
       });
@@ -319,8 +336,8 @@ export class ScoringService {
         entityType: 'Application',
         entityId: applicationId,
         metadata: {
-          reviewer1Score: s1.compositePercentage,
-          reviewer2Score: s2.compositePercentage,
+          reviewer1Score: r1,
+          reviewer2Score: r2,
           variance,
         },
       });
@@ -331,15 +348,20 @@ export class ScoringService {
       };
     }
 
-    const averageScore =
-      Math.round(
-        ((s1.compositePercentage + s2.compositePercentage) / 2) * 100,
-      ) / 100;
+    const averageScore = averageOfPercents(r1, r2);
+    if (averageScore === null) {
+      return this.blockFinalization(
+        applicationId,
+        actorId,
+        'The average of the two composite scores could not be calculated.',
+        { reviewer1Score: r1, reviewer2Score: r2 },
+      );
+    }
 
     if (averageScore >= QUALIFICATION_THRESHOLD) {
       await this.applicationRepo.update(
         { id: applicationId },
-        { finalScorePercent: averageScore, scoreVarianceFlagged: false },
+        { finalScorePercent: averageScore, scoreVarianceFlagged: false, scoringIntegrityError: null },
       );
       await this.stateMachine.transition(applicationId, {
         targetStatus: ApplicationStatus.SHORTLISTED,
@@ -347,8 +369,8 @@ export class ScoringService {
         role: 'ROLE_SCORING_REVIEWER',
         metadata: {
           averageScore,
-          reviewer1Score: s1.compositePercentage,
-          reviewer2Score: s2.compositePercentage,
+          reviewer1Score: r1,
+          reviewer2Score: r2,
         },
       });
       await this.auditLogService.record({
@@ -363,6 +385,7 @@ export class ScoringService {
         await this.notificationsService.sendShortlistedNotification(
           applicantEmail,
           averageScore,
+          await this.refOf(applicationId),
         );
       }
       return {
@@ -371,9 +394,12 @@ export class ScoringService {
       };
     }
 
+    if (!(averageScore < QUALIFICATION_THRESHOLD)) {
+      throw new InternalServerErrorException('Score finalization reached an undefined outcome');
+    }
     await this.applicationRepo.update(
       { id: applicationId },
-      { finalScorePercent: averageScore, scoreVarianceFlagged: false },
+      { finalScorePercent: averageScore, scoreVarianceFlagged: false, scoringIntegrityError: null },
     );
     await this.stateMachine.transition(applicationId, {
       targetStatus: ApplicationStatus.REJECTED,
@@ -396,6 +422,7 @@ export class ScoringService {
       await this.notificationsService.sendDisqualificationNotification(
         applicantEmail,
         `Composite technical score of ${averageScore}% did not meet the 70% qualification threshold.`,
+        await this.refOf(applicationId),
       );
     }
 
@@ -404,5 +431,61 @@ export class ScoringService {
         'Both scores submitted. Application did not meet the qualification threshold.',
       averageScore,
     };
+  }
+
+  private async refOf(applicationId: string): Promise<string | undefined> {
+    const row = await this.applicationRepo.findOne({ where: { id: applicationId }, select: { id: true, applicationRef: true } });
+    return row?.applicationRef;
+  }
+
+  private async blockFinalization(
+    applicationId: string,
+    actorId: string,
+    reason: string,
+    metadata: Record<string, unknown>,
+  ) {
+    const application = await this.applicationRepo.findOne({ where: { id: applicationId } });
+    await this.applicationRepo.update(
+      { id: applicationId },
+      { scoringIntegrityError: reason },
+    );
+    await this.auditLogService.record({
+      actorId,
+      actorRole: 'ROLE_SCORING_REVIEWER',
+      action: 'SCORE_FINALIZATION_BLOCKED',
+      entityType: 'Application',
+      entityId: applicationId,
+      metadata: { reason, ...metadata },
+    });
+    await this.notificationsService.notifyRole(
+      Role.SYSADMIN,
+      'Scoring on hold: invalid score',
+      `${applicationLabel(application ?? { id: applicationId })}: both scores are in, but the final score could not be calculated. The application has not been shortlisted or rejected. Open it to review the score cards and re-run finalization.`,
+      `/internal/applications/${applicationId}`,
+    );
+    return {
+      message:
+        'Score submitted. Final scoring is on hold because the combined score could not be calculated; a System Administrator has been notified.',
+      blocked: true,
+    };
+  }
+
+  async refinalize(applicationId: string, actor: JwtPayload) {
+    const application = await this.applicationRepo.findOne({ where: { id: applicationId } });
+    if (!application) throw new NotFoundException('Application not found');
+    if (application.status !== ApplicationStatus.IN_REVIEW_SCORING) {
+      throw new BadRequestException(
+        `Application is in ${application.status} status; only applications still in scoring can be re-finalized`,
+      );
+    }
+    await this.auditLogService.record({
+      actorId: actor.sub,
+      actorRole: actor.role,
+      action: 'SCORE_FINALIZATION_RETRIED',
+      entityType: 'Application',
+      entityId: applicationId,
+      metadata: { previousError: application.scoringIntegrityError ?? null },
+    });
+    return this.tryFinalize(applicationId, actor.sub, application.primaryContactEmail);
   }
 }

@@ -1,4 +1,5 @@
 // modules/validation/validation.service.ts
+import { toValidPercent } from '@/modules/scoring/scoring-weights';
 import {
   BadRequestException,
   ForbiddenException,
@@ -243,8 +244,12 @@ export class ValidationService {
       );
     }
 
-    const reconciledScorePercent =
-      Math.round(dto.reconciledScorePercent * 100) / 100;
+    const reconciledScorePercent = toValidPercent(
+      Math.round(Number(dto.reconciledScorePercent) * 100) / 100,
+    );
+    if (reconciledScorePercent === null) {
+      throw new BadRequestException('The reconciled score must be a number between 0 and 100');
+    }
 
     application.finalScorePercent = reconciledScorePercent;
     application.scoreVarianceFlagged = false;
@@ -283,11 +288,13 @@ export class ValidationService {
       await this.notificationsService.sendShortlistedNotification(
         application.primaryContactEmail,
         reconciledScorePercent,
+        application.applicationRef,
       );
     } else {
       await this.notificationsService.sendDisqualificationNotification(
         application.primaryContactEmail,
         `A Lead Evaluator reconciled the two reviewer scores at ${reconciledScorePercent}%, which did not meet the 70% qualification threshold.`,
+        application.applicationRef,
       );
     }
 

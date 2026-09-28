@@ -1,3 +1,4 @@
+import { applicationLabel } from './application-label';
 import {
   BadRequestException,
   ConflictException,
@@ -71,10 +72,16 @@ export class ApplicationsService {
   ) {}
 
   async findMine(userId: string): Promise<Application[]> {
-    return this.applicationRepo.find({
+    const applications = await this.applicationRepo.find({
       where: { submittedByOrgId: userId },
       order: { createdAt: 'DESC' },
     });
+    return applications.map((application) => this.withoutInternalNotes(application));
+  }
+
+  private withoutInternalNotes(application: Application): Application {
+    (application as Partial<Application>).scoringIntegrityError = undefined;
+    return application;
   }
 
   async findOneOwned(userId: string, id: string): Promise<Application> {
@@ -91,7 +98,7 @@ export class ApplicationsService {
         'You do not have access to this application',
       );
     }
-    return application;
+    return this.withoutInternalNotes(application);
   }
 
   /**
@@ -456,7 +463,7 @@ export class ApplicationsService {
         this.notificationsService.notifyUser(
           reviewerId,
           'New scoring assignment',
-          `You have been assigned to score ${application.organisationLegalName || application.applicationRef}.`,
+          `You have been assigned to score ${applicationLabel(application)}. Your score stays hidden from the other reviewer until you both submit.`,
           `/internal/applications/${applicationId}`,
         ),
       ),
@@ -526,10 +533,14 @@ export class ApplicationsService {
       metadata: { outgoingReviewerId, incomingReviewerId },
     });
 
+    const reassigned = await this.applicationRepo.findOne({
+      where: { id: applicationId },
+      select: { id: true, applicationRef: true, organisationLegalName: true },
+    });
     await this.notificationsService.notifyUser(
       incomingReviewerId,
       'New scoring assignment',
-      'You have been assigned an application to score.',
+      `You have been assigned to score ${applicationLabel(reassigned ?? { id: applicationId })}.`,
       `/internal/applications/${applicationId}`,
     );
 

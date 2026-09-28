@@ -4,8 +4,9 @@ import { CohortStatus } from '@/common/enums/training.enum';
 const C = CohortStatus;
 
 const COHORT_TRANSITIONS: Record<CohortStatus, CohortStatus[]> = {
-  [C.PLANNED]: [C.ACTIVE, C.CANCELLED],
-  [C.ACTIVE]: [C.COMPLETED, C.CANCELLED],
+  [C.PLANNED]: [C.ACTIVE, C.PAUSED, C.CANCELLED],
+  [C.ACTIVE]: [C.COMPLETED, C.PAUSED, C.CANCELLED],
+  [C.PAUSED]: [C.PLANNED, C.ACTIVE, C.CANCELLED],
   [C.COMPLETED]: [],
   [C.CANCELLED]: [],
 };
@@ -58,3 +59,6 @@ export function completionBlocker(record: {
   }
   return null;
 }
+
+export const isEditable = (status: CohortStatus) =>
+  status === C.PLANNED || status === C.ACTIVE || status === C.PAUSED;

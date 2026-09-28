@@ -51,6 +51,7 @@ export function buildReportModel(input: {
       ['Youth enrolled', m.youthEnrolled.value, target(m.youthEnrolled.target), programme ? `${percentOf(m.youthEnrolled.value, m.youthEnrolled.target) ?? 0}%` : '—'],
       ['Female participation', `${pct(m.femaleParticipation.percent)} (${m.femaleParticipation.participants} of ${m.youthEnrolled.value})`, target(`${m.femaleParticipation.target}%`), '—'],
       ['Startups incubated', m.startupsIncubated.value, target(`${m.startupsIncubated.targetPerCoe} per CoE`), '—'],
+      ['Enterprises in acceleration', m.pillars.acceleration, '—', '—'],
       ['Job placement', `${pct(m.jobPlacement.percent)} (${m.jobPlacement.placed} of ${m.jobPlacement.completers} completers)`, target(`${m.jobPlacement.target}%`), '—'],
       ['NEET / PWD inclusion', `${pct(m.neetPwdInclusion.percent)} (${m.neetPwdInclusion.participants})`, '—', '—'],
     ],
@@ -67,8 +68,8 @@ export function buildReportModel(input: {
   };
   const perCoe: ReportTable = {
     title: 'Per Centre of Excellence',
-    columns: ['Centre of Excellence', 'State', 'Regulator', 'Youth enrolled', 'Startups incubated'],
-    rows: m.perCoe.map((c) => [c.name, c.state, classifyRegulator(c.name), c.youthEnrolled, c.startupsIncubated]),
+    columns: ['Centre of Excellence', 'State', 'Regulator', 'Youth enrolled', 'Startups incubated', 'Enterprises in acceleration'],
+    rows: m.perCoe.map((c) => [c.name, c.state, classifyRegulator(c.name), c.youthEnrolled, c.startupsIncubated, c.enterprisesAccelerated]),
   };
 
   return { title: REPORT_TITLES[kind], generatedAt: m.generatedAt, filters: input.filters, tables: [indicators, tiers, perCoe] };
