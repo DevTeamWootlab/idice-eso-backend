@@ -234,7 +234,7 @@ to record deliberate exceptions.
 
 ## Behaviour worth knowing
 
-- **Scoring weights** are stored in `rubric_configurations`, editable by SYSADMIN at
+- **Scoring weights** are stored in `rubric_configurations`, editable by SYSADMIN atdonalds
   `PUT /internal/settings/scoring-weights` (must total 100). They lock as soon as any score card is submitted, so
   every application is scored on the same basis. If stored rows are incomplete or do not total 100, scoring falls
   back to the PRD defaults (20/20/15/15/15/15).

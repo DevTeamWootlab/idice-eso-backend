@@ -20,6 +20,7 @@ export const ADMIN_LIST_COLUMNS = [
   'registrationType',
   'yearEstablished',
   'organisationType',
+  'websiteOrSocialHandle',
   'primaryContactName',
   'primaryContactPhone',
   'primaryContactEmail',

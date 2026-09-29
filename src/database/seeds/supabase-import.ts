@@ -28,6 +28,14 @@ import { toOperatingState } from '@/common/utils/parse-env';
 const DEFAULT_PASSWORD = 'ChangeMe@123';
 const CSV_DIRECTORY = path.resolve(__dirname, '../../../ESO-tables');
 
+
+
+/**
+ * Maps state names to their corresponding list of valid host institution UUIDs in Production.
+ *
+ * Used during application validation to ensure a selected `preferredInstitutionId`
+ * belongs to the state where the organization operates.
+ */
 const VALID_INSTITUTIONS_BY_STATE: Record<string, string[]> = {
   BENUE: ['b1e4938d-24b1-4188-ad1c-cfb8a677ca04'],
   KWARA: ['99706fbd-93da-4dd5-bdd4-f78bf54655f8', 'f6a1ddb3-3fd4-4fdc-82e9-c0cc752677e0'],
@@ -37,6 +45,36 @@ const VALID_INSTITUTIONS_BY_STATE: Record<string, string[]> = {
   NASARAWA: ['4aec9a58-c323-4b35-9ddc-dabf0796cba6'],
   PLATEAU: ['bdda738c-c1c4-4726-8dbb-99e053ca1fc9'],
 };
+
+/**
+ * DEVELOPMENT & LOCAL SEEDING ONLY:
+ * 
+ * Local database migrations/seeds generate different UUIDs for institutions than Production.
+ * 
+ * NOTE FOR CONTRIBUTORS:
+ * If you are seeding data or running tests locally, swap the UUID values in `VALID_INSTITUTIONS_BY_STATE`
+ * above with the local IDs as query from your database if calling or use the above if pointing to the production db, or ensure your local `institutions` table contains the Production UUIDs
+ * to prevent Foreign Key constraint (`FK_ce400242c0a02af55adebb26723`) errors.
+ */
+// const VALID_INSTITUTIONS_BY_STATE: Record<string, string[]> = {
+//   BENUE: ['bc7259b7-1f7c-4c58-80b6-f60d111f84af'],
+//   KWARA: [
+//     '92ae87de-7907-42fc-9987-6e125a2a1db6',
+//     '9f8d08e3-f252-4811-8a34-9338a68e33d2',
+//   ],
+//   NIGER: [
+//     '1a134753-30b3-41ac-9144-06a441fc13c8',
+//     '13dcbafd-ff86-443d-a2a7-d6cc8f0802d5',
+//   ],
+//   KOGI: [
+//     '9aad6d38-7d61-4760-83f6-bf540802ea02',
+//     '34577b4f-aa95-498f-b6e2-1ae487e84435',
+//     'cff2081e-98be-47d7-b379-bb13a3a02189',
+//   ],
+//   FCT: ['9ffb3115-9348-4003-a9c2-c48dc5c48602'],
+//   NASARAWA: ['d902d0b7-704c-40cf-b9c0-f0ad32c54c3b'],
+//   PLATEAU: ['a40e2f03-679a-4968-a50a-3ca0c4b7fdbc'],
+// };
 
 function resolveValidInstitutionId(
   rawState: string | undefined,
@@ -490,18 +528,19 @@ async function seedApplications(dataSource: DataSource) {
       ApplicationStatus.DRAFT;
     const organisationLegalName = normalizeText(
       row.sa_legal_name ||
+        row.organisationLegalName ||
         row.organisation_name ||
         row.organization_name ||
         row.name,
     );
     const registrationType = normalizeEnum(
       RegistrationType,
-      row.sa_registration_type,
+      row.sa_registration_type || row.registrationType,
       undefined,
     );
     const organisationType = normalizeEnum(
       OrganisationType,
-      row.sa_organisation_type,
+      row.sa_organisation_type || row.organisationType,
       undefined,
     );
     const sectorFocus = parseJsonArray(row.sc_sector_focus)
