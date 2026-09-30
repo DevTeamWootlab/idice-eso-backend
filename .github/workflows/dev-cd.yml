@@ -9,117 +9,59 @@ on:
     branches:
       - main
 
-# Required for GitHub Actions to push Docker images to GHCR
-permissions:
-  contents: read
-  packages: write
-
 jobs:
-  # ==========================================
-  # 1. TEST & BUILD
-  # ==========================================
-  test:
-    name: Test & Build
-    runs-on: ubuntu-latest
+
+  build:
+    name: Build App
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        uses: [24]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Configure AWS creds
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          node-version: 22
-          cache: npm
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
 
-      # - name: Run tests
-      #   run: npm test
+      - name: Build Image
+        run: |
+          docker build --target base -t $IMAGE_URI:$TAG_NAME .
+          docker tag $IMAGE_URI:$TAG_NAME $IMAGE_URI:latest
+        env:
+          IMAGE_URI: ${{ secrets.DEV_REPO }}
+          TAG_NAME: "v1"
+          LATEST: "true"
 
-      - name: Build NestJS application
-        run: npm run build
+      - name: Push Image
+        run: |
+          docker push $IMAGE_URI:$TAG_NAME
+          docker push $IMAGE_URI:latest
+        env:
+          IMAGE_URI: ${{ secrets.DEV_REPO }}
+          TAG_NAME: "v1"
+          LATEST: "true"
 
-
-  # ==========================================
-  # 2. BUILD & PUSH DOCKER IMAGE TO GHCR
-  # ==========================================
-  docker:
-    name: Build & Push Docker Image
-    runs-on: ubuntu-latest
-
-    # needs: test
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+      - name: Deploy To Server
+        uses: fifsky/ssh-action@master
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=raw,value=latest
-            type=sha
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
-          labels: ${{ steps.meta.outputs.labels }}
-
-
-  # ==========================================
-  # 3. DEPLOY TO CONTABO
-  # ==========================================
-  deploy:
-    name: Deploy to Contabo
-    runs-on: ubuntu-latest
-
-    needs: docker
-
-    steps:
-      - name: Deploy to Contabo server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            set -e
-
-            echo "=========================================="
-            echo "Starting deployment..."
-            echo "=========================================="
-
-            cd /home/deploy/app
-
-            echo "Pulling latest docker image..."
-            docker compose pull
-
-            echo "Starting containers..."
-            docker compose up -d
-
-            echo "Removing unused Docker images..."
-            docker image prune -f
-
-            echo "Checking container status..."
-            docker compose ps
-
-            echo "=========================================="
-            echo "Deployment completed successfully!"
-            echo "=========================================="
+          command: |
+            aws ecr get-login-password --region ${{  secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.DEV_REPO }}
+            cd app
+            docker-compose pull backend
+            docker-compose -f docker-compose.yml down backend
+            docker-compose -f docker-compose.yml up -d backend
+            docker-compose system prune
+          host: ${{ secrets.SSH_HOST }}
+          user: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
