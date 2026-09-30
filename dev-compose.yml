@@ -1,0 +1,24 @@
+version: "3.3"
+
+services:
+  backend:
+    image: 
+    command: >
+      sh -c "yarn db:migration:generate && yarn db:migrate && yarn run build && yarn start >> /usr/src/app/logs/app.log 2>&1"
+    env_files: .env
+    ports:
+      - ${PORT}:3000
+    volumes:
+      - ~/logs:/usr/src/app/logs
+    networks:
+      - internal
+    restart: always
+    environment:
+      - PORT=3000
+
+networks:
+  internal:
+
+volumes:
+  idice_eso_api_data:
+  app_logs:
