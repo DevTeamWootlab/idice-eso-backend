@@ -1,3 +1,6 @@
+import { AuditLogService } from '@/modules/audit-log/audit-log.service';
+import { BulkUpdateBeneficiaryStatusDto } from './dto/bulk-update-beneficiary-status.dto';
+import { JwtPayload } from '@/common/interfaces/jwt-payload.interface';
 import { Injectable, ConflictException, UnprocessableEntityException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -45,6 +48,7 @@ export class BeneficiariesService {
     private readonly geoAllocationService: GeoAllocationService,
     private readonly storageService: StorageService,
     private readonly notificationsService: NotificationsService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   /**
@@ -199,6 +203,34 @@ export class BeneficiariesService {
       incubationProfile,
       accelerationProfile,
     };
+  }
+
+  async bulkUpdateStatusForAdmin(dto: BulkUpdateBeneficiaryStatusDto, actor: JwtPayload) {
+    const succeeded: string[] = [];
+    const failed: { id: string; reason: string }[] = [];
+    for (const id of dto.ids) {
+      try {
+        await this.updateStatusForAdmin(id, { status: dto.status, institutionId: dto.institutionId });
+        succeeded.push(id);
+      } catch (error) {
+        failed.push({ id, reason: (error as Error).message || 'Could not update this beneficiary' });
+      }
+    }
+    await this.auditLogService.record({
+      actorId: actor.sub,
+      actorRole: actor.role,
+      action: 'BENEFICIARY_BULK_STATUS_UPDATE',
+      entityType: 'Beneficiary',
+      entityId: dto.ids[0],
+      metadata: {
+        status: dto.status,
+        institutionId: dto.institutionId ?? null,
+        requested: dto.ids.length,
+        succeeded: succeeded.length,
+        failed,
+      },
+    });
+    return { status: dto.status, succeeded, failed };
   }
 
   async updateStatusForAdmin(id: string, dto: UpdateBeneficiaryStatusDto) {

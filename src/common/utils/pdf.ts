@@ -26,15 +26,26 @@ const LINE = 12;
 
 const REPLACEMENTS: Record<string, string> = {
   '–': '-', '—': '-', '’': "'", '‘': "'", '“': '"', '”': '"', '…': '...',
-  '≥': '>=', '≤': '<=', '↔': '<->', '→': '->', '•': '*', '·': '-',
+  '≥': '>=', '≤': '<=', '↔': '<->', '→': '->', '•': '*', '·': '-', '₦': 'NGN ',
 };
 
 /** Reduce to what the standard PDF fonts (WinAnsi/Latin-1) can show. */
 export function toLatin1(text: string): string {
   let out = '';
   for (const ch of text) {
-    if (REPLACEMENTS[ch]) out += REPLACEMENTS[ch];
-    else out += ch.charCodeAt(0) <= 0xff && ch.charCodeAt(0) >= 0x20 ? ch : ' ';
+    if (REPLACEMENTS[ch]) {
+      out += REPLACEMENTS[ch];
+      continue;
+    }
+    const code = ch.charCodeAt(0);
+    if (code <= 0xff && code >= 0x20) {
+      out += ch;
+      continue;
+    }
+    const base = ch.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const baseCode = base.charCodeAt(0);
+    if (base && baseCode <= 0xff && baseCode >= 0x20) out += base;
+    else if (!/[\u0300-\u036f]/.test(ch)) out += ' ';
   }
   return out;
 }

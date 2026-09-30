@@ -29,6 +29,18 @@ export class ScoringController {
     return this.scoringService.getQueue(user.sub);
   }
 
+  @ApiOkResponse({ description: 'Applications I have scored, with my own score and the final score once published.' })
+  @ApiOperation({
+    summary: 'List the applications I have scored',
+    description:
+      'Requires role: ROLE_SCORING_REVIEWER. Shows the caller\'s own submitted score. The final (averaged) score ' +
+      'appears only once scoring has finalized, so the co-reviewer stays blind until both have submitted.',
+  })
+  @Get('queue/scoring/submitted')
+  getSubmitted(@CurrentUser() user: JwtPayload) {
+    return this.scoringService.getSubmittedByMe(user.sub);
+  }
+
   @ApiOkResponse({ description: 'Get an application dossier for scoring.' })
   @ApiOperation({ summary: 'Get an application dossier for scoring', description: 'Requires role: ROLE_SCORING_REVIEWER' })
   @Get(':id/scoring')

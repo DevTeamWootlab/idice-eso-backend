@@ -1,3 +1,14 @@
+import { ExportAdminApplicationsDto } from './dto/export-admin-applications.dto';
+import { toCsv } from '@/common/utils/csv';
+import { buildXlsx } from '@/common/utils/xlsx';
+import { buildPdf } from '@/common/utils/pdf';
+
+import { User } from '@/modules/users/entities/user.entity';
+import { ScoreCard } from '@/modules/scoring/entities/score-card.entity';
+import { EligibilityChecklist } from '@/modules/eligibility/entities/eligibility-checklist.entity';
+import { toValidPercent } from '@/modules/scoring/scoring-weights';
+import { ValidationRecord } from '@/modules/validation/entities/validation-record.entity';
+import { resolveContentType, resolveFileName } from '@/common/utils/content-disposition';
 import { applicationLabel } from './application-label';
 import {
   BadRequestException,
@@ -49,6 +60,12 @@ const EDITABLE_STATUSES = [
   ApplicationStatus.REWORK_REQUIRED,
 ];
 
+const PROXIMITY_EXPORT_LABELS: Record<string, string> = {
+  LESS_THAN_15_MINS: 'Less than 15 minutes',
+  BETWEEN_15_30_MINS: '15 to 30 minutes',
+  OVER_30_MINS: 'More than 30 minutes',
+};
+
 @Injectable()
 export class ApplicationsService {
   constructor(
@@ -70,6 +87,173 @@ export class ApplicationsService {
     private readonly notificationsService: NotificationsService,
     private readonly beneficiariesService: BeneficiariesService,
   ) {}
+
+  async getReviewerActivity() {
+    const manager = this.applicationRepo.manager;
+    const users = await manager.getRepository(User).find({
+      where: [
+        { role: Role.SCORING_REVIEWER },
+        { role: Role.ELIGIBILITY_REVIEWER },
+        { role: Role.VALIDATOR },
+      ],
+      order: { fullName: 'ASC' },
+    });
+
+    const assignments = (await this.reviewerAssignmentRepo
+      .createQueryBuilder('a')
+      .innerJoin('a.application', 'app')
+      .select('a.reviewerId', 'reviewerId')
+      .addSelect('COUNT(*)', 'assigned')
+      .addSelect(
+        `SUM(CASE WHEN a.completed = false AND app.status = :scoring THEN 1 ELSE 0 END)`,
+        'pending',
+      )
+      .where('a.queueType = :queueType', { queueType: ReviewerQueueType.SCORING })
+      .setParameter('scoring', ApplicationStatus.IN_REVIEW_SCORING)
+      .groupBy('a.reviewerId')
+      .getRawMany()) as { reviewerId: string; assigned: string; pending: string }[];
+
+    const cards = (await manager
+      .getRepository(ScoreCard)
+      .createQueryBuilder('c')
+      .select('c.reviewerId', 'reviewerId')
+      .addSelect('COUNT(*)', 'submitted')
+      .addSelect('AVG(c.compositePercentage)', 'averageScore')
+      .addSelect('MAX(c.submittedAt)', 'lastActivity')
+      .where('c.submitted = true')
+      .groupBy('c.reviewerId')
+      .getRawMany()) as { reviewerId: string; submitted: string; averageScore: string | null; lastActivity: string | null }[];
+
+    const checklists = (await manager
+      .getRepository(EligibilityChecklist)
+      .createQueryBuilder('e')
+      .select('e.reviewerId', 'reviewerId')
+      .addSelect('COUNT(*)', 'decisions')
+      .addSelect(`SUM(CASE WHEN e.overallResult = 'PASS' THEN 1 ELSE 0 END)`, 'passed')
+      .addSelect('MAX(e.createdAt)', 'lastActivity')
+      .groupBy('e.reviewerId')
+      .getRawMany()) as { reviewerId: string; decisions: string; passed: string; lastActivity: string | null }[];
+
+    const validations = (await manager
+      .getRepository(ValidationRecord)
+      .createQueryBuilder('v')
+      .select('v.validatorId', 'reviewerId')
+      .addSelect('COUNT(*)', 'completed')
+      .addSelect('MAX(COALESCE(v.validatedAt, v.createdAt))', 'lastActivity')
+      .groupBy('v.validatorId')
+      .getRawMany()) as { reviewerId: string; completed: string; lastActivity: string | null }[];
+
+    const byId = <T extends { reviewerId: string }>(rows: T[]) => new Map(rows.map((row) => [row.reviewerId, row]));
+    const assignmentMap = byId(assignments);
+    const cardMap = byId(cards);
+    const checklistMap = byId(checklists);
+    const validationMap = byId(validations);
+    const num = (value: string | number | null | undefined) => (value === null || value === undefined ? 0 : Number(value));
+    const pct = (value: string | null | undefined) => {
+      const n = toValidPercent(value);
+      return n === null ? null : Math.round(n * 10) / 10;
+    };
+
+    const scoring = users
+      .filter((u) => u.role === Role.SCORING_REVIEWER)
+      .map((u) => {
+        const a = assignmentMap.get(u.id);
+        const c = cardMap.get(u.id);
+        return {
+          userId: u.id,
+          fullName: u.fullName,
+          active: u.isActive,
+          slot: u.scoringSlot ?? null,
+          assigned: num(a?.assigned),
+          submitted: num(c?.submitted),
+          pending: num(a?.pending),
+          averageScore: pct(c?.averageScore),
+          lastActivity: c?.lastActivity ?? null,
+        };
+      });
+    const eligibility = users
+      .filter((u) => u.role === Role.ELIGIBILITY_REVIEWER)
+      .map((u) => {
+        const e = checklistMap.get(u.id);
+        const decisions = num(e?.decisions);
+        return {
+          userId: u.id,
+          fullName: u.fullName,
+          active: u.isActive,
+          decisions,
+          passed: num(e?.passed),
+          failed: decisions - num(e?.passed),
+          lastActivity: e?.lastActivity ?? null,
+        };
+      });
+    const validation = users
+      .filter((u) => u.role === Role.VALIDATOR)
+      .map((u) => {
+        const v = validationMap.get(u.id);
+        return {
+          userId: u.id,
+          fullName: u.fullName,
+          active: u.isActive,
+          state: u.assignedState ?? null,
+          completed: num(v?.completed),
+          lastActivity: v?.lastActivity ?? null,
+        };
+      });
+
+    return {
+      scoring,
+      eligibility,
+      validation,
+      totals: {
+        scoresSubmitted: scoring.reduce((sum, r) => sum + r.submitted, 0),
+        scoresPending: scoring.reduce((sum, r) => sum + r.pending, 0),
+        eligibilityDecisions: eligibility.reduce((sum, r) => sum + r.decisions, 0),
+        validationsCompleted: validation.reduce((sum, r) => sum + r.completed, 0),
+      },
+    };
+  }
+
+  async getValidationRecordForAdmin(applicationId: string) {
+    const application = await this.applicationRepo.findOne({ where: { id: applicationId }, select: { id: true } });
+    if (!application) throw new NotFoundException('Application not found');
+    const record = await this.applicationRepo.manager.getRepository(ValidationRecord).findOne({
+      where: { applicationId },
+      relations: { validator: true },
+      order: { createdAt: 'DESC' },
+    });
+    if (!record) return null;
+    return {
+      id: record.id,
+      validatorName: record.validator?.fullName ?? null,
+      validatedAt: record.validatedAt ?? null,
+      notes: record.siteInspectionNotes ?? null,
+      checklist: record.checklist ?? [],
+      physicalFootprintVerified: record.physicalFootprintVerified,
+      photos: (record.geotaggedPhotos ?? []).map((photo, index) => ({
+        index,
+        latitude: photo.latitude,
+        longitude: photo.longitude,
+        takenAt: photo.takenAt ?? null,
+        fileName: resolveFileName(null, photo.storageKey),
+        contentType: resolveContentType(null, photo.storageKey),
+      })),
+    };
+  }
+
+  async getValidationPhotoForAdmin(applicationId: string, index: number) {
+    const record = await this.applicationRepo.manager.getRepository(ValidationRecord).findOne({
+      where: { applicationId },
+      order: { createdAt: 'DESC' },
+    });
+    const photo = record?.geotaggedPhotos?.[index];
+    if (!photo?.storageKey) throw new NotFoundException('Photo not found');
+    const buffer = await this.storageService.readFile(photo.storageKey);
+    return {
+      buffer,
+      fileName: resolveFileName(null, photo.storageKey),
+      contentType: resolveContentType(null, photo.storageKey),
+    };
+  }
 
   async findMine(userId: string): Promise<Application[]> {
     const applications = await this.applicationRepo.find({
@@ -179,6 +363,142 @@ export class ApplicationsService {
       .getManyAndCount();
 
     return { items, total, page, limit, totalPages: totalPagesFor(total, limit) };
+  }
+
+  async exportApplications(query: ExportAdminApplicationsDto) {
+    const { valid, invalid } = parseStatusFilter(query.status);
+    if (invalid.length > 0) {
+      throw new BadRequestException(`Unknown application status: ${invalid.join(', ')}`);
+    }
+
+    const qb = this.applicationRepo
+      .createQueryBuilder('application')
+      .leftJoinAndSelect('application.preferredInstitution', 'institution')
+      .leftJoinAndSelect('application.scoreCards', 'card', 'card.submitted = true');
+    if (valid.length > 0) {
+      qb.where('application.status IN (:...statuses)', { statuses: valid });
+    } else {
+      qb.where('application.status != :draft', { draft: ApplicationStatus.DRAFT });
+    }
+    if (query.state) {
+      qb.andWhere(':state = ANY(application.statesOfOperation)', { state: query.state });
+    }
+    const term = query.search?.trim();
+    if (term) {
+      qb.andWhere(
+        '(application.organisationLegalName ILIKE :term OR application.applicationRef ILIKE :term)',
+        { term: `%${escapeLikePattern(term)}%` },
+      );
+    }
+    const applications = await qb
+      .orderBy('application.submittedAt', 'DESC', 'NULLS LAST')
+      .addOrderBy('application.applicationRef', 'ASC')
+      .getMany();
+
+    const label = (value: string | null | undefined) =>
+      value
+        ? value
+            .toLowerCase()
+            .split('_')
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ')
+        : '';
+    const date = (value: Date | string | null | undefined) =>
+      value ? new Date(value).toISOString().slice(0, 16).replace('T', ' ') : '';
+    const score = (value: unknown) => {
+      const n = toValidPercent(value);
+      return n === null ? null : Math.round(n * 100) / 100;
+    };
+
+    const header = [
+      'Reference',
+      'Organisation',
+      'Organisation type',
+      'Registration type',
+      'Year established',
+      'States of operation',
+      'Preferred host institution',
+      'Proximity to host',
+      'Sector focus',
+      'Contact name',
+      'Contact email',
+      'Contact phone',
+      'Status',
+      'Submitted (UTC)',
+      'Reviewer 1 score %',
+      'Reviewer 2 score %',
+      'Final score %',
+      'Score gap flagged',
+      'Scoring issue',
+    ];
+    const rows = applications.map((app) => {
+      const cards = [...(app.scoreCards ?? [])].sort((a, b) => (a.reviewerSlot ?? 0) - (b.reviewerSlot ?? 0));
+      return [
+        app.applicationRef,
+        app.organisationLegalName ?? '',
+        label(app.organisationType),
+        label(app.registrationType),
+        app.yearEstablished ?? null,
+        (app.statesOfOperation ?? []).map(label).join('; '),
+        app.preferredInstitution?.name ?? '',
+        PROXIMITY_EXPORT_LABELS[app.proximityToHostInstitution ?? ''] ?? '',
+        (app.sectorFocus ?? []).map(label).join('; '),
+        app.primaryContactName ?? '',
+        app.primaryContactEmail ?? '',
+        app.primaryContactPhone ?? '',
+        label(app.status),
+        date(app.submittedAt),
+        score(cards[0]?.compositePercentage),
+        score(cards[1]?.compositePercentage),
+        score(app.finalScorePercent),
+        app.scoreVarianceFlagged ? 'Yes' : 'No',
+        app.scoringIntegrityError ?? '',
+      ];
+    });
+
+    const stamp = new Date().toISOString().slice(0, 10);
+    const filters = [
+      valid.length > 0 ? `Statuses: ${valid.map(label).join(', ')}` : 'Statuses: all submitted',
+      query.state ? `State: ${label(query.state)}` : null,
+      term ? `Search: ${term}` : null,
+    ].filter(Boolean) as string[];
+
+    if (query.format === 'csv') {
+      return {
+        buffer: Buffer.from(toCsv([header, ...rows]), 'utf8'),
+        contentType: 'text/csv; charset=utf-8',
+        fileName: `eso-applications-${stamp}.csv`,
+      };
+    }
+    if (query.format === 'xlsx') {
+      return {
+        buffer: buildXlsx([
+          {
+            name: 'Applications',
+            rows: [header, ...rows],
+            boldRows: [0],
+            columnWidths: [22, 36, 26, 20, 10, 28, 36, 20, 30, 24, 32, 18, 26, 18, 12, 12, 12, 12, 40],
+          },
+        ]),
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        fileName: `eso-applications-${stamp}.xlsx`,
+      };
+    }
+    const pdfColumns = ['Reference', 'Organisation', 'State', 'Type', 'Status', 'Submitted', 'Final %'];
+    const pdfRows = rows.map((row) => [row[0], row[1], row[5], row[2], row[12], String(row[13]).slice(0, 10), row[16]]);
+    return {
+      buffer: buildPdf({
+        title: 'ESO applications',
+        subtitle: `Generated ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC · ${rows.length} applications`,
+        footer: 'iDICE North Central ESO Portal',
+        sections: [
+          { heading: 'Filters', lines: filters },
+          { heading: 'Applications', table: { columns: pdfColumns, rows: pdfRows } },
+        ],
+      }),
+      contentType: 'application/pdf',
+      fileName: `eso-applications-${stamp}.pdf`,
+    };
   }
 
   /** SYSADMIN-only funnel counts. Backs GET /internal/admin/applications/stats. */

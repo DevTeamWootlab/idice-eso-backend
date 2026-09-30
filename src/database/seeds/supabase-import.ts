@@ -171,6 +171,28 @@ function normalizeText(value: string | undefined): string {
   return (value ?? '').replace(/\s+/g, ' ').trim();
 }
 
+const ORGANISATION_TYPE_ALIASES: Record<string, string> = {
+  'innovation hub': 'INNOVATION_HUB',
+  'incubators and accelerators': 'INCUBATOR',
+  'incubators & accelerators': 'INCUBATOR',
+  'creative hubs': 'CREATIVE_HUBS',
+  'startup support organisations': 'STARTUP_SUPPORT_ORGANIZATIONS',
+  'startup support organizations': 'STARTUP_SUPPORT_ORGANIZATIONS',
+  'training provider': 'TRAINING_PROVIDER',
+};
+
+const PROXIMITY_ALIASES: Record<string, string> = {
+  lt_15: 'LESS_THAN_15_MINS',
+  '15_30': 'BETWEEN_15_30_MINS',
+  '30_60': 'OVER_30_MINS',
+  gt_60: 'OVER_30_MINS',
+};
+
+function aliasValue(aliases: Record<string, string>, value: string | undefined): string | undefined {
+  if (!value) return value;
+  return aliases[normalizeText(value).toLowerCase()] ?? value;
+}
+
 function normalizeEnum<T extends Record<string, string>>(
   enumObj: T,
   value: string | undefined,
@@ -540,7 +562,7 @@ async function seedApplications(dataSource: DataSource) {
     );
     const organisationType = normalizeEnum(
       OrganisationType,
-      row.sa_organisation_type || row.organisationType,
+      aliasValue(ORGANISATION_TYPE_ALIASES, row.sa_organisation_type || row.organisationType),
       undefined,
     );
     const sectorFocus = parseJsonArray(row.sc_sector_focus)
@@ -551,7 +573,7 @@ async function seedApplications(dataSource: DataSource) {
     );
     const proximityToHostInstitution = normalizeEnum(
       ProximityToHost,
-      row.sb_proximity_to_host || row.proximityToHostInstitution,
+      aliasValue(PROXIMITY_ALIASES, row.sb_proximity_to_host || row.proximityToHostInstitution),
       undefined,
     );
 

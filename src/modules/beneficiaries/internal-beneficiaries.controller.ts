@@ -5,6 +5,7 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
+  Post,
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiOkResponse } from '@nestjs/swagger';
@@ -13,6 +14,9 @@ import { Role } from '@/common/enums/role.enum';
 import { BeneficiariesService } from './beneficiaries.service';
 import { ListBeneficiariesDto } from './dto/list-beneficiaries.dto';
 import { UpdateBeneficiaryStatusDto } from './dto/update-beneficiary-status.dto';
+import { BulkUpdateBeneficiaryStatusDto } from './dto/bulk-update-beneficiary-status.dto';
+import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import { JwtPayload } from '@/common/interfaces/jwt-payload.interface';
 import { BeneficiaryListDto, BeneficiarySummaryDto } from './dto/beneficiary-responses.dto';
 
 @ApiTags('Beneficiaries (SYSADMIN)')
@@ -32,6 +36,17 @@ export class InternalBeneficiariesController {
   @Get()
   list(@Query() query: ListBeneficiariesDto) {
     return this.beneficiariesService.listForAdmin(query);
+  }
+
+  @ApiOperation({
+    summary: 'Change the status of many beneficiaries at once',
+    description:
+      'Requires role: ROLE_SYSADMIN. Applies the same rules as the single update to each beneficiary in turn ' +
+      '(allowed transitions, CoE capacity). Returns which succeeded and why any failed. Up to 200 per request.',
+  })
+  @Post('bulk-status')
+  bulkUpdateStatus(@Body() dto: BulkUpdateBeneficiaryStatusDto, @CurrentUser() user: JwtPayload) {
+    return this.beneficiariesService.bulkUpdateStatusForAdmin(dto, user);
   }
 
   @ApiOperation({

@@ -57,6 +57,32 @@ export class ScoringService {
       .map((a) => a.application);
   }
 
+  async getSubmittedByMe(reviewerId: string) {
+    const cards = await this.scoreCardRepo.find({
+      where: { reviewerId, submitted: true },
+      relations: { application: true },
+      order: { submittedAt: 'DESC' },
+    });
+    return cards
+      .filter((card) => !!card.application)
+      .map((card) => {
+        const application = card.application;
+        const finalized = application.status !== ApplicationStatus.IN_REVIEW_SCORING;
+        return {
+          applicationId: application.id,
+          applicationRef: application.applicationRef,
+          organisationName: application.organisationLegalName ?? null,
+          status: application.status,
+          myScorePercent: toValidPercent(card.compositePercentage),
+          mySubmittedAt: card.submittedAt ?? null,
+          reviewerSlot: card.reviewerSlot ?? null,
+          finalScorePercent: finalized ? toValidPercent(application.finalScorePercent) : null,
+          finalScorePublished: finalized && toValidPercent(application.finalScorePercent) !== null,
+          awaitingCoReviewer: !finalized,
+        };
+      });
+  }
+
   async getDossier(applicationId: string, reviewerId: string) {
     await this.assertAssigned(applicationId, reviewerId);
     const application = await this.applicationRepo.findOne({

@@ -1,3 +1,4 @@
+import { AuditLogService } from '@/modules/audit-log/audit-log.service';
 import {
   ConflictException,
   ForbiddenException,
@@ -45,6 +46,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly notificationsService: NotificationsService,
     private readonly mfaService: MfaService,
+    private readonly auditLogService: AuditLogService,
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepo: Repository<RefreshToken>,
     @InjectRepository(EmailVerificationToken)
@@ -200,6 +202,24 @@ export class AuthService {
       throw new UnauthorizedException('Account is no longer active');
     }
 
+    const sessionCap = this.sessionCapFor(user.role, stored.createdAt);
+    if (sessionCap && sessionCap.getTime() <= Date.now()) {
+      await this.refreshTokenRepo.update({ sessionId }, { revoked: true });
+      await this.auditLogService
+        .record({
+          actorId: user.id,
+          actorRole: user.role,
+          action: 'SESSION_MAX_AGE_REACHED',
+          entityType: 'User',
+          entityId: user.id,
+          metadata: { sessionId, startedAt: stored.createdAt },
+        })
+        .catch(() => undefined);
+      throw new UnauthorizedException(
+        `SESSION_MAX_AGE: Your session reached the ${this.sessionMaxAgeHours()}-hour limit. Please sign in again.`,
+      );
+    }
+
     const newRefreshToken = this.signRefreshToken(
       user.id,
       user.email,
@@ -207,7 +227,7 @@ export class AuthService {
       sessionId,
     );
     stored.tokenHash = await argon2.hash(newRefreshToken);
-    stored.expiresAt = this.getRefreshExpiryDate();
+    stored.expiresAt = this.cappedExpiry(this.getRefreshExpiryDate(), this.sessionCapFor(user.role, stored.createdAt));
     await this.refreshTokenRepo.save(stored);
 
     const accessToken = this.signAccessToken(user.id, user.email, user.role);
@@ -401,7 +421,7 @@ export class AuthService {
         userId,
         sessionId,
         tokenHash,
-        expiresAt: this.getRefreshExpiryDate(),
+        expiresAt: this.cappedExpiry(this.getRefreshExpiryDate(), this.sessionCapFor(role, new Date())),
         userAgent: meta.userAgent,
         ipAddress: meta.ipAddress,
       }),
@@ -435,6 +455,20 @@ export class AuthService {
         'jwt.refreshExpiresIn',
       ) as any,
     });
+  }
+
+  private sessionMaxAgeHours(): number {
+    return this.configService.get<number>('security.sessionMaxAgeHours', 120);
+  }
+
+  private sessionCapFor(role: string, startedAt: Date | string | null | undefined): Date | null {
+    const roles = this.configService.get<string[]>('security.sessionMaxAgeRoles', []);
+    if (!startedAt || !roles.includes(role)) return null;
+    return new Date(new Date(startedAt).getTime() + this.sessionMaxAgeHours() * 60 * 60 * 1000);
+  }
+
+  private cappedExpiry(expiry: Date, cap: Date | null): Date {
+    return cap && cap.getTime() < expiry.getTime() ? cap : expiry;
   }
 
   private getRefreshExpiryDate(): Date {
