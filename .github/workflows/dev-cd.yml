@@ -58,10 +58,10 @@ jobs:
           command: |
             aws ecr get-login-password --region ${{  secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.DEV_REPO }}
             cd app
-            docker-compose pull backend
-            docker-compose -f docker-compose.yml down backend
-            docker-compose -f docker-compose.yml up -d backend
-            docker-compose system prune
+            docker compose pull backend
+            docker compose -f docker-compose.yml down backend
+            docker compose -f docker-compose.yml up -d backend
+            docker compose system prune
           host: ${{ secrets.SSH_HOST }}
           user: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
