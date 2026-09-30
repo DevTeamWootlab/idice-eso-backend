@@ -5,8 +5,10 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { IStorageProvider } from '@/common/interfaces/storage-provider.interface';
+import { CloudinaryClient, parseCloudinaryUrl } from './cloudinary.client';
 
 const EXTERNAL_HOST_PATTERNS = [/^res\.cloudinary\.com$/i, /\.supabase\.co$/i];
 const EXTERNAL_FETCH_TIMEOUT_MS = 20_000;
@@ -22,6 +24,9 @@ export class StorageService {
   constructor(
     @Inject('STORAGE_PROVIDER')
     private readonly provider: IStorageProvider,
+    @Optional()
+    @Inject('CLOUDINARY_CLIENT')
+    private readonly cloudinary: CloudinaryClient | null = null,
   ) {}
 
   uploadFile(
@@ -41,6 +46,11 @@ export class StorageService {
 
   async deleteFile(storageKey: string): Promise<void> {
     if (isExternalStorageKey(storageKey)) {
+      const ref = parseCloudinaryUrl(storageKey.trim());
+      if (ref && this.cloudinary?.canSign(ref)) {
+        await this.cloudinary.destroy(ref);
+        return;
+      }
       this.logger.warn(
         `Skipped deleting an externally hosted document (${new URL(storageKey.trim()).host}); remove it from that host if needed.`,
       );
@@ -60,6 +70,16 @@ export class StorageService {
       throw new ForbiddenException('Documents can only be read from the approved file hosts');
     }
 
+    const cloudinaryRef = parseCloudinaryUrl(parsed.toString());
+    if (cloudinaryRef && this.cloudinary?.canSign(cloudinaryRef)) {
+      try {
+        return await this.cloudinary.download(cloudinaryRef);
+      } catch (error) {
+        if (error instanceof NotFoundException) throw error;
+        this.logger.warn(`Signed Cloudinary download failed, trying the public address: ${(error as Error).message}`);
+      }
+    }
+
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), EXTERNAL_FETCH_TIMEOUT_MS);
     try {
@@ -71,7 +91,9 @@ export class StorageService {
         this.logger.error(`File host refused ${parsed.host}${parsed.pathname} with ${response.status}`);
         throw new BadGatewayException(
           parsed.hostname.endsWith('cloudinary.com')
-            ? 'Cloudinary refused to deliver this file. Enable "Allow delivery of PDF and ZIP files" in the Cloudinary security settings.'
+            ? this.cloudinary
+              ? 'Cloudinary refused to deliver this file. It belongs to a different Cloudinary account from the one configured on the server, and that account blocks PDF delivery.'
+              : 'Cloudinary refused to deliver this file. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET on the server so documents are fetched through the signed API.'
             : 'The file host refused to deliver this document',
         );
       }

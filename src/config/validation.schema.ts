@@ -46,7 +46,11 @@ export const environmentSchema = z.object({
   SMS_API_KEY: z.string({ message: 'SMS_API_KEY is required' }).min(1),
   SMS_SENDER_ID: z.string({ message: 'SMS_SENDER_ID is required' }).min(1),
 
-  STORAGE_PROVIDER: z.enum(['local', 's3']).default('s3'),
+  STORAGE_PROVIDER: z.enum(['local', 's3', 'cloudinary']).default('s3'),
+  CLOUDINARY_CLOUD_NAME: z.string().optional().default(''),
+  CLOUDINARY_API_KEY: z.string().optional().default(''),
+  CLOUDINARY_API_SECRET: z.string().optional().default(''),
+  CLOUDINARY_FOLDER: z.string().optional().default('idice-eso'),
   STORAGE_BUCKET: z.string().optional().default(''),
   STORAGE_REGION: z.string().optional().default(''),
   STORAGE_ACCESS_KEY_ID: z.string().optional().default(''),
@@ -80,6 +84,8 @@ export const environmentSchema = z.object({
     }),
 
   LOCKOUT_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+  SESSION_MAX_AGE_HOURS: z.coerce.number().int().positive().default(120),
+  SESSION_MAX_AGE_ROLES: z.string().optional().default('ROLE_ELIGIBILITY_REVIEWER,ROLE_SCORING_REVIEWER,ROLE_VALIDATOR'),
   LOCKOUT_WINDOW_MINUTES: z.coerce.number().int().positive().default(15),
   LOCKOUT_DURATION_MINUTES: z.coerce.number().int().positive().default(30),
 });
@@ -98,6 +104,19 @@ const environmentSchemaWithCors = environmentSchema.superRefine((env, ctx) => {
           'allowlist (e.g. the staging origin, the production frontend domain, and any ' +
           'Vercel preview origin you rely on). Refusing to boot with an empty CORS allowlist.',
       });
+    }
+  }
+
+  if (env.STORAGE_PROVIDER === 'cloudinary') {
+    const required: Array<keyof typeof env> = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'];
+    for (const key of required) {
+      if (!env[key]) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `${String(key)} is required when STORAGE_PROVIDER=cloudinary`,
+        });
+      }
     }
   }
 

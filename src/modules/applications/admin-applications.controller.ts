@@ -5,14 +5,20 @@ import {
   Get,
   Param,
   ParseUUIDPipe,
+  ParseIntPipe,
   Post,
   Query,
+  Res,
+  StreamableFile,
 } from '@nestjs/common';
+import type { Response } from 'express';
+import { contentDisposition } from '@/common/utils/content-disposition';
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiOkResponse, ApiCreatedResponse } from '@nestjs/swagger';
 import { ApplicationsService } from './applications.service';
 import { AssignReviewersDto } from './dto/assign-reviewers.dto';
 import { ReassignReviewerDto } from './dto/reassign-reviewer.dto';
 import { ListAdminApplicationsDto } from './dto/list-admin-applications.dto';
+import { ExportAdminApplicationsDto } from './dto/export-admin-applications.dto';
 import { Roles } from '@/common/decorators/roles.decorator';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { Role } from '@/common/enums/role.enum';
@@ -52,11 +58,61 @@ export class AdminApplicationsController {
     return this.applicationsService.getAdminStats();
   }
 
+  @ApiOkResponse({ description: 'Per-reviewer workload and output for scoring, eligibility and validation' })
+  @ApiOperation({ summary: 'Reviewer activity statistics', description: 'Requires role: ROLE_SYSADMIN' })
+  @Get('reviewer-activity')
+  reviewerActivity() {
+    return this.applicationsService.getReviewerActivity();
+  }
+
+  @ApiOkResponse({ description: 'Applications as a CSV, Excel or PDF file' })
+  @ApiOperation({
+    summary: 'Export applications',
+    description:
+      'Requires role: ROLE_SYSADMIN. Same filters as the list (search, statuses, state). format=csv|xlsx|pdf. ' +
+      'Responds with the file itself, not the usual JSON envelope.',
+  })
+  @Get('export')
+  async export(@Query() query: ExportAdminApplicationsDto, @Res({ passthrough: true }) res: Response) {
+    const file = await this.applicationsService.exportApplications(query);
+    res.set({
+      'Content-Type': file.contentType,
+      'Content-Disposition': contentDisposition(file.fileName, 'attachment'),
+      'Cache-Control': 'private, no-store',
+    });
+    return new StreamableFile(file.buffer);
+  }
+
   @ApiOkResponse({ description: 'Full application: all sections, documents, personnel, references and score cards' })
   @ApiOperation({ summary: 'Get an application\'s full details', description: 'Requires role: ROLE_SYSADMIN' })
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.applicationsService.findOneForAdmin(id);
+  }
+
+  @ApiOkResponse({ description: 'The latest field-validation record: notes, checklist, footprint check and photo list' })
+  @ApiOperation({ summary: 'Get an application\'s field-validation evidence', description: 'Requires role: ROLE_SYSADMIN' })
+  @Get(':id/validation-record')
+  validationRecord(@Param('id', ParseUUIDPipe) id: string) {
+    return this.applicationsService.getValidationRecordForAdmin(id);
+  }
+
+  @ApiOkResponse({ description: 'The photo file itself' })
+  @ApiOperation({ summary: 'Download one field-validation photo', description: 'Requires role: ROLE_SYSADMIN' })
+  @Get(':id/validation-record/photos/:index')
+  async validationPhoto(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('index', ParseIntPipe) index: number,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const photo = await this.applicationsService.getValidationPhotoForAdmin(id, index);
+    res.set({
+      'Content-Type': photo.contentType,
+      'Content-Disposition': contentDisposition(photo.fileName),
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'private, no-store',
+    });
+    return new StreamableFile(photo.buffer);
   }
 
   @ApiOkResponse({ description: 'Reviewer assignments for the application' })

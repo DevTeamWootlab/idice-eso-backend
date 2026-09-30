@@ -57,6 +57,12 @@ export default () => ({
     region: process.env.STORAGE_REGION,
     accessKeyId: process.env.STORAGE_ACCESS_KEY_ID,
     secretAccessKey: process.env.STORAGE_SECRET_ACCESS_KEY,
+    cloudinary: {
+      cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+      apiKey: process.env.CLOUDINARY_API_KEY,
+      apiSecret: process.env.CLOUDINARY_API_SECRET,
+      folder: process.env.CLOUDINARY_FOLDER || 'idice-eso',
+    },
   },
   mfa: {
     encryptionKey: process.env.MFA_ENCRYPTION_KEY,
@@ -66,5 +72,13 @@ export default () => ({
     lockoutMaxAttempts: toInt(process.env.LOCKOUT_MAX_ATTEMPTS, 5),
     lockoutWindowMinutes: toInt(process.env.LOCKOUT_WINDOW_MINUTES, 15),
     lockoutDurationMinutes: toInt(process.env.LOCKOUT_DURATION_MINUTES, 30),
+    sessionMaxAgeHours: toInt(process.env.SESSION_MAX_AGE_HOURS, 120),
+    sessionMaxAgeRoles: (
+      process.env.SESSION_MAX_AGE_ROLES ||
+      'ROLE_ELIGIBILITY_REVIEWER,ROLE_SCORING_REVIEWER,ROLE_VALIDATOR'
+    )
+      .split(',')
+      .map((role) => role.trim())
+      .filter(Boolean),
   },
 });
