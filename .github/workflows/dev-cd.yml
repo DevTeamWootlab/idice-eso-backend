@@ -57,7 +57,7 @@ jobs:
         with:
           command: |
             aws ecr get-login-password --region ${{  secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.DEV_REPO }}
-            cd app
+            cd opensetting
             docker compose pull backend
             docker compose -f docker-compose.yml down backend
             docker compose -f docker-compose.yml up -d backend
