@@ -30,28 +30,38 @@ export class TrainingController {
   constructor(private readonly trainingService: TrainingService) {}
 
   @ApiOkResponse({ type: [CourseDto] })
-  @ApiOperation({ summary: 'List active courses', description: 'Requires role: ROLE_SYSADMIN' })
+  @ApiOperation({
+    summary: 'List active courses',
+    description: 'Requires role: ROLE_SYSADMIN',
+  })
   @Get('courses')
   courses() {
     return this.trainingService.listCourses();
   }
 
   @ApiOkResponse({ type: [CohortDto] })
-  @ApiOperation({ summary: 'List cohorts with member counts', description: 'Requires role: ROLE_SYSADMIN' })
+  @ApiOperation({
+    summary: 'List cohorts with member counts',
+    description: 'Requires role: ROLE_SYSADMIN',
+  })
   @Get('cohorts')
   cohorts() {
     return this.trainingService.listCohorts();
   }
 
   @ApiCreatedResponse({ type: CohortDto })
-  @ApiOperation({ summary: 'Create a cohort at a CoE', description: 'Requires role: ROLE_SYSADMIN' })
+  @ApiOperation({
+    summary: 'Create a cohort at a CoE',
+    description: 'Requires role: ROLE_SYSADMIN',
+  })
   @Post('cohorts')
   createCohort(@Body() dto: CreateCohortDto) {
     return this.trainingService.createCohort(dto);
   }
 
   @ApiOperation({
-    summary: 'Move a cohort PLANNED → ACTIVE → COMPLETED, pause or resume it, or cancel it',
+    summary:
+      'Move a cohort PLANNED → ACTIVE → COMPLETED, pause or resume it, or cancel it',
     description: 'Requires role: ROLE_SYSADMIN',
   })
   @ApiOkResponse({ type: CohortDto })
@@ -95,13 +105,29 @@ export class TrainingController {
       'Requires role: ROLE_SYSADMIN. Only ALLOCATED Skills-pillar beneficiaries assigned to the ' +
       "cohort's CoE are accepted; the response lists who was enrolled, already enrolled, or rejected and why.",
   })
+  // @ApiCreatedResponse({ type: EnrolResultDto })
+  // @Post('cohorts/:id/enroll')
+  // enroll(
+  //   @Param('id', ParseUUIDPipe) id: string,
+  //   @Body() dto: EnrollBeneficiariesDto,
+  // ): Promise<EnrolResultDto> {
+  //   return this.trainingService.enroll(id, dto);
+  // }
+  @ApiOperation({
+    summary: 'Enrol allocated beneficiaries in a cohort',
+    description:
+      'Requires role: ROLE_SYSADMIN. Only ALLOCATED Skills-pillar beneficiaries assigned to the ' +
+      "cohort's CoE are accepted; the response lists who was enrolled, already enrolled, or rejected and why.",
+  })
   @ApiCreatedResponse({ type: EnrolResultDto })
   @Post('cohorts/:id/enroll')
-  enroll(
-    @Param('id', ParseUUIDPipe) id: string,
+  @Roles(Role.SYSADMIN)
+  enrollBeneficiaries(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) cohortId: string,
     @Body() dto: EnrollBeneficiariesDto,
-  ): Promise<EnrolResultDto> {
-    return this.trainingService.enroll(id, dto);
+  ) {
+    return this.trainingService.enrollBeneficiaries(cohortId, dto, user.sub);
   }
 
   @ApiOperation({

@@ -1,40 +1,57 @@
-version: "3.3"
-
 services:
-  # api:
-  #   build: .
-  #   container_name: .
-  #   ports:
-  #     - "4000:4000"
-  #   depends_on:
-  #     - postgres
-  #   env_file:
-  #     - .env
-
-  postgres:
-    image: postgres:16
-    restart: always
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: idice_api
     env_file:
       - .env
     environment:
-      - POSTGRES_USER=${DB_USERNAME}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=${DB_NAME}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      PORT: 3000
+      HOST: 0.0.0.0
+      NODE_ENV: development
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-true}
+    ports:
+      - "${PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    init: true
+    networks:
+      - idice_network
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:3000/api/v1/health/ready', (response) => process.exit(response.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: idice_postgres
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:?Set DB_USERNAME in .env}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      POSTGRES_DB: ${DB_NAME:?Set DB_NAME in .env}
     ports:
       - "${DB_PORT:-5432}:5432"
     volumes:
-      - eso_data:/var/lib/postgresql/data
-      - ./dbscripts/postgres:/docker-entrypoint-initdb.d
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - idice_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s
       timeout: 5s
-      retries: 5
-    networks:
-      - internal
+      retries: 12
+    restart: unless-stopped
 
 networks:
-  internal:
+  idice_network:
+    driver: bridge
 
 volumes:
-  eso_data:
+  postgres_data:

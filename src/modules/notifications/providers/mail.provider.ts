@@ -36,7 +36,7 @@ export class MailProvider {
         await this.sendWithResend(to, subject, body, fromAddress);
         return;
       case 'aws-ses':
-        await this.sendWithAwsSes(to, subject, body, fromAddress);
+        await this.sendWithAwsSes(to, subject, body);
         return;
       case 'sendgrid':
         await this.sendWithSendgrid(to, subject, body, fromAddress);
@@ -96,7 +96,7 @@ export class MailProvider {
     to: string,
     subject: string,
     body: string,
-    fromAddress: string,
+    // fromAddress: string,
   ): Promise<void> {
     const region = this.configService.get<string>('aws.region') || 'us-east-1';
     const accessKeyId = this.configService.get<string>('aws.accessKeyId') || '';

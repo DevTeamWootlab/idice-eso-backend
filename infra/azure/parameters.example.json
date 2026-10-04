@@ -1,0 +1,39 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "appServiceName": { "value": "idice-eso-api-prod-unique" },
+    "acrName": { "value": "idiceesoprodunique" },
+    "postgresServerName": { "value": "idice-eso-pg-prod-unique" },
+    "keyVaultName": { "value": "idice-eso-kv-prod-unique" },
+    "databaseName": { "value": "idice_eso_backend" },
+    "databaseAdminLogin": { "value": "idiceadmin" },
+    "databaseAdminPassword": { "value": "REPLACE_WITH_SECURE_PIPELINE_PARAMETER" },
+    "productionSecrets": {
+      "value": {
+        "DB-PASSWORD": "SUPPLY_VIA_GITHUB_ENVIRONMENT_SECRET",
+        "MAIL-API-KEY": "SUPPLY_VIA_GITHUB_ENVIRONMENT_SECRET",
+        "SMS-API-KEY": "SUPPLY_VIA_GITHUB_ENVIRONMENT_SECRET",
+        "CLOUDINARY-CLOUD-NAME": "SUPPLY_VIA_GITHUB_ENVIRONMENT_SECRET",
+        "CLOUDINARY-API-KEY": "SUPPLY_VIA_GITHUB_ENVIRONMENT_SECRET",
+        "CLOUDINARY-API-SECRET": "SUPPLY_VIA_GITHUB_ENVIRONMENT_SECRET",
+        "JWT-ACCESS-SECRET": "SUPPLY_VIA_GITHUB_ENVIRONMENT_SECRET",
+        "JWT-REFRESH-SECRET": "SUPPLY_VIA_GITHUB_ENVIRONMENT_SECRET",
+        "MFA-ENCRYPTION-KEY": "SUPPLY_VIA_GITHUB_ENVIRONMENT_SECRET",
+        "NIN-HASH-KEY": "SUPPLY_VIA_GITHUB_ENVIRONMENT_SECRET",
+        "NIN-ENCRYPTION-KEY": "SUPPLY_VIA_GITHUB_ENVIRONMENT_SECRET",
+        "SYSADMIN-SEED-PASSWORD": "SUPPLY_VIA_GITHUB_ENVIRONMENT_SECRET"
+      }
+    },
+    "githubActionsPrincipalObjectId": { "value": "REPLACE_WITH_GITHUB_OIDC_SERVICE_PRINCIPAL_OBJECT_ID" },
+    "frontendUrl": { "value": "https://your-portal.example" },
+    "corsOrigins": { "value": "https://your-portal.example" },
+    "mailFromAddress": { "value": "noreply@example.org" },
+    "postgresSkuName": { "value": "Standard_D2ds_v5" },
+    "postgresSkuTier": { "value": "GeneralPurpose" },
+    "postgresStorageSizeGB": { "value": 64 },
+    "appServiceSkuName": { "value": "S1" },
+    "enablePostgresHighAvailability": { "value": false },
+    "enablePostgresGeoRedundantBackup": { "value": false }
+  }
+}

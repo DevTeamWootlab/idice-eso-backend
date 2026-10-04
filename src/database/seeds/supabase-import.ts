@@ -9,7 +9,6 @@ import * as argon2 from 'argon2';
 
 import { AppDataSource } from '../data-source';
 import { User } from '@/modules/users/entities/user.entity';
-import { Institution } from '@/modules/institutions/entities/institution.entity';
 import { Application } from '@/modules/applications/entities/application.entity';
 import { ApplicationReference } from '@/modules/applications/entities/application-reference.entity';
 import { AuditLog } from '@/modules/audit-log/entities/audit-log.entity';
@@ -214,11 +213,7 @@ function normalizeEnum<T extends Record<string, string>>(
   return (compactMatch as T[keyof T]) ?? fallback;
 }
 
-function lowerFirst(value: string): string {
-  const trimmed = normalizeText(value);
-  if (!trimmed) return '';
-  return trimmed.charAt(0).toLowerCase() + trimmed.slice(1);
-}
+
 
 function safeInt(value: string | undefined): number | null {
   if (!value || value.trim() === '') return null;

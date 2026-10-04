@@ -1,0 +1,228 @@
+name: Provision Azure Infrastructure
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: azure-infrastructure
+  cancel-in-progress: false
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login with OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Validate deployment inputs
+        env:
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
+          AZURE_APP_SERVICE_NAME: ${{ vars.AZURE_APP_SERVICE_NAME }}
+          AZURE_ACR_NAME: ${{ vars.AZURE_ACR_NAME }}
+          AZURE_POSTGRES_SERVER_NAME: ${{ vars.AZURE_POSTGRES_SERVER_NAME }}
+          AZURE_KEY_VAULT_NAME: ${{ vars.AZURE_KEY_VAULT_NAME }}
+          AZURE_DATABASE_NAME: ${{ vars.AZURE_DATABASE_NAME }}
+          AZURE_DATABASE_ADMIN_LOGIN: ${{ vars.AZURE_DATABASE_ADMIN_LOGIN }}
+          AZURE_GITHUB_PRINCIPAL_OBJECT_ID: ${{ vars.AZURE_GITHUB_PRINCIPAL_OBJECT_ID }}
+          FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+          CORS_ORIGINS: ${{ vars.CORS_ORIGINS }}
+          MAIL_FROM_ADDRESS: ${{ vars.MAIL_FROM_ADDRESS }}
+          DATABASE_ADMIN_PASSWORD: ${{ secrets.DATABASE_ADMIN_PASSWORD }}
+          MAIL_API_KEY: ${{ secrets.MAIL_API_KEY }}
+          SMS_API_KEY: ${{ secrets.SMS_API_KEY }}
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+          JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          MFA_ENCRYPTION_KEY: ${{ secrets.MFA_ENCRYPTION_KEY }}
+          NIN_HASH_KEY: ${{ secrets.NIN_HASH_KEY }}
+          NIN_ENCRYPTION_KEY: ${{ secrets.NIN_ENCRYPTION_KEY }}
+          SYSADMIN_SEED_PASSWORD: ${{ secrets.SYSADMIN_SEED_PASSWORD }}
+        run: |
+          node <<'NODE'
+          const required = [
+            'AZURE_RESOURCE_GROUP', 'AZURE_LOCATION', 'AZURE_APP_SERVICE_NAME',
+            'AZURE_ACR_NAME', 'AZURE_POSTGRES_SERVER_NAME', 'AZURE_KEY_VAULT_NAME',
+            'AZURE_DATABASE_NAME', 'AZURE_DATABASE_ADMIN_LOGIN',
+            'AZURE_GITHUB_PRINCIPAL_OBJECT_ID', 'FRONTEND_URL', 'CORS_ORIGINS',
+            'MAIL_FROM_ADDRESS', 'DATABASE_ADMIN_PASSWORD', 'MAIL_API_KEY',
+            'SMS_API_KEY', 'CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY',
+            'CLOUDINARY_API_SECRET', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET',
+            'MFA_ENCRYPTION_KEY', 'NIN_HASH_KEY', 'NIN_ENCRYPTION_KEY',
+            'SYSADMIN_SEED_PASSWORD',
+          ];
+          const missing = required.filter((name) => !process.env[name]);
+          if (missing.length) {
+            console.error(`Missing required GitHub environment values: ${missing.join(', ')}`);
+            process.exit(1);
+          }
+          const names = [
+            ['AZURE_APP_SERVICE_NAME', /^[a-z0-9][a-z0-9-]{0,56}[a-z0-9]$/, 2, 58],
+            ['AZURE_ACR_NAME', /^[a-z0-9]{5,50}$/, 5, 50],
+            ['AZURE_POSTGRES_SERVER_NAME', /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/, 3, 63],
+            ['AZURE_KEY_VAULT_NAME', /^[a-z0-9][a-z0-9-]{1,22}[a-z0-9]$/, 3, 24],
+          ];
+          for (const [name, pattern, min, max] of names) {
+            const value = process.env[name];
+            if (value.length < min || value.length > max || !pattern.test(value)) {
+              throw new Error(`${name} is not a valid Azure resource name (expected ${min}-${max} lowercase letters, digits, or hyphens as applicable)`);
+            }
+          }
+          if (!/^[A-Za-z_][A-Za-z0-9_]{0,62}$/.test(process.env.AZURE_DATABASE_NAME)) {
+            throw new Error('AZURE_DATABASE_NAME must be a PostgreSQL identifier of at most 63 characters');
+          }
+          if (!/^[A-Za-z_][A-Za-z0-9_]{0,62}$/.test(process.env.AZURE_DATABASE_ADMIN_LOGIN)) {
+            throw new Error('AZURE_DATABASE_ADMIN_LOGIN must be a PostgreSQL identifier of at most 63 characters');
+          }
+          if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(process.env.AZURE_GITHUB_PRINCIPAL_OBJECT_ID)) {
+            throw new Error('AZURE_GITHUB_PRINCIPAL_OBJECT_ID must be a service-principal object ID');
+          }
+          for (const name of ['FRONTEND_URL']) {
+            const value = process.env[name];
+            let url;
+            try {
+              url = new URL(value);
+            } catch {
+              throw new Error(`${name} must be a valid HTTPS origin`);
+            }
+            if (url.protocol !== 'https:' || url.pathname !== '/' || url.search || url.hash || url.username || url.password) {
+              throw new Error(`${name} must be a valid HTTPS origin without a path, query, or credentials`);
+            }
+          }
+          const corsOrigins = process.env.CORS_ORIGINS.split(',').map((origin) => origin.trim());
+          if (!corsOrigins.length || corsOrigins.some((origin) => !origin)) {
+            throw new Error('CORS_ORIGINS must contain comma-separated HTTPS origins');
+          }
+          for (const origin of corsOrigins) {
+            let url;
+            try {
+              url = new URL(origin);
+            } catch {
+              throw new Error('CORS_ORIGINS must contain only valid HTTPS origins');
+            }
+            if (url.protocol !== 'https:' || url.pathname !== '/' || url.search || url.hash || url.username || url.password) {
+              throw new Error('CORS_ORIGINS must contain only HTTPS origins without paths, queries, or credentials');
+            }
+          }
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(process.env.MAIL_FROM_ADDRESS)) {
+            throw new Error('MAIL_FROM_ADDRESS must be a valid email address');
+          }
+          const adminPassword = process.env.DATABASE_ADMIN_PASSWORD;
+          const passwordCharacterClasses = [
+            /[a-z]/.test(adminPassword),
+            /[A-Z]/.test(adminPassword),
+            /[0-9]/.test(adminPassword),
+            /[^A-Za-z0-9]/.test(adminPassword),
+          ].filter(Boolean).length;
+          if (adminPassword.length < 12 || adminPassword.length > 128 || passwordCharacterClasses < 3) {
+            throw new Error('DATABASE_ADMIN_PASSWORD must be 12-128 characters and contain at least three character classes');
+          }
+          for (const name of ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET']) {
+            if (process.env[name].length < 32) throw new Error(`${name} must be at least 32 characters`);
+          }
+          for (const name of ['MFA_ENCRYPTION_KEY', 'NIN_HASH_KEY', 'NIN_ENCRYPTION_KEY']) {
+            if (!/^[0-9a-fA-F]{64}$/.test(process.env[name])) throw new Error(`${name} must be 64 hexadecimal characters`);
+          }
+          NODE
+
+      - name: Confirm the pre-created resource group
+        env:
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+        run: az group show --name "$AZURE_RESOURCE_GROUP" --output none
+
+      - name: Create secure Bicep parameters
+        env:
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
+          AZURE_APP_SERVICE_NAME: ${{ vars.AZURE_APP_SERVICE_NAME }}
+          AZURE_ACR_NAME: ${{ vars.AZURE_ACR_NAME }}
+          AZURE_POSTGRES_SERVER_NAME: ${{ vars.AZURE_POSTGRES_SERVER_NAME }}
+          AZURE_KEY_VAULT_NAME: ${{ vars.AZURE_KEY_VAULT_NAME }}
+          AZURE_DATABASE_NAME: ${{ vars.AZURE_DATABASE_NAME }}
+          AZURE_DATABASE_ADMIN_LOGIN: ${{ vars.AZURE_DATABASE_ADMIN_LOGIN }}
+          AZURE_GITHUB_PRINCIPAL_OBJECT_ID: ${{ vars.AZURE_GITHUB_PRINCIPAL_OBJECT_ID }}
+          FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+          CORS_ORIGINS: ${{ vars.CORS_ORIGINS }}
+          MAIL_FROM_ADDRESS: ${{ vars.MAIL_FROM_ADDRESS }}
+          DATABASE_ADMIN_PASSWORD: ${{ secrets.DATABASE_ADMIN_PASSWORD }}
+          MAIL_API_KEY: ${{ secrets.MAIL_API_KEY }}
+          SMS_API_KEY: ${{ secrets.SMS_API_KEY }}
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+          JWT_ACCESS_SECRET: ${{ secrets.JWT_ACCESS_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          MFA_ENCRYPTION_KEY: ${{ secrets.MFA_ENCRYPTION_KEY }}
+          NIN_HASH_KEY: ${{ secrets.NIN_HASH_KEY }}
+          NIN_ENCRYPTION_KEY: ${{ secrets.NIN_ENCRYPTION_KEY }}
+          SYSADMIN_SEED_PASSWORD: ${{ secrets.SYSADMIN_SEED_PASSWORD }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const parameters = {
+            appServiceName: process.env.AZURE_APP_SERVICE_NAME,
+            acrName: process.env.AZURE_ACR_NAME,
+            postgresServerName: process.env.AZURE_POSTGRES_SERVER_NAME,
+            keyVaultName: process.env.AZURE_KEY_VAULT_NAME,
+            location: process.env.AZURE_LOCATION,
+            databaseName: process.env.AZURE_DATABASE_NAME,
+            databaseAdminLogin: process.env.AZURE_DATABASE_ADMIN_LOGIN,
+            databaseAdminPassword: process.env.DATABASE_ADMIN_PASSWORD,
+            githubActionsPrincipalObjectId: process.env.AZURE_GITHUB_PRINCIPAL_OBJECT_ID,
+            frontendUrl: process.env.FRONTEND_URL,
+            corsOrigins: process.env.CORS_ORIGINS,
+            mailFromAddress: process.env.MAIL_FROM_ADDRESS,
+            productionSecrets: {
+              'DB-PASSWORD': process.env.DATABASE_ADMIN_PASSWORD,
+              'MAIL-API-KEY': process.env.MAIL_API_KEY,
+              'SMS-API-KEY': process.env.SMS_API_KEY,
+              'CLOUDINARY-CLOUD-NAME': process.env.CLOUDINARY_CLOUD_NAME,
+              'CLOUDINARY-API-KEY': process.env.CLOUDINARY_API_KEY,
+              'CLOUDINARY-API-SECRET': process.env.CLOUDINARY_API_SECRET,
+              'JWT-ACCESS-SECRET': process.env.JWT_ACCESS_SECRET,
+              'JWT-REFRESH-SECRET': process.env.JWT_REFRESH_SECRET,
+              'MFA-ENCRYPTION-KEY': process.env.MFA_ENCRYPTION_KEY,
+              'NIN-HASH-KEY': process.env.NIN_HASH_KEY,
+              'NIN-ENCRYPTION-KEY': process.env.NIN_ENCRYPTION_KEY,
+              'SYSADMIN-SEED-PASSWORD': process.env.SYSADMIN_SEED_PASSWORD,
+            },
+          };
+          const file = path.join(process.env.RUNNER_TEMP, 'azure-production.parameters.json');
+          fs.writeFileSync(file, JSON.stringify({
+            '$schema': 'https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#',
+            contentVersion: '1.0.0.0',
+            parameters: Object.fromEntries(Object.entries(parameters).map(([key, value]) => [key, { value }])),
+          }), { mode: 0o600 });
+          fs.appendFileSync(process.env.GITHUB_ENV, `AZURE_PARAMETERS_FILE=${file}\n`);
+          NODE
+
+      - name: Validate infrastructure change
+        env:
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+        run: az deployment group what-if --resource-group "$AZURE_RESOURCE_GROUP" --template-file infra/azure/main.bicep --parameters "@$AZURE_PARAMETERS_FILE" --result-format ResourceIdOnly
+
+      - name: Apply infrastructure
+        env:
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+        run: az deployment group create --name idice-production-infrastructure --resource-group "$AZURE_RESOURCE_GROUP" --template-file infra/azure/main.bicep --parameters "@$AZURE_PARAMETERS_FILE" --output none
+
+      - name: Remove secure parameter file
+        if: always()
+        env:
+          AZURE_PARAMETERS_FILE: ${{ runner.temp }}/azure-production.parameters.json
+        run: rm -f "$AZURE_PARAMETERS_FILE"

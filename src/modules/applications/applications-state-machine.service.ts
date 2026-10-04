@@ -80,7 +80,7 @@ export class ApplicationsStateMachineService {
     const options: TransitionOptions =
       typeof target === 'string' ? { targetStatus: target } : target;
 
-    const { targetStatus, actorId, role, metadata } = options;
+    const { targetStatus } = options;
 
     const application = await this.applicationRepo.findOne({
       where: { id: applicationId },

@@ -19,6 +19,11 @@ import { Role } from '@/common/enums/role.enum';
 import { applicationLabel } from '../applications/application-label';
 import { User } from '@/modules/users/entities/user.entity';
 
+import {
+  PaginationQueryDto,
+  PaginatedResult,
+} from '../../common/dto/pagination-query.dto';
+
 const VARIANCE_THRESHOLD = 15; // percentage points
 const QUALIFICATION_THRESHOLD = 70.0; // percent
 
@@ -67,7 +72,8 @@ export class ScoringService {
       .filter((card) => !!card.application)
       .map((card) => {
         const application = card.application;
-        const finalized = application.status !== ApplicationStatus.IN_REVIEW_SCORING;
+        const finalized =
+          application.status !== ApplicationStatus.IN_REVIEW_SCORING;
         return {
           applicationId: application.id,
           applicationRef: application.applicationRef,
@@ -76,11 +82,78 @@ export class ScoringService {
           myScorePercent: toValidPercent(card.compositePercentage),
           mySubmittedAt: card.submittedAt ?? null,
           reviewerSlot: card.reviewerSlot ?? null,
-          finalScorePercent: finalized ? toValidPercent(application.finalScorePercent) : null,
-          finalScorePublished: finalized && toValidPercent(application.finalScorePercent) !== null,
+          finalScorePercent: finalized
+            ? toValidPercent(application.finalScorePercent)
+            : null,
+          finalScorePublished:
+            finalized && toValidPercent(application.finalScorePercent) !== null,
           awaitingCoReviewer: !finalized,
         };
       });
+  }
+
+  /**
+   * GET /internal/applications/queue/scoring/completed
+   * Every application this reviewer has already submitted a score for.
+   * Only their own score is returned — never the other reviewer's card,
+   * even after both have submitted, keeping this consistent with the
+   * blind dual-review concealment rule enforced elsewhere in scoring.
+   */
+  async getCompletedQueue(
+    reviewerId: string,
+    pagination: PaginationQueryDto,
+  ): Promise<PaginatedResult<any>> {
+    const page = pagination.page ?? 1;
+    const limit = pagination.limit ?? 20;
+
+    const [cards, total] = await this.scoreCardRepo.findAndCount({
+      where: {
+        reviewerId,
+        submitted: true,
+      },
+      relations: {
+        application: true,
+      },
+      order: {
+        submittedAt: 'DESC',
+      },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    const data = cards
+      .filter((card) => !!card.application)
+      .map((card) => {
+        const application = card.application;
+        const finalized =
+          application.status !== ApplicationStatus.IN_REVIEW_SCORING;
+        const finalScore = finalized
+          ? toValidPercent(application.finalScorePercent)
+          : null;
+
+        return {
+          applicationId: application.id,
+          applicationRef: application.applicationRef,
+          organisationName: application.organisationLegalName ?? null,
+          status: application.status,
+          myScorePercent: toValidPercent(card.compositePercentage),
+          mySubmittedAt: card.submittedAt ?? null,
+          reviewerSlot: card.reviewerSlot ?? null,
+          finalScorePercent: finalScore,
+          finalScorePublished: finalized && finalScore !== null,
+          awaitingCoReviewer: !finalized,
+        };
+      });
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async getDossier(applicationId: string, reviewerId: string) {
@@ -160,7 +233,9 @@ export class ScoringService {
       );
     }
     const weights = await this.loadWeights();
-    const compositePercentage = toValidPercent(this.calculateComposite(dto, weights));
+    const compositePercentage = toValidPercent(
+      this.calculateComposite(dto, weights),
+    );
     if (compositePercentage === null) {
       throw new BadRequestException(
         'The composite score could not be calculated from the submitted dimension scores. Check that all six dimensions have a score between 0 and 5.',
@@ -180,7 +255,8 @@ export class ScoringService {
         reviewerId,
         // The reviewer's designated slot (Reviewer 1 / Reviewer 2); falls back to arrival order
         // only for legacy accounts that were provisioned before slots existed.
-        reviewerSlot: (await this.reviewerSlotOf(reviewerId)) ?? existingCount + 1,
+        reviewerSlot:
+          (await this.reviewerSlotOf(reviewerId)) ?? existingCount + 1,
       });
     }
     Object.assign(card, dto);
@@ -196,7 +272,9 @@ export class ScoringService {
     const counterparts = await this.assignmentRepo.find({
       where: { applicationId, queueType: ReviewerQueueType.SCORING },
     });
-    for (const other of counterparts.filter((a) => a.reviewerId !== reviewerId && !a.completed)) {
+    for (const other of counterparts.filter(
+      (a) => a.reviewerId !== reviewerId && !a.completed,
+    )) {
       await this.notificationsService.notifyUser(
         other.reviewerId,
         'Your counterpart has submitted their score',
@@ -217,7 +295,11 @@ export class ScoringService {
       metadata: { reviewerSlot: card.reviewerSlot },
     });
 
-    return this.tryFinalize(applicationId, reviewerId, application.primaryContactEmail);
+    return this.tryFinalize(
+      applicationId,
+      reviewerId,
+      application.primaryContactEmail,
+    );
   }
 
   private calculateComposite(
@@ -269,23 +351,25 @@ export class ScoringService {
       throw new ConflictException(before.lockedReason as string);
     }
 
-    await this.rubricRepo.manager.transaction(async (manager: EntityManager) => {
-      const repo = manager.getRepository(RubricConfiguration);
-      for (const input of dto.weights) {
-        const dimension = RUBRIC_DIMENSIONS.find(
-          (d) => d.code === input.dimensionCode,
-        );
-        await repo.upsert(
-          {
-            dimensionCode: input.dimensionCode,
-            label: dimension?.label ?? input.dimensionCode,
-            weightPercentage: input.weightPercentage,
-            isActive: true,
-          },
-          ['dimensionCode'],
-        );
-      }
-    });
+    await this.rubricRepo.manager.transaction(
+      async (manager: EntityManager) => {
+        const repo = manager.getRepository(RubricConfiguration);
+        for (const input of dto.weights) {
+          const dimension = RUBRIC_DIMENSIONS.find(
+            (d) => d.code === input.dimensionCode,
+          );
+          await repo.upsert(
+            {
+              dimensionCode: input.dimensionCode,
+              label: dimension?.label ?? input.dimensionCode,
+              weightPercentage: input.weightPercentage,
+              isActive: true,
+            },
+            ['dimensionCode'],
+          );
+        }
+      },
+    );
 
     await this.auditLogService.record({
       actorId: actor.sub,
@@ -332,7 +416,10 @@ export class ScoringService {
         applicationId,
         actorId,
         'A submitted score card has a missing or invalid composite percentage.',
-        { reviewer1Score: String(s1.compositePercentage), reviewer2Score: String(s2.compositePercentage) },
+        {
+          reviewer1Score: String(s1.compositePercentage),
+          reviewer2Score: String(s2.compositePercentage),
+        },
       );
     }
     const variance = Math.round(Math.abs(r1 - r2) * 100) / 100;
@@ -387,7 +474,11 @@ export class ScoringService {
     if (averageScore >= QUALIFICATION_THRESHOLD) {
       await this.applicationRepo.update(
         { id: applicationId },
-        { finalScorePercent: averageScore, scoreVarianceFlagged: false, scoringIntegrityError: null },
+        {
+          finalScorePercent: averageScore,
+          scoreVarianceFlagged: false,
+          scoringIntegrityError: null,
+        },
       );
       await this.stateMachine.transition(applicationId, {
         targetStatus: ApplicationStatus.SHORTLISTED,
@@ -421,11 +512,17 @@ export class ScoringService {
     }
 
     if (!(averageScore < QUALIFICATION_THRESHOLD)) {
-      throw new InternalServerErrorException('Score finalization reached an undefined outcome');
+      throw new InternalServerErrorException(
+        'Score finalization reached an undefined outcome',
+      );
     }
     await this.applicationRepo.update(
       { id: applicationId },
-      { finalScorePercent: averageScore, scoreVarianceFlagged: false, scoringIntegrityError: null },
+      {
+        finalScorePercent: averageScore,
+        scoreVarianceFlagged: false,
+        scoringIntegrityError: null,
+      },
     );
     await this.stateMachine.transition(applicationId, {
       targetStatus: ApplicationStatus.REJECTED,
@@ -460,7 +557,10 @@ export class ScoringService {
   }
 
   private async refOf(applicationId: string): Promise<string | undefined> {
-    const row = await this.applicationRepo.findOne({ where: { id: applicationId }, select: { id: true, applicationRef: true } });
+    const row = await this.applicationRepo.findOne({
+      where: { id: applicationId },
+      select: { id: true, applicationRef: true },
+    });
     return row?.applicationRef;
   }
 
@@ -470,7 +570,9 @@ export class ScoringService {
     reason: string,
     metadata: Record<string, unknown>,
   ) {
-    const application = await this.applicationRepo.findOne({ where: { id: applicationId } });
+    const application = await this.applicationRepo.findOne({
+      where: { id: applicationId },
+    });
     await this.applicationRepo.update(
       { id: applicationId },
       { scoringIntegrityError: reason },
@@ -497,7 +599,9 @@ export class ScoringService {
   }
 
   async refinalize(applicationId: string, actor: JwtPayload) {
-    const application = await this.applicationRepo.findOne({ where: { id: applicationId } });
+    const application = await this.applicationRepo.findOne({
+      where: { id: applicationId },
+    });
     if (!application) throw new NotFoundException('Application not found');
     if (application.status !== ApplicationStatus.IN_REVIEW_SCORING) {
       throw new BadRequestException(
@@ -512,6 +616,10 @@ export class ScoringService {
       entityId: applicationId,
       metadata: { previousError: application.scoringIntegrityError ?? null },
     });
-    return this.tryFinalize(applicationId, actor.sub, application.primaryContactEmail);
+    return this.tryFinalize(
+      applicationId,
+      actor.sub,
+      application.primaryContactEmail,
+    );
   }
 }

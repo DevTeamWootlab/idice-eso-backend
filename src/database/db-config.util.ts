@@ -4,6 +4,7 @@ import type { DataSourceOptions } from 'typeorm';
 export function getDbConfig(): DataSourceOptions {
   const isProduction = process.env.NODE_ENV === 'production';
   const isCompiled = __filename.endsWith('.js');
+  const rejectUnauthorized = process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false';
   return {
     type: "postgres" as const,
     host: process.env.DB_HOST,
@@ -13,7 +14,10 @@ export function getDbConfig(): DataSourceOptions {
     database: process.env.DB_NAME,
     synchronize: false,
     logging: false,
-    ssl: isProduction ? { rejectUnauthorized: false } : false,
+    // Azure Database for PostgreSQL presents a publicly trusted certificate.
+    // Keep certificate verification on in production; disabling it would make
+    // the database connection vulnerable to interception.
+    ssl: isProduction ? { rejectUnauthorized } : false,
     // entities: [
     //   isProduction
     //     ? 'dist/modules/**/entities/*.entity.js'

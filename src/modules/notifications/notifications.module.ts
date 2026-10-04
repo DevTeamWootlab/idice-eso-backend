@@ -2,7 +2,7 @@
 import { Module } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { MailProvider } from './providers/mail.provider';
-import { SmsProvider } from './providers/sms.provider';
+// import { SmsProvider } from './providers/sms.provider';
 import { NotificationsController } from './notifications.controller';
 import { InAppNotificationsService } from './in-app-notifications.service';
 
@@ -12,7 +12,7 @@ import { InAppNotificationsService } from './in-app-notifications.service';
     NotificationsService,
     InAppNotificationsService,
     MailProvider,
-    SmsProvider,
+    // SmsProvider,
   ],
   exports: [NotificationsService, InAppNotificationsService],
 })

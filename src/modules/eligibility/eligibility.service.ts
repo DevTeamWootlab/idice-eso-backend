@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -135,7 +134,6 @@ export class EligibilityService {
       reviewerId,
     );
 
-    
     if (application.status === ApplicationStatus.SUBMITTED) {
       // await this.stateMachine.transition(
       //   applicationId,

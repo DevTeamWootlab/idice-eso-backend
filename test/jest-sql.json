@@ -4,12 +4,16 @@
   "testEnvironment": "node",
   "testRegex": "test/.*\\.sql-spec\\.ts$",
   "testTimeout": 60000,
-  "transform": { "^.+\\.(t|j)s$": "ts-jest" },
+  "extensionsToTreatAsEsm": [".ts"],
+  "transform": {
+    "^.+\\.ts$": ["ts-jest", { "useESM": true, "tsconfig": "<rootDir>/tsconfig.spec.json" }]
+  },
   "moduleNameMapper": {
     "^@/(.*)$": "<rootDir>/src/$1",
     "^@common/(.*)$": "<rootDir>/src/common/$1",
     "^@config/(.*)$": "<rootDir>/src/config/$1",
     "^@database/(.*)$": "<rootDir>/src/database/$1",
-    "^@modules/(.*)$": "<rootDir>/src/modules/$1"
+    "^@modules/(.*)$": "<rootDir>/src/modules/$1",
+    "^(\\.{1,2}/.*)\\.js$": "$1"
   }
 }
