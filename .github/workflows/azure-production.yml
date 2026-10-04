@@ -70,7 +70,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Scan production container
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: idice-api:${{ github.sha }}
           scanners: vuln
@@ -92,7 +92,7 @@ jobs:
         run: yarn audit --groups dependencies --level high
 
       - name: Scan repository for vulnerabilities
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -165,7 +165,7 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
 
       - name: Scan production image
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ format('{0}.azurecr.io/idice-api:{1}', vars.AZURE_ACR_NAME, github.sha) }}
           scanners: vuln
