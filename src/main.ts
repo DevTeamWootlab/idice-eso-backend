@@ -28,10 +28,13 @@ async function bootstrap() {
   app.use(compression());
   app.use(json({ limit: '10mb' }));
   app.use(urlencoded({ extended: true, limit: '10mb' }));
-
+  
   const corsOrigins = configService.get<string[]>('app.corsOrigins', []);
   const corsVercelPreviewRegex = new RegExp(
-    configService.get<string>('app.corsVercelPreviewRegex', '^https://[a-z0-9-]+\\.vercel\\.app$'),
+    configService.get<string>(
+      'app.corsVercelPreviewRegex',
+      '^https://[a-z0-9-]+\\.vercel\\.app$',
+    ),
   );
 
   app.enableCors({
@@ -39,8 +42,12 @@ async function bootstrap() {
       // Non-browser requests (curl, server-to-server, same-origin) have no Origin header.
       if (!requestOrigin) return callback(null, true);
       if (corsOrigins.includes(requestOrigin)) return callback(null, true);
-      if (corsVercelPreviewRegex.test(requestOrigin)) return callback(null, true);
-      return callback(new Error(`Origin ${requestOrigin} is not allowed by CORS`), false);
+      if (corsVercelPreviewRegex.test(requestOrigin))
+        return callback(null, true);
+      return callback(
+        new Error(`Origin ${requestOrigin} is not allowed by CORS`),
+        false,
+      );
     },
     credentials: true,
     // Lets the portal read the real filename of a downloaded report (CSV / Excel / PDF).
@@ -78,9 +85,18 @@ async function bootstrap() {
   const port = configService.get<number>('app.port', 3000);
   const host = configService.get<string>('app.host', '0.0.0.0');
   const frontendUrl = configService.get<string>('app.frontendUrl') ?? '';
+  // if (
+  //   configService.get<string>('app.env') === 'production' &&
+  //   (!/^https:\/\//.test(frontendUrl) || /localhost|127\.0\.0\.1/.test(frontendUrl))
+  // ) {
+  //   new Logger('Bootstrap').warn(
+  //     `FRONTEND_URL is "${frontendUrl}" in production — verification and password-reset emails will link there. Set it to this environment's public portal URL (https).`,
+  //   );
+  // }
   if (
     configService.get<string>('app.env') === 'production' &&
-    (!/^https:\/\//.test(frontendUrl) || /localhost|127\.0\.0\.1/.test(frontendUrl))
+    (!frontendUrl.startsWith('https://') ||
+      /localhost|127\.0\.0\.1/.test(frontendUrl))
   ) {
     new Logger('Bootstrap').warn(
       `FRONTEND_URL is "${frontendUrl}" in production — verification and password-reset emails will link there. Set it to this environment's public portal URL (https).`,
@@ -91,7 +107,7 @@ async function bootstrap() {
 
   if (
     configService.get<string>('app.env') === 'production' &&
-    /^https:\/\//.test(frontendUrl) &&
+    frontendUrl.startsWith('https://') &&
     !/localhost|127\.0\.0\.1/.test(frontendUrl)
   ) {
     void probeEmailedLinks(frontendUrl).then((results) => {

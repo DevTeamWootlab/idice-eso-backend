@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { MailProvider } from './providers/mail.provider';
-import { SmsProvider } from './providers/sms.provider';
+// import { SmsProvider } from './providers/sms.provider';
 import { ConfigService } from '@nestjs/config';
 import { InAppNotificationsService } from './in-app-notifications.service';
 
@@ -12,7 +12,7 @@ function refPrefix(applicationRef?: string): string {
 export class NotificationsService {
   constructor(
     private readonly mail: MailProvider,
-    private readonly sms: SmsProvider,
+    // private readonly sms: SmsProvider,
     private readonly configService: ConfigService,
     private readonly inApp: InAppNotificationsService,
   ) {}
@@ -188,10 +188,10 @@ export class NotificationsService {
         this.frontendUrl(),
       ),
     );
-    await this.sms.send(
-      phone,
-      `iDICE: We received your application. Your reference number is ${referenceId}. Keep it for your records.`,
-    );
+    // await this.sms.send(
+    //   phone,
+    //   `iDICE: We received your application. Your reference number is ${referenceId}. Keep it for your records.`,
+    // );
   }
 
   /** In-app inbox entries are best-effort: they must never block or fail the email. */
@@ -244,10 +244,10 @@ export class NotificationsService {
         this.frontendUrl(),
       ),
     );
-    await this.sms.send(
-      phone,
-      `iDICE: You have been allocated to ${institutionName}. Reference ${referenceId}. The centre will contact you with next steps.`,
-    );
+    // await this.sms.send(
+    //   phone,
+    //   `iDICE: You have been allocated to ${institutionName}. Reference ${referenceId}. The centre will contact you with next steps.`,
+    // );
   }
 
   private renderHtmlTemplate(

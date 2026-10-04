@@ -1,0 +1,415 @@
+﻿import { MigrationInterface, QueryRunner } from "typeorm";
+
+export class InitialSchema1788449733655 implements MigrationInterface {
+    name = 'InitialSchema1788449733655'
+
+    public async up(queryRunner: QueryRunner): Promise<void> {
+        // Azure Database for PostgreSQL does not guarantee this extension is
+        // pre-enabled on a newly created database.
+        await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
+        await queryRunner.query(`CREATE TYPE "public"."users_role_enum" AS ENUM('ROLE_ESO', 'ROLE_ELIGIBILITY_REVIEWER', 'ROLE_SCORING_REVIEWER', 'ROLE_VALIDATOR', 'ROLE_SYSADMIN')`);
+        await queryRunner.query(`CREATE TABLE "users" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "email" character varying NOT NULL, "passwordHash" character varying NOT NULL, "role" "public"."users_role_enum" NOT NULL, "fullName" character varying, "isEmailVerified" boolean NOT NULL DEFAULT false, "mfaEnabled" boolean NOT NULL DEFAULT false, "isActive" boolean NOT NULL DEFAULT true, "assignedState" character varying, CONSTRAINT "UQ_97672ac88f789774dd47f7c8be3" UNIQUE ("email"), CONSTRAINT "PK_a3ffb1c0c8416b9fc6f907b7433" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TYPE "public"."institutions_hubtype_enum" AS ENUM('STANDARD', 'GAMING', 'VR', 'CREATIVE')`);
+        await queryRunner.query(`CREATE TABLE "institutions" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "name" character varying NOT NULL, "state" character varying NOT NULL, "hubType" "public"."institutions_hubtype_enum" NOT NULL DEFAULT 'STANDARD', "latitude" integer, "longitude" integer, "beneficiaryCapacity" integer NOT NULL DEFAULT '0', "isActive" boolean NOT NULL DEFAULT true, CONSTRAINT "PK_0be7539dcdba335470dc05e9690" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_15c98649276025998cd1acaf61" ON "institutions"  ("name") `);
+        await queryRunner.query(`CREATE TABLE "application_references" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "applicationId" uuid NOT NULL, "organisationName" character varying NOT NULL, "contactName" character varying NOT NULL, "officialEmail" character varying NOT NULL, "phoneNumber" character varying NOT NULL, "verified" boolean NOT NULL DEFAULT false, CONSTRAINT "PK_4d7d4303f8fce2f27cbffaccee7" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TYPE "public"."application_personnel_personnelrole_enum" AS ENUM('EXECUTIVE_DIRECTOR', 'TRAINING_LEAD', 'INCUBATION_LEAD', 'MENTORSHIP_LEAD', 'OTHER')`);
+        await queryRunner.query(`CREATE TABLE "application_personnel" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "applicationId" uuid NOT NULL, "fullName" character varying NOT NULL, "personnelRole" "public"."application_personnel_personnelrole_enum" NOT NULL, "yearsOfExperience" integer, "cvDocumentId" character varying, CONSTRAINT "PK_aa32a7608de887dc12723fbc8b6" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TYPE "public"."applications_status_enum" AS ENUM('DRAFT', 'SUBMITTED', 'IN_REVIEW_ELIGIBILITY', 'REWORK_REQUIRED', 'IN_REVIEW_SCORING', 'PENDING_VALIDATION', 'SHORTLISTED', 'PENDING_CONTEXTUAL_FEEDBACK', 'PENDING_ECOSYSTEM_VALIDATION', 'VALIDATED_SHORTLISTED', 'MATCHED', 'REJECTED')`);
+        await queryRunner.query(`CREATE TYPE "public"."applications_proximitytohostinstitution_enum" AS ENUM('LESS_THAN_15_MINS', '15_30_MINS', 'OVER_30_MINS')`);
+        await queryRunner.query(
+          `CREATE TYPE "public"."applications_statesofoperation_enum" AS ENUM('BENUE', 'KOGI', 'KWARA', 'NASARAWA', 'NIGER', 'PLATEAU', 'FCT')`,
+        );
+        await queryRunner.query(
+          `CREATE TABLE "applications" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "applicationRef" character varying NOT NULL, "submittedByOrgId" uuid NOT NULL, "preferredInstitutionId" uuid, "status" "public"."applications_status_enum" NOT NULL DEFAULT 'DRAFT', "organisationName" character varying, "organisationEmail" character varying, "organisationPhone" character varying, "cacRegistrationNumber" character varying, "tin" character varying, "taxClearanceExpiry" TIMESTAMP, "operatingState" character varying, "statesOfOperation" "public"."applications_statesofoperation_enum"[], "physicalAddress" character varying, "proximityToHostInstitution" "public"."applications_proximitytohostinstitution_enum", "experienceSummary" text, "pastAssignments" jsonb, "conflictOfInterestDeclared" boolean NOT NULL DEFAULT false, "ndpaComplianceAccepted" boolean NOT NULL DEFAULT false, "brownfieldRestrictionAccepted" boolean NOT NULL DEFAULT false, "authorisedSignatoryName" character varying, "signedAt" TIMESTAMP WITH TIME ZONE, "lastEditedAt" TIMESTAMP WITH TIME ZONE, "lastEditedByUserId" character varying, "submittedAt" TIMESTAMP WITH TIME ZONE, "eligibilityDecidedAt" TIMESTAMP WITH TIME ZONE, "shortlistedAt" TIMESTAMP WITH TIME ZONE, CONSTRAINT "UQ_3ebf4b1c08826afe7702a2c0aef" UNIQUE ("applicationRef"), CONSTRAINT "PK_938c0a27255637bde919591888f" PRIMARY KEY ("id"))`,
+        );
+        await queryRunner.query(`CREATE INDEX "IDX_340e6f6693aac66607dc54e691" ON "applications"  ("submittedByOrgId") `);
+        await queryRunner.query(`CREATE INDEX "IDX_8ee114cee92e995a9e75c05cfb" ON "applications"  ("status") `);
+        await queryRunner.query(`CREATE TYPE "public"."application_documents_documenttype_enum" AS ENUM('REGISTRATION_CERTIFICATE', 'TAX_CLEARANCE', 'ORGANOGRAM', 'CV', 'AUDITED_ACCOUNTS', 'BANK_REFERENCE_LETTER', 'CONCEPT_NOTE', 'WORKPLAN', 'BUDGET', 'CONFLICT_OF_INTEREST_EVIDENCE', 'INSTITUTION_ENDORSEMENT_LETTER')`);
+        await queryRunner.query(`CREATE TABLE "application_documents" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "applicationId" uuid NOT NULL, "documentType" "public"."application_documents_documenttype_enum" NOT NULL, "storageKey" character varying NOT NULL, "originalFileName" character varying NOT NULL, "mimeType" character varying NOT NULL, "fileSizeBytes" integer NOT NULL, CONSTRAINT "PK_592142aa992e003beadf1409e9e" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TYPE "public"."reviewer_assignments_queuetype_enum" AS ENUM('ELIGIBILITY', 'SCORING', 'VALIDATION')`);
+        await queryRunner.query(`CREATE TABLE "reviewer_assignments" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "applicationId" uuid NOT NULL, "reviewerId" uuid NOT NULL, "queueType" "public"."reviewer_assignments_queuetype_enum" NOT NULL, "assignedAt" TIMESTAMP WITH TIME ZONE, "completed" boolean NOT NULL DEFAULT false, CONSTRAINT "PK_b9e047216a685d2c55303271cb3" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_d7e4279c7d01eb5d1cf18d2c7c" ON "reviewer_assignments"  ("applicationId", "reviewerId", "queueType") `);
+        await queryRunner.query(`CREATE TABLE "audit_logs" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "actorId" character varying NOT NULL, "actorRole" character varying NOT NULL, "action" character varying NOT NULL, "entityType" character varying NOT NULL, "entityId" character varying NOT NULL, "metadata" jsonb, "ipAddress" character varying, CONSTRAINT "PK_1bb179d048bbc581caa3b013439" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE INDEX "IDX_2dc33f7f3c22e2e7badafca1d1" ON "audit_logs"  ("actorId") `);
+        await queryRunner.query(`CREATE INDEX "IDX_13c69424c440a0e765053feb4b" ON "audit_logs"  ("entityType", "entityId") `);
+        await queryRunner.query(`CREATE TABLE "mfa_secrets" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "encryptedSecret" character varying NOT NULL, "backupCodes" text, "userId" uuid, CONSTRAINT "REL_9adff2630422d0325ec3369f6e" UNIQUE ("userId"), CONSTRAINT "PK_e93337ad293b93b1084ffb04b4c" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "refresh_tokens" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "tokenHash" character varying NOT NULL, "expiresAt" TIMESTAMP NOT NULL, "revoked" boolean NOT NULL DEFAULT false, "userId" uuid, CONSTRAINT "PK_7d8bee0204106019488c4c50ffa" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TYPE "public"."beneficiaries_pillar_enum" AS ENUM('TRAINING', 'INCUBATION', 'ACCELERATION')`);
+        await queryRunner.query(`CREATE TYPE "public"."beneficiaries_status_enum" AS ENUM('SUBMITTED', 'TAGGED', 'MATCHED')`);
+        await queryRunner.query(`CREATE TABLE "beneficiaries" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "referenceId" character varying NOT NULL, "fullName" character varying NOT NULL, "dateOfBirth" date NOT NULL, "gender" character varying NOT NULL, "phoneNumber" character varying NOT NULL, "email" character varying NOT NULL, "nin" character varying NOT NULL, "pwdAssistiveRequirement" character varying, "isNeet" boolean NOT NULL DEFAULT false, "isCurrentStudent" boolean NOT NULL DEFAULT false, "institutionName" character varying, "studentMatricNumber" character varying, "isRecentGraduate" boolean NOT NULL DEFAULT false, "emergencyContactName" character varying, "emergencyContactRelationship" character varying, "emergencyContactPhone" character varying, "stateOfOrigin" character varying NOT NULL, "stateOfResidence" character varying NOT NULL, "lga" character varying NOT NULL, "homeAddress" character varying NOT NULL, "pillar" "public"."beneficiaries_pillar_enum" NOT NULL, "preferredInstitutionId" uuid NOT NULL, "assignedInstitutionId" uuid, "statementOfPurpose" text, "ndprConsentGiven" boolean NOT NULL DEFAULT false, "codeOfConductAccepted" boolean NOT NULL DEFAULT false, "signedAt" TIMESTAMP WITH TIME ZONE, "status" "public"."beneficiaries_status_enum" NOT NULL DEFAULT 'SUBMITTED', CONSTRAINT "UQ_16ae916776051c1fd593dcbb257" UNIQUE ("referenceId"), CONSTRAINT "UQ_b70cc983d637bc33d21ee207787" UNIQUE ("email"), CONSTRAINT "PK_c9356d282dec80f7f12a9eef10a" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE INDEX "IDX_b11f8a8fdc934fd5feea9e39f8" ON "beneficiaries"  ("assignedInstitutionId", "pillar") `);
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_e6baf5e9d8316b29b2b5d898f1" ON "beneficiaries"  ("nin") `);
+        await queryRunner.query(`CREATE TABLE "beneficiary_acceleration_profiles" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "beneficiaryId" uuid NOT NULL, "registeredBusinessName" character varying NOT NULL, "cacRegistrationNumber" character varying NOT NULL, "yearFounded" integer NOT NULL, "sector" character varying NOT NULL, "employeeCount" integer, "estimatedMonthlyRevenueNgn" numeric(12,2), "keyTraction" text, "hasRaisedExternalFunding" boolean NOT NULL DEFAULT false, "fundingSourceDetails" character varying, "primaryGrowthChallenge" character varying NOT NULL, "supportNeeded" text, "twelveMonthGrowthTarget" text, "liveProductUrl" character varying, "pitchDeckStorageKey" character varying, CONSTRAINT "REL_a090488b402f3873db45300a8c" UNIQUE ("beneficiaryId"), CONSTRAINT "PK_9d7a03d5f6a248d65cd6678db2c" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TYPE "public"."beneficiary_incubation_profiles_currentstage_enum" AS ENUM('IDEA', 'CONCEPT', 'EARLY_PROTOTYPE')`);
+        await queryRunner.query(`CREATE TABLE "beneficiary_incubation_profiles" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "beneficiaryId" uuid NOT NULL, "ventureName" character varying, "sectorFocus" character varying NOT NULL, "problemStatement" text NOT NULL, "proposedSolution" text NOT NULL, "targetCustomer" character varying NOT NULL, "currentStage" "public"."beneficiary_incubation_profiles_currentstage_enum" NOT NULL, "teamSizeAndRoles" text NOT NULL, "technologyPlatform" character varying, "supportNeeded" text, "availableForFullDuration" boolean NOT NULL DEFAULT false, CONSTRAINT "REL_c9c01dddfbb658a95682c60dd9" UNIQUE ("beneficiaryId"), CONSTRAINT "PK_9829aed453ab6bdad8cd75247c9" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TYPE "public"."beneficiary_skills_profiles_skilltier_enum" AS ENUM('FOUNDATIONAL', 'DEVELOPMENTAL', 'SPECIALISED')`);
+        await queryRunner.query(`CREATE TABLE "beneficiary_skills_profiles" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "beneficiaryId" uuid NOT NULL, "preferredHubType" character varying NOT NULL, "skillTier" "public"."beneficiary_skills_profiles_skilltier_enum" NOT NULL, "specificSkillArea" character varying NOT NULL, "priorExperience" text, "highestEducationLevel" character varying NOT NULL, "ownsPersonalDevice" boolean NOT NULL DEFAULT false, "hasReliableInternet" boolean NOT NULL DEFAULT false, "portfolioLink" character varying, CONSTRAINT "REL_1d0fd2b880523b477496d7750b" UNIQUE ("beneficiaryId"), CONSTRAINT "PK_4f2648820f4d0cd7683208ab275" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "eligibility_checklists" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "applicationId" uuid NOT NULL, "reviewerId" uuid NOT NULL, "overallResult" character varying, "rejectionRemarks" text, "decidedAt" TIMESTAMP WITH TIME ZONE, CONSTRAINT "REL_820101d947c772cdc494c8bdf2" UNIQUE ("applicationId"), CONSTRAINT "PK_161aa2ebb50dc58a7da08ac1f4f" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TYPE "public"."eligibility_check_items_code_enum" AS ENUM('LEGAL_REGISTRATION', 'TAX_COMPLIANCE', 'GEOGRAPHIC_PRESENCE', 'RELEVANT_EXPERIENCE', 'KEY_PERSONNEL_CVS', 'VERIFIABLE_REFERENCES', 'FINANCIAL_STATEMENTS', 'INSTITUTIONAL_ENDORSEMENT', 'TECHNICAL_CONCEPT_NOTE', 'WORKPLAN_BUDGET', 'CONFLICT_OF_INTEREST_DECLARATION', 'BROWNFIELD_NDPA_DECLARATIONS')`);
+        await queryRunner.query(`CREATE TABLE "eligibility_check_items" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "checklistId" uuid NOT NULL, "code" "public"."eligibility_check_items_code_enum" NOT NULL, "passed" boolean NOT NULL DEFAULT false, "note" text, "checkedAt" TIMESTAMP WITH TIME ZONE, CONSTRAINT "PK_2512bbc3647a0b37321aa5d7dbf" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TYPE "public"."grievances_category_enum" AS ENUM('HARASSMENT', 'GBV', 'SEA_SH', 'DATA_PRIVACY', 'OTHER')`);
+        await queryRunner.query(`CREATE TYPE "public"."grievances_status_enum" AS ENUM('OPEN', 'UNDER_INVESTIGATION', 'RESOLVED', 'CLOSED')`);
+        await queryRunner.query(`CREATE TABLE "grievances" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "referenceCode" character varying NOT NULL, "category" "public"."grievances_category_enum" NOT NULL, "isAnonymous" boolean NOT NULL DEFAULT true, "reporterContact" character varying, "relatedApplicationId" character varying, "relatedBeneficiaryId" character varying, "relatedInstitutionId" character varying, "description" text NOT NULL, "status" "public"."grievances_status_enum" NOT NULL DEFAULT 'OPEN', "assignedToUserId" character varying, "resolutionNotes" text, "resolvedAt" TIMESTAMP WITH TIME ZONE, CONSTRAINT "UQ_5370f2cb5f004e53dd3e4ebcd23" UNIQUE ("referenceCode"), CONSTRAINT "PK_e272c5b9f7d097e8a00fa80fd1b" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE INDEX "IDX_020641861cb3d75f516eaa3c78" ON "grievances"  ("status") `);
+        await queryRunner.query(`CREATE TABLE "facility_inspections" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "institutionId" uuid NOT NULL, "inspectedByUserId" character varying NOT NULL, "inspectionDate" date NOT NULL, "safetyChecklistResults" jsonb NOT NULL, "ewmpAuditNotes" jsonb, "passed" boolean NOT NULL DEFAULT false, "remarks" text, CONSTRAINT "PK_7e5e8e56535526ae9f169ab65d8" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "facility_safety_requirements" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "code" character varying NOT NULL, "label" character varying NOT NULL, "isMandatory" boolean NOT NULL DEFAULT true, CONSTRAINT "UQ_181ca5008c2f4271d6cf3638913" UNIQUE ("code"), CONSTRAINT "PK_99c779db7d7269a1a5072287665" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "institution_users" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "institutionId" uuid NOT NULL, "userId" uuid NOT NULL, "roleTitle" character varying, "isActive" boolean NOT NULL DEFAULT true, CONSTRAINT "PK_38334a56496224d50be0af1ff58" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_5b7091541081db9b88aa8cc924" ON "institution_users"  ("institutionId", "userId") `);
+        await queryRunner.query(`CREATE TYPE "public"."matches_status_enum" AS ENUM('GENERATED', 'ACCEPTED', 'REJECTED')`);
+        await queryRunner.query(`CREATE TABLE "matches" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "applicationId" uuid NOT NULL, "institutionId" uuid NOT NULL, "matchCompatibilityIndex" numeric(5,2) NOT NULL, "state" character varying NOT NULL, "status" "public"."matches_status_enum" NOT NULL DEFAULT 'GENERATED', "matchedAt" TIMESTAMP WITH TIME ZONE, CONSTRAINT "REL_5eb55afa42477e208143d5a920" UNIQUE ("applicationId"), CONSTRAINT "REL_4bb5111eb64c1035589dacbf6e" UNIQUE ("institutionId"), CONSTRAINT "PK_8a22c7b2e0828988d51256117f4" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "mel_kpi_snapshots" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "institutionId" uuid, "snapshotDate" date NOT NULL, "youthTrained" integer NOT NULL DEFAULT '0', "femaleParticipants" integer NOT NULL DEFAULT '0', "pwdNeetParticipants" integer NOT NULL DEFAULT '0', "startupsSupported" integer NOT NULL DEFAULT '0', "mentorshipMatches" integer NOT NULL DEFAULT '0', "employmentOutcomes" integer NOT NULL DEFAULT '0', "completionRate" numeric(5,2), "certificationRate" numeric(5,2), CONSTRAINT "PK_6349ca710402c626fcbc4773f54" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE INDEX "IDX_5f8c28a805fe77642b927ad7a4" ON "mel_kpi_snapshots"  ("institutionId", "snapshotDate") `);
+        await queryRunner.query(`CREATE TABLE "mentors" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "fullName" character varying NOT NULL, "email" character varying NOT NULL, "phoneNumber" character varying, "expertiseArea" character varying, "organisation" character varying, "isActive" boolean NOT NULL DEFAULT true, CONSTRAINT "UQ_2968ad4001f7790e37fd82dfbcc" UNIQUE ("email"), CONSTRAINT "PK_67a614446eab992e4d0580afebf" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TYPE "public"."mentor_assignments_status_enum" AS ENUM('ACTIVE', 'COMPLETED', 'TERMINATED')`);
+        await queryRunner.query(`CREATE TABLE "mentor_assignments" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "mentorId" uuid NOT NULL, "beneficiaryId" uuid NOT NULL, "status" "public"."mentor_assignments_status_enum" NOT NULL DEFAULT 'ACTIVE', "matchedAt" date, "notes" text, CONSTRAINT "PK_113538c846de699a5ddfa80e41c" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_14f2ae4d74e43ab32f8e22c1a4" ON "mentor_assignments"  ("mentorId", "beneficiaryId") `);
+        await queryRunner.query(`CREATE TYPE "public"."employment_outcomes_outcometype_enum" AS ENUM('FORMAL_EMPLOYMENT', 'FREELANCE', 'REMOTE_WORK', 'SELF_EMPLOYMENT', 'ENTERPRISE_LAUNCH')`);
+        await queryRunner.query(`CREATE TABLE "employment_outcomes" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "beneficiaryId" uuid NOT NULL, "outcomeType" "public"."employment_outcomes_outcometype_enum" NOT NULL, "employerOrVentureName" character varying, "achievedOn" date, "monthsSinceCompletion" integer, "verifiedBy" character varying, "verified" boolean NOT NULL DEFAULT false, CONSTRAINT "REL_e8d68c09ec6d2b9adf55d8f391" UNIQUE ("beneficiaryId"), CONSTRAINT "PK_a41d500c7a7b811128be88a85e9" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "rubric_configurations" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "dimensionCode" character varying NOT NULL, "label" character varying NOT NULL, "weightPercentage" numeric(5,2) NOT NULL, "isActive" boolean NOT NULL DEFAULT true, CONSTRAINT "UQ_e9e96bc053878b814ea1712e34b" UNIQUE ("dimensionCode"), CONSTRAINT "PK_c4b463240740f46211208ea4ba3" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TYPE "public"."score_cards_reviewerslot_enum" AS ENUM('REVIEWER_ONE', 'REVIEWER_TWO')`);
+        await queryRunner.query(`CREATE TABLE "score_cards" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "applicationId" uuid NOT NULL, "reviewerId" uuid NOT NULL, "reviewerSlot" "public"."score_cards_reviewerslot_enum" NOT NULL, "localPresenceScore" smallint NOT NULL, "teamExpertiseScore" smallint NOT NULL, "incubationExperienceScore" smallint NOT NULL, "governanceComplianceScore" smallint NOT NULL, "deliveryTrackRecordScore" smallint NOT NULL, "institutionalAlignmentScore" smallint NOT NULL, "compositeScore" numeric(5,2) NOT NULL, "comments" text, "submittedAt" TIMESTAMP WITH TIME ZONE, CONSTRAINT "UQ_2bf99eb51bfe2d57c94cf5b794e" UNIQUE ("applicationId", "reviewerId"), CONSTRAINT "PK_2fbd3fd798e2a51d1b392a17f9f" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "startup_milestones" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "beneficiaryId" uuid NOT NULL, "milestoneTitle" character varying NOT NULL, "description" text, "achievedOn" date, "evidenceStorageKey" character varying, "fundingRaisedNgn" numeric(12,2), "isRegistered" boolean NOT NULL DEFAULT false, CONSTRAINT "PK_daa62b8ad261daa251e7a14bc80" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "sub_awards" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "applicationId" uuid NOT NULL, "awardReference" character varying NOT NULL, "totalAmountNgn" numeric(14,2) NOT NULL, "startDate" date NOT NULL, "endDate" date, "dedicatedBankAccountRef" character varying, CONSTRAINT "UQ_9e80236541a29c7a90fe7c4b5f4" UNIQUE ("awardReference"), CONSTRAINT "REL_c32b41ecf898aeadaec1dd014f" UNIQUE ("applicationId"), CONSTRAINT "PK_7390bc6603d7d7e9b4308f3e259" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TYPE "public"."sub_award_tranches_status_enum" AS ENUM('PENDING', 'DISBURSED', 'RETIRED', 'WITHHELD')`);
+        await queryRunner.query(`CREATE TABLE "sub_award_tranches" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "subAwardId" uuid NOT NULL, "trancheNumber" integer NOT NULL, "amountNgn" numeric(14,2) NOT NULL, "disbursedAt" date, "status" "public"."sub_award_tranches_status_enum" NOT NULL DEFAULT 'PENDING', CONSTRAINT "PK_5d2a4dcc1f084ef445e0659f6bb" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "financial_retirements" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "trancheId" uuid NOT NULL, "amountRetiredNgn" numeric(14,2) NOT NULL, "supportingDocuments" jsonb NOT NULL, "submittedAt" date, "approved" boolean NOT NULL DEFAULT false, "approvedByUserId" character varying, "reviewNotes" text, CONSTRAINT "REL_5549ee6359ddc19b5838222e2e" UNIQUE ("trancheId"), CONSTRAINT "PK_54d588ff30544b47eb0bffb6bdf" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TYPE "public"."courses_tier_enum" AS ENUM('FOUNDATIONAL', 'DEVELOPMENTAL', 'SPECIALISED')`);
+        await queryRunner.query(`CREATE TABLE "courses" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "title" character varying NOT NULL, "tier" "public"."courses_tier_enum" NOT NULL, "hubType" character varying, "durationWeeks" integer, "description" text, "isActive" boolean NOT NULL DEFAULT true, CONSTRAINT "UQ_ee82d2848683925681f8c79a253" UNIQUE ("title", "tier"), CONSTRAINT "PK_3f70a487cc718ad8eda4e6d58c9" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE INDEX "IDX_1ead49f37a115d0dd5db8820f2" ON "courses"  ("tier") `);
+        await queryRunner.query(`CREATE TYPE "public"."cohorts_status_enum" AS ENUM('PLANNED', 'ACTIVE', 'COMPLETED', 'CANCELLED')`);
+        await queryRunner.query(`CREATE TABLE "cohorts" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "name" character varying NOT NULL, "institutionId" uuid NOT NULL, "courseId" uuid, "startDate" date NOT NULL, "endDate" date, "status" "public"."cohorts_status_enum" NOT NULL DEFAULT 'PLANNED', "capacity" integer NOT NULL DEFAULT '0', CONSTRAINT "PK_fd38f76b135e907b834fda1e752" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE INDEX "IDX_114fed40a5da550ce2e7e8bbbc" ON "cohorts"  ("institutionId", "status") `);
+        await queryRunner.query(`CREATE TABLE "training_sessions" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "cohortId" uuid NOT NULL, "title" character varying NOT NULL, "scheduledAt" TIMESTAMP WITH TIME ZONE NOT NULL, "durationMinutes" integer, "facilitator" character varying, CONSTRAINT "PK_6678399f77ed9db5176459befa9" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TYPE "public"."attendance_records_status_enum" AS ENUM('PRESENT', 'ABSENT', 'EXCUSED', 'LATE')`);
+        await queryRunner.query(`CREATE TABLE "attendance_records" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "sessionId" uuid NOT NULL, "beneficiaryId" uuid NOT NULL, "status" "public"."attendance_records_status_enum" NOT NULL, "markedBy" character varying, CONSTRAINT "PK_946920332f5bc9efad3f3023b96" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_e55fe22dc4080c96a147c55494" ON "attendance_records"  ("sessionId", "beneficiaryId") `);
+        await queryRunner.query(`CREATE TABLE "training_completions" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "cohortId" uuid NOT NULL, "beneficiaryId" uuid NOT NULL, "attendanceRate" numeric(5,2), "completed" boolean NOT NULL DEFAULT false, "certified" boolean NOT NULL DEFAULT false, "completedAt" TIMESTAMP WITH TIME ZONE, CONSTRAINT "PK_da32ce9ca24ffdb1a055695fcb1" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "certificates" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "trainingCompletionId" uuid NOT NULL, "certificateNumber" character varying NOT NULL, "storageKey" character varying NOT NULL, "issuedAt" TIMESTAMP WITH TIME ZONE NOT NULL, "revoked" boolean NOT NULL DEFAULT false, CONSTRAINT "UQ_9742ea65bce69db989c2e676936" UNIQUE ("certificateNumber"), CONSTRAINT "REL_e27f5bd8eda26a1ef2041d8e90" UNIQUE ("trainingCompletionId"), CONSTRAINT "PK_e4c7e31e2144300bea7d89eb165" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "cohort_members" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "cohortId" uuid NOT NULL, "beneficiaryId" uuid NOT NULL, "enrolledAt" date, "isActive" boolean NOT NULL DEFAULT true, CONSTRAINT "PK_d0caa8ae723dba3e41fe36a4faf" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_674d5bd4b1a1416dc254bab5e7" ON "cohort_members"  ("cohortId", "beneficiaryId") `);
+        await queryRunner.query(`CREATE TABLE "validation_records" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, "version" integer NOT NULL DEFAULT '1', "applicationId" uuid NOT NULL, "validatorId" uuid NOT NULL, "siteInspectionNotes" text, "geotaggedPhotos" jsonb, "physicalFootprintVerified" boolean NOT NULL DEFAULT false, "validatedAt" TIMESTAMP WITH TIME ZONE, CONSTRAINT "REL_3146b93fa7f617ea1952ebe034" UNIQUE ("applicationId"), CONSTRAINT "PK_a2eda1b52b808c90a0c3cee83bd" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`ALTER TABLE "application_references" ADD CONSTRAINT "FK_21d66f6ebd8b5172516f71d2413" FOREIGN KEY ("applicationId") REFERENCES "applications"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "application_personnel" ADD CONSTRAINT "FK_bccfe578ffb7b08b1f4b879f6d4" FOREIGN KEY ("applicationId") REFERENCES "applications"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "applications" ADD CONSTRAINT "FK_340e6f6693aac66607dc54e691b" FOREIGN KEY ("submittedByOrgId") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "applications" ADD CONSTRAINT "FK_ce400242c0a02af55adebb26723" FOREIGN KEY ("preferredInstitutionId") REFERENCES "institutions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "application_documents" ADD CONSTRAINT "FK_fa1747f54494a479d3582aa9631" FOREIGN KEY ("applicationId") REFERENCES "applications"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "reviewer_assignments" ADD CONSTRAINT "FK_636d7d3577071a1bb5b5c4e5682" FOREIGN KEY ("applicationId") REFERENCES "applications"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "reviewer_assignments" ADD CONSTRAINT "FK_fa22ae3e279c7268f51e98692a9" FOREIGN KEY ("reviewerId") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "mfa_secrets" ADD CONSTRAINT "FK_9adff2630422d0325ec3369f6e0" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "refresh_tokens" ADD CONSTRAINT "FK_610102b60fea1455310ccd299de" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "beneficiaries" ADD CONSTRAINT "FK_18ab4e023013dc48121406d7904" FOREIGN KEY ("preferredInstitutionId") REFERENCES "institutions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "beneficiaries" ADD CONSTRAINT "FK_bd336303341f771897518b89eb5" FOREIGN KEY ("assignedInstitutionId") REFERENCES "institutions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "beneficiary_acceleration_profiles" ADD CONSTRAINT "FK_a090488b402f3873db45300a8cc" FOREIGN KEY ("beneficiaryId") REFERENCES "beneficiaries"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "beneficiary_incubation_profiles" ADD CONSTRAINT "FK_c9c01dddfbb658a95682c60dd95" FOREIGN KEY ("beneficiaryId") REFERENCES "beneficiaries"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "beneficiary_skills_profiles" ADD CONSTRAINT "FK_1d0fd2b880523b477496d7750be" FOREIGN KEY ("beneficiaryId") REFERENCES "beneficiaries"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "eligibility_checklists" ADD CONSTRAINT "FK_820101d947c772cdc494c8bdf2e" FOREIGN KEY ("applicationId") REFERENCES "applications"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "eligibility_checklists" ADD CONSTRAINT "FK_c74238bff75dba3c96603377bbd" FOREIGN KEY ("reviewerId") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "eligibility_check_items" ADD CONSTRAINT "FK_19d6b48096de2d24c08567eb588" FOREIGN KEY ("checklistId") REFERENCES "eligibility_checklists"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "facility_inspections" ADD CONSTRAINT "FK_ef2b960a9fd93430a766516ae51" FOREIGN KEY ("institutionId") REFERENCES "institutions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "institution_users" ADD CONSTRAINT "FK_47aa475a1c5eb1df662d4f82d52" FOREIGN KEY ("institutionId") REFERENCES "institutions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "institution_users" ADD CONSTRAINT "FK_12965a7a39dfc1fa6d7f4d840f4" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "matches" ADD CONSTRAINT "FK_5eb55afa42477e208143d5a9206" FOREIGN KEY ("applicationId") REFERENCES "applications"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "matches" ADD CONSTRAINT "FK_4bb5111eb64c1035589dacbf6ee" FOREIGN KEY ("institutionId") REFERENCES "institutions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "mel_kpi_snapshots" ADD CONSTRAINT "FK_3336f0fcce2a357ac10e2c695d7" FOREIGN KEY ("institutionId") REFERENCES "institutions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "mentor_assignments" ADD CONSTRAINT "FK_c29c359759e8018ce47665fbd2b" FOREIGN KEY ("mentorId") REFERENCES "mentors"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "mentor_assignments" ADD CONSTRAINT "FK_126ecfc9c73624a70a8fc80b3a2" FOREIGN KEY ("beneficiaryId") REFERENCES "beneficiaries"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "employment_outcomes" ADD CONSTRAINT "FK_e8d68c09ec6d2b9adf55d8f391d" FOREIGN KEY ("beneficiaryId") REFERENCES "beneficiaries"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "score_cards" ADD CONSTRAINT "FK_aa583dfc13280a7d774c3c6bf83" FOREIGN KEY ("applicationId") REFERENCES "applications"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "score_cards" ADD CONSTRAINT "FK_a6c046f0711ddc9b54567d34dba" FOREIGN KEY ("reviewerId") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "startup_milestones" ADD CONSTRAINT "FK_746596bd7fd200715b2c95b4cc0" FOREIGN KEY ("beneficiaryId") REFERENCES "beneficiaries"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "sub_awards" ADD CONSTRAINT "FK_c32b41ecf898aeadaec1dd014fd" FOREIGN KEY ("applicationId") REFERENCES "applications"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "sub_award_tranches" ADD CONSTRAINT "FK_762f4c18bff62b87854ec747cb7" FOREIGN KEY ("subAwardId") REFERENCES "sub_awards"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "financial_retirements" ADD CONSTRAINT "FK_5549ee6359ddc19b5838222e2ec" FOREIGN KEY ("trancheId") REFERENCES "sub_award_tranches"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "cohorts" ADD CONSTRAINT "FK_29ea07916f0acd8179d278c97f5" FOREIGN KEY ("institutionId") REFERENCES "institutions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "cohorts" ADD CONSTRAINT "FK_16678415d388dd072c6640a77d3" FOREIGN KEY ("courseId") REFERENCES "courses"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "training_sessions" ADD CONSTRAINT "FK_62f4bcba5423eba89157b553279" FOREIGN KEY ("cohortId") REFERENCES "cohorts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "attendance_records" ADD CONSTRAINT "FK_73dc742eac42ee289715b6d2593" FOREIGN KEY ("sessionId") REFERENCES "training_sessions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "attendance_records" ADD CONSTRAINT "FK_c353fbd5d220dce9dce59d8be49" FOREIGN KEY ("beneficiaryId") REFERENCES "beneficiaries"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "training_completions" ADD CONSTRAINT "FK_b2f2374cd4e15335463078e1f2f" FOREIGN KEY ("cohortId") REFERENCES "cohorts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "training_completions" ADD CONSTRAINT "FK_b4f0ece456c93ddb2d394e38f5d" FOREIGN KEY ("beneficiaryId") REFERENCES "beneficiaries"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "certificates" ADD CONSTRAINT "FK_e27f5bd8eda26a1ef2041d8e904" FOREIGN KEY ("trainingCompletionId") REFERENCES "training_completions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "cohort_members" ADD CONSTRAINT "FK_e00ea7965d1ed8c53b3c85a56e9" FOREIGN KEY ("cohortId") REFERENCES "cohorts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "cohort_members" ADD CONSTRAINT "FK_1fd0729bfdcfdc2b1ced03727f0" FOREIGN KEY ("beneficiaryId") REFERENCES "beneficiaries"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "validation_records" ADD CONSTRAINT "FK_3146b93fa7f617ea1952ebe034c" FOREIGN KEY ("applicationId") REFERENCES "applications"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "validation_records" ADD CONSTRAINT "FK_9adf88faa1d89b8a84879726ea4" FOREIGN KEY ("validatorId") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
+
+    }
+
+    public async down(queryRunner: QueryRunner): Promise<void> {
+      await queryRunner.query(
+        `ALTER TABLE "validation_records" DROP CONSTRAINT "FK_9adf88faa1d89b8a84879726ea4"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "validation_records" DROP CONSTRAINT "FK_3146b93fa7f617ea1952ebe034c"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "cohort_members" DROP CONSTRAINT "FK_1fd0729bfdcfdc2b1ced03727f0"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "cohort_members" DROP CONSTRAINT "FK_e00ea7965d1ed8c53b3c85a56e9"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "certificates" DROP CONSTRAINT "FK_e27f5bd8eda26a1ef2041d8e904"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "training_completions" DROP CONSTRAINT "FK_b4f0ece456c93ddb2d394e38f5d"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "training_completions" DROP CONSTRAINT "FK_b2f2374cd4e15335463078e1f2f"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "attendance_records" DROP CONSTRAINT "FK_c353fbd5d220dce9dce59d8be49"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "attendance_records" DROP CONSTRAINT "FK_73dc742eac42ee289715b6d2593"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "training_sessions" DROP CONSTRAINT "FK_62f4bcba5423eba89157b553279"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "cohorts" DROP CONSTRAINT "FK_16678415d388dd072c6640a77d3"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "cohorts" DROP CONSTRAINT "FK_29ea07916f0acd8179d278c97f5"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "financial_retirements" DROP CONSTRAINT "FK_5549ee6359ddc19b5838222e2ec"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "sub_award_tranches" DROP CONSTRAINT "FK_762f4c18bff62b87854ec747cb7"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "sub_awards" DROP CONSTRAINT "FK_c32b41ecf898aeadaec1dd014fd"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "startup_milestones" DROP CONSTRAINT "FK_746596bd7fd200715b2c95b4cc0"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "score_cards" DROP CONSTRAINT "FK_a6c046f0711ddc9b54567d34dba"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "score_cards" DROP CONSTRAINT "FK_aa583dfc13280a7d774c3c6bf83"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "employment_outcomes" DROP CONSTRAINT "FK_e8d68c09ec6d2b9adf55d8f391d"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "mentor_assignments" DROP CONSTRAINT "FK_126ecfc9c73624a70a8fc80b3a2"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "mentor_assignments" DROP CONSTRAINT "FK_c29c359759e8018ce47665fbd2b"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "mel_kpi_snapshots" DROP CONSTRAINT "FK_3336f0fcce2a357ac10e2c695d7"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "matches" DROP CONSTRAINT "FK_4bb5111eb64c1035589dacbf6ee"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "matches" DROP CONSTRAINT "FK_5eb55afa42477e208143d5a9206"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "institution_users" DROP CONSTRAINT "FK_12965a7a39dfc1fa6d7f4d840f4"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "institution_users" DROP CONSTRAINT "FK_47aa475a1c5eb1df662d4f82d52"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "facility_inspections" DROP CONSTRAINT "FK_ef2b960a9fd93430a766516ae51"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "eligibility_check_items" DROP CONSTRAINT "FK_19d6b48096de2d24c08567eb588"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "eligibility_checklists" DROP CONSTRAINT "FK_c74238bff75dba3c96603377bbd"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "eligibility_checklists" DROP CONSTRAINT "FK_820101d947c772cdc494c8bdf2e"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "beneficiary_skills_profiles" DROP CONSTRAINT "FK_1d0fd2b880523b477496d7750be"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "beneficiary_incubation_profiles" DROP CONSTRAINT "FK_c9c01dddfbb658a95682c60dd95"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "beneficiary_acceleration_profiles" DROP CONSTRAINT "FK_a090488b402f3873db45300a8cc"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "beneficiaries" DROP CONSTRAINT "FK_bd336303341f771897518b89eb5"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "beneficiaries" DROP CONSTRAINT "FK_18ab4e023013dc48121406d7904"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "refresh_tokens" DROP CONSTRAINT "FK_610102b60fea1455310ccd299de"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "mfa_secrets" DROP CONSTRAINT "FK_9adff2630422d0325ec3369f6e0"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "reviewer_assignments" DROP CONSTRAINT "FK_fa22ae3e279c7268f51e98692a9"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "reviewer_assignments" DROP CONSTRAINT "FK_636d7d3577071a1bb5b5c4e5682"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "application_documents" DROP CONSTRAINT "FK_fa1747f54494a479d3582aa9631"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "applications" DROP CONSTRAINT "FK_ce400242c0a02af55adebb26723"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "applications" DROP CONSTRAINT "FK_340e6f6693aac66607dc54e691b"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "application_personnel" DROP CONSTRAINT "FK_bccfe578ffb7b08b1f4b879f6d4"`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "application_references" DROP CONSTRAINT "FK_21d66f6ebd8b5172516f71d2413"`,
+      );
+      await queryRunner.query(`DROP TABLE "validation_records"`);
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_674d5bd4b1a1416dc254bab5e7"`,
+      );
+      await queryRunner.query(`DROP TABLE "cohort_members"`);
+      await queryRunner.query(`DROP TABLE "certificates"`);
+      await queryRunner.query(`DROP TABLE "training_completions"`);
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_e55fe22dc4080c96a147c55494"`,
+      );
+      await queryRunner.query(`DROP TABLE "attendance_records"`);
+      await queryRunner.query(
+        `DROP TYPE "public"."attendance_records_status_enum"`,
+      );
+      await queryRunner.query(`DROP TABLE "training_sessions"`);
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_114fed40a5da550ce2e7e8bbbc"`,
+      );
+      await queryRunner.query(`DROP TABLE "cohorts"`);
+      await queryRunner.query(`DROP TYPE "public"."cohorts_status_enum"`);
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_1ead49f37a115d0dd5db8820f2"`,
+      );
+      await queryRunner.query(`DROP TABLE "courses"`);
+      await queryRunner.query(`DROP TYPE "public"."courses_tier_enum"`);
+      await queryRunner.query(`DROP TABLE "financial_retirements"`);
+      await queryRunner.query(`DROP TABLE "sub_award_tranches"`);
+      await queryRunner.query(
+        `DROP TYPE "public"."sub_award_tranches_status_enum"`,
+      );
+      await queryRunner.query(`DROP TABLE "sub_awards"`);
+      await queryRunner.query(`DROP TABLE "startup_milestones"`);
+      await queryRunner.query(`DROP TABLE "score_cards"`);
+      await queryRunner.query(
+        `DROP TYPE "public"."score_cards_reviewerslot_enum"`,
+      );
+      await queryRunner.query(`DROP TABLE "rubric_configurations"`);
+      await queryRunner.query(`DROP TABLE "employment_outcomes"`);
+      await queryRunner.query(
+        `DROP TYPE "public"."employment_outcomes_outcometype_enum"`,
+      );
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_14f2ae4d74e43ab32f8e22c1a4"`,
+      );
+      await queryRunner.query(`DROP TABLE "mentor_assignments"`);
+      await queryRunner.query(
+        `DROP TYPE "public"."mentor_assignments_status_enum"`,
+      );
+      await queryRunner.query(`DROP TABLE "mentors"`);
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_5f8c28a805fe77642b927ad7a4"`,
+      );
+      await queryRunner.query(`DROP TABLE "mel_kpi_snapshots"`);
+      await queryRunner.query(`DROP TABLE "matches"`);
+      await queryRunner.query(`DROP TYPE "public"."matches_status_enum"`);
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_5b7091541081db9b88aa8cc924"`,
+      );
+      await queryRunner.query(`DROP TABLE "institution_users"`);
+      await queryRunner.query(`DROP TABLE "facility_safety_requirements"`);
+      await queryRunner.query(`DROP TABLE "facility_inspections"`);
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_020641861cb3d75f516eaa3c78"`,
+      );
+      await queryRunner.query(`DROP TABLE "grievances"`);
+      await queryRunner.query(`DROP TYPE "public"."grievances_status_enum"`);
+      await queryRunner.query(`DROP TYPE "public"."grievances_category_enum"`);
+      await queryRunner.query(`DROP TABLE "eligibility_check_items"`);
+      await queryRunner.query(
+        `DROP TYPE "public"."eligibility_check_items_code_enum"`,
+      );
+      await queryRunner.query(`DROP TABLE "eligibility_checklists"`);
+      await queryRunner.query(`DROP TABLE "beneficiary_skills_profiles"`);
+      await queryRunner.query(
+        `DROP TYPE "public"."beneficiary_skills_profiles_skilltier_enum"`,
+      );
+      await queryRunner.query(`DROP TABLE "beneficiary_incubation_profiles"`);
+      await queryRunner.query(
+        `DROP TYPE "public"."beneficiary_incubation_profiles_currentstage_enum"`,
+      );
+      await queryRunner.query(`DROP TABLE "beneficiary_acceleration_profiles"`);
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_e6baf5e9d8316b29b2b5d898f1"`,
+      );
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_b11f8a8fdc934fd5feea9e39f8"`,
+      );
+      await queryRunner.query(`DROP TABLE "beneficiaries"`);
+      await queryRunner.query(`DROP TYPE "public"."beneficiaries_status_enum"`);
+      await queryRunner.query(`DROP TYPE "public"."beneficiaries_pillar_enum"`);
+      await queryRunner.query(`DROP TABLE "refresh_tokens"`);
+      await queryRunner.query(`DROP TABLE "mfa_secrets"`);
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_13c69424c440a0e765053feb4b"`,
+      );
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_2dc33f7f3c22e2e7badafca1d1"`,
+      );
+      await queryRunner.query(`DROP TABLE "audit_logs"`);
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_d7e4279c7d01eb5d1cf18d2c7c"`,
+      );
+      await queryRunner.query(`DROP TABLE "reviewer_assignments"`);
+      await queryRunner.query(
+        `DROP TYPE "public"."reviewer_assignments_queuetype_enum"`,
+      );
+      await queryRunner.query(`DROP TABLE "application_documents"`);
+      await queryRunner.query(
+        `DROP TYPE "public"."application_documents_documenttype_enum"`,
+      );
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_8ee114cee92e995a9e75c05cfb"`,
+      );
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_340e6f6693aac66607dc54e691"`,
+      );
+      await queryRunner.query(`DROP TABLE "applications"`);
+      await queryRunner.query(
+        `DROP TYPE "public"."applications_proximitytohostinstitution_enum"`,
+      );
+      await queryRunner.query(`DROP TYPE "public"."applications_status_enum"`);
+      await queryRunner.query(`DROP TABLE "application_personnel"`);
+      await queryRunner.query(
+        `DROP TYPE "public"."application_personnel_personnelrole_enum"`,
+      );
+      await queryRunner.query(`DROP TABLE "application_references"`);
+      await queryRunner.query(
+        `DROP INDEX "public"."IDX_15c98649276025998cd1acaf61"`,
+      );
+      await queryRunner.query(`DROP TABLE "institutions"`);
+      await queryRunner.query(`DROP TYPE "public"."institutions_hubtype_enum"`);
+      await queryRunner.query(`DROP TABLE "users"`);
+      await queryRunner.query(`DROP TYPE "public"."users_role_enum"`);
+
+      await queryRunner.query(`
+      ALTER TABLE "applications" ALTER COLUMN "statesOfOperation" TYPE text[] USING "statesOfOperation"::text[];
+    `);
+      await queryRunner.query(`
+      DROP TYPE IF EXISTS "public"."applications_statesofoperation_enum" CASCADE;
+    `);
+    }
+    
+
+}

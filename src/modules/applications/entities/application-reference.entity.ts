@@ -1,8 +1,6 @@
-import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, Column, ManyToOne } from 'typeorm';
 import { BaseEntity } from '@common/entities/base.entity';
 import { Application } from './application.entity';
-
-
 
 @Entity('application_references')
 export class ApplicationReference extends BaseEntity {

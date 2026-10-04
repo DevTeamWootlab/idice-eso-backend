@@ -28,6 +28,7 @@ import {
 } from './training-rules';
 import { AuditLogService } from '@/modules/audit-log/audit-log.service';
 import { JwtPayload } from '@/common/interfaces/jwt-payload.interface';
+import { BulkEnrollmentResult, EnrollmentResultItem } from './dto/enrollment-result.interface';
 
 interface Rejection {
   beneficiaryId: string;
@@ -106,7 +107,11 @@ export class TrainingService {
     return this.cohortRepo.save(cohort);
   }
 
-  async updateCohortStatus(id: string, dto: UpdateCohortStatusDto, actor?: JwtPayload) {
+  async updateCohortStatus(
+    id: string,
+    dto: UpdateCohortStatusDto,
+    actor?: JwtPayload,
+  ) {
     const cohort = await this.requireCohort(id);
     if (!canTransitionCohort(cohort.status, dto.status)) {
       throw new BadRequestException(
@@ -132,7 +137,9 @@ export class TrainingService {
   async updateCohort(id: string, dto: UpdateCohortDto, actor: JwtPayload) {
     const cohort = await this.requireCohort(id);
     if (!isEditable(cohort.status)) {
-      throw new BadRequestException(`A ${cohort.status} cohort can no longer be edited`);
+      throw new BadRequestException(
+        `A ${cohort.status} cohort can no longer be edited`,
+      );
     }
 
     const before = {
@@ -148,12 +155,15 @@ export class TrainingService {
       capacity: dto.capacity ?? before.capacity,
     };
 
-    if (!next.name) throw new BadRequestException('Cohort name cannot be empty');
+    if (!next.name)
+      throw new BadRequestException('Cohort name cannot be empty');
     if (next.endDate && next.endDate < next.startDate) {
       throw new BadRequestException('endDate cannot be before startDate');
     }
     if (next.capacity > 0) {
-      const taken = await this.memberRepo.count({ where: { cohortId: id, isActive: true } });
+      const taken = await this.memberRepo.count({
+        where: { cohortId: id, isActive: true },
+      });
       if (next.capacity < taken) {
         throw new BadRequestException(
           `Capacity cannot be lower than the ${taken} trainees already enrolled`,
@@ -176,11 +186,16 @@ export class TrainingService {
       metadata: { before, after: next },
     });
 
-    return this.cohortRepo.findOne({ where: { id }, relations: { institution: true, course: true } });
+    return this.cohortRepo.findOne({
+      where: { id },
+      relations: { institution: true, course: true },
+    });
   }
 
   private dateOnly(value: Date | string): string {
-    return typeof value === 'string' ? value.slice(0, 10) : value.toISOString().slice(0, 10);
+    return typeof value === 'string'
+      ? value.slice(0, 10)
+      : value.toISOString().slice(0, 10);
   }
 
   async enroll(cohortId: string, dto: EnrollBeneficiariesDto) {
@@ -248,6 +263,134 @@ export class TrainingService {
     };
   }
 
+  async enrollBeneficiaries(
+    cohortId: string,
+    dto: EnrollBeneficiariesDto,
+    actorId: string,
+  ): Promise<BulkEnrollmentResult> {
+    return this.dataSource.transaction(async (manager) => {
+      // 1. Lock cohort row to prevent concurrent capacity overfill
+      const cohort = await manager
+        .getRepository(Cohort)
+        .createQueryBuilder('cohort')
+        .setLock('pessimistic_write')
+        .where('cohort.id = :cohortId', { cohortId })
+        .getOne();
+
+      if (!cohort) {
+        throw new NotFoundException('Cohort not found');
+      }
+
+      if (!isOpenForEnrolment(cohort.status)) {
+        throw new BadRequestException(
+          `Cohort status '${cohort.status}' is not open for enrolment`,
+        );
+      }
+
+      // 2. Pre-deduplicate input IDs
+      const uniqueIds = Array.from(new Set(dto.beneficiaryIds));
+
+      // 3. Batched fetch: Beneficiaries & Existing Enrollments (No N+1 queries)
+      const [beneficiaries, existingMembers, currentActiveCount] =
+        await Promise.all([
+          manager
+            .getRepository(Beneficiary)
+            .find({ where: { id: In(uniqueIds) } }),
+          manager.getRepository(CohortMember).find({
+            where: { cohortId, beneficiaryId: In(uniqueIds) },
+            select: { beneficiaryId: true },
+          }),
+          manager.getRepository(CohortMember).count({
+            where: { cohortId, isActive: true },
+          }),
+        ]);
+
+      const beneficiaryMap = new Map(beneficiaries.map((b) => [b.id, b]));
+      const alreadyEnrolledSet = new Set(
+        existingMembers.map((m) => m.beneficiaryId),
+      );
+
+      let activeCount = currentActiveCount;
+      const results: EnrollmentResultItem[] = [];
+      const toInsert: CohortMember[] = [];
+
+      // 4. Process candidates in memory
+      for (const id of uniqueIds) {
+        const beneficiary = beneficiaryMap.get(id);
+
+        if (!beneficiary) {
+          results.push({ beneficiaryId: id, outcome: 'BENEFICIARY_NOT_FOUND' });
+          continue;
+        }
+
+        if (alreadyEnrolledSet.has(id)) {
+          results.push({ beneficiaryId: id, outcome: 'ALREADY_ENROLLED' });
+          continue;
+        }
+
+        const blocker = enrolmentBlocker(beneficiary, cohort);
+        if (blocker) {
+          results.push({
+            beneficiaryId: id,
+            outcome: 'REJECTED',
+            reason: blocker,
+          });
+          continue;
+        }
+
+        if (cohort.capacity > 0 && activeCount >= cohort.capacity) {
+          results.push({ beneficiaryId: id, outcome: 'COHORT_FULL' });
+          continue;
+        }
+
+        activeCount++;
+        alreadyEnrolledSet.add(id);
+
+        toInsert.push(
+          manager.getRepository(CohortMember).create({
+            cohortId,
+            beneficiaryId: id,
+            enrolledAt: new Date(),
+            isActive: true,
+          }),
+        );
+
+        results.push({ beneficiaryId: id, outcome: 'ENROLLED' });
+      }
+
+      // 5. Atomic persist
+      if (toInsert.length > 0) {
+        await manager.getRepository(CohortMember).save(toInsert);
+      }
+
+      const enrolledCount = results.filter(
+        (r) => r.outcome === 'ENROLLED',
+      ).length;
+
+      // 6. Audit Trail
+      await this.auditLogService.record({
+        actorId,
+        actorRole: 'ROLE_SYSADMIN',
+        action: 'BULK_COHORT_ENROLLMENT',
+        entityType: 'Cohort',
+        entityId: cohortId,
+        metadata: {
+          requested: uniqueIds.length,
+          enrolled: enrolledCount,
+          outcomes: results,
+        },
+      });
+
+      return {
+        cohortId,
+        requested: uniqueIds.length,
+        enrolled: enrolledCount,
+        skipped: uniqueIds.length - enrolledCount,
+        results,
+      };
+    });
+  }
+
   async recordCompletions(cohortId: string, dto: RecordCompletionsDto) {
     const cohort = await this.requireCohort(cohortId);
     if (!canRecordCompletions(cohort.status)) {
@@ -313,7 +456,12 @@ export class TrainingService {
     const members = await this.memberRepo
       .createQueryBuilder('member')
       .innerJoin('member.beneficiary', 'b')
-      .select(['member.id', 'member.beneficiaryId', 'member.enrolledAt', 'member.isActive'])
+      .select([
+        'member.id',
+        'member.beneficiaryId',
+        'member.enrolledAt',
+        'member.isActive',
+      ])
       .addSelect(['b.id', 'b.fullName', 'b.referenceId'])
       .where('member.cohortId = :cohortId', { cohortId })
       .orderBy('b.fullName', 'ASC')

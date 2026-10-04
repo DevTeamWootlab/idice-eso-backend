@@ -1,4 +1,4 @@
-import { Entity, Column, OneToOne } from 'typeorm';
+import { Entity, Column } from 'typeorm';
 import { Exclude } from 'class-transformer';
 import { BaseEntity } from '@common/entities/base.entity';
 import { Role } from '@common/enums/role.enum';
@@ -27,10 +27,8 @@ export class User extends BaseEntity {
   @Column({ default: true })
   isActive!: boolean;
 
-
   @Column({ nullable: true })
   assignedState!: string;
-
 
   @Column({ type: 'smallint', nullable: true })
   scoringSlot!: number | null;

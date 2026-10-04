@@ -105,6 +105,108 @@ again safely; it inserts or updates reference data without duplicating it.
 Keep `synchronize` disabled. Review generated migrations before applying them
 to a shared or production database.
 
+Generate migrations only against a local or disposable development database,
+review them, commit the migration source, and let the production pipeline apply
+them. Migration source files must be committed; a fresh database also requires a
+complete initial migration, not only migrations that add columns to existing
+tables.
+
+## Azure production deployment
+
+The Azure deployment uses Azure App Service for Linux containers, Azure Database
+for PostgreSQL Flexible Server on a delegated private subnet, Azure Container
+Registry, Key Vault references with managed identity, private endpoints, and
+Log Analytics diagnostics. App Service runs only the API; PostgreSQL is managed
+by Azure. The local `docker-compose.yml` is for development and runs both the API
+and a local PostgreSQL container:
+
+```bash
+docker compose up --build
+```
+
+The Azure resources are described in `infra/azure/main.bicep`. Provisioning is a
+manual GitHub Actions workflow (`Provision Azure Infrastructure`) because it
+creates billable resources. It uses an ephemeral, permission-restricted
+parameters file; secret values are marked secure in Bicep and stored in Key
+Vault. Do not commit production parameter files or `.env` values.
+
+Before using the provisioning workflow, configure a GitHub OIDC federated
+credential for this repository's `production` environment and grant that service
+principal permission to deploy the resource group and create role assignments.
+Set these GitHub `production` environment variables:
+
+- `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`
+- `AZURE_RESOURCE_GROUP`, `AZURE_LOCATION`
+- `AZURE_APP_SERVICE_NAME`, `AZURE_ACR_NAME`, `AZURE_POSTGRES_SERVER_NAME`, `AZURE_KEY_VAULT_NAME`
+- `AZURE_DATABASE_NAME`, `AZURE_DATABASE_ADMIN_LOGIN`, `AZURE_GITHUB_PRINCIPAL_OBJECT_ID`
+- `FRONTEND_URL`, `CORS_ORIGINS`, `MAIL_FROM_ADDRESS`
+
+Set these GitHub `production` environment secrets:
+
+- `DATABASE_ADMIN_PASSWORD`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`
+- `MFA_ENCRYPTION_KEY`, `NIN_HASH_KEY`, `NIN_ENCRYPTION_KEY`
+- `MAIL_API_KEY`, `SMS_API_KEY`
+- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
+- `SYSADMIN_SEED_PASSWORD`
+
+The JWT secrets must each be at least 32 characters. The MFA and NIN keys must
+each be 64 hexadecimal characters. Keep the MFA/NIN keys stable after production
+data has been encrypted with them. Configure required reviewers on the GitHub
+`production` environment before enabling deployments.
+
+Run `Provision Azure Infrastructure` once and inspect its `what-if` output. The
+production workflow derives the ACR login server from `AZURE_ACR_NAME`.
+
+Every pull request to `main` runs lint, tests, build, dependency audit,
+filesystem vulnerability/secret/misconfiguration scans, a production-container
+build and scan, and the compiled migration chain against a fresh PostgreSQL 16
+service. Every push to `main` repeats verification, builds an immutable
+SHA-tagged image, and scans it before deployment. Deployment updates the App
+Service staging slot. That slot runs pending migrations and the idempotent
+reference seed under a PostgreSQL advisory lock on startup. The workflow
+requires `/api/v1/health/ready` to report
+`data.status = "UP"` and `data.database_connected = true` before swapping
+traffic. A failed migration or staging health check stops the release without
+swapping the live slot. A production health-check failure after swap triggers
+an automatic swap back. Database changes must use expand/contract migrations so
+the currently live app remains compatible until the swap completes.
+
+The initial App Service container is a placeholder used only during resource
+provisioning. Do not direct production traffic to it before a successful API
+deployment.
+
+### First-deployment migration gate
+
+The working tree includes the initial schema migration and subsequent migration
+sources, and `scripts/validate-migration-baseline.mjs` checks that the baseline
+creates `users`, `applications`, and `institutions`. Commit and review every
+migration source before the first Azure release; CI then applies the compiled
+migration chain to an empty PostgreSQL 16 database. Rehearse upgrades against a
+disposable copy of any existing schema and data. Do not work around this gate
+by marking migrations as run manually or by enabling TypeORM `synchronize`.
+
+### Database backup and recovery
+
+The Azure template configures 35-day PostgreSQL backups. Define and rehearse
+database restore procedures against the service's recovery objectives before
+launch. The App Service autoscale and PostgreSQL high-availability defaults
+have cost and region constraints; review the runbook before enabling higher
+availability or geo-redundant backups.
+
+After infrastructure is provisioned and the baseline gate passes, the first
+successful deployment creates the API URL at `https://<app-service-name>.azurewebsites.net`.
+Add the custom domain and managed TLS certificate only after the staging smoke
+test passes. The template starts with one Standard App Service worker, CPU
+autoscaling up to three, and a General Purpose PostgreSQL server.
+
+See [docs/AZURE-PRODUCTION-RUNBOOK.md](docs/AZURE-PRODUCTION-RUNBOOK.md) for
+the full OIDC, Key Vault, provisioning, and first-release checklist.
+
+For local validation, copy `.env.example` to `.env`, replace its development
+placeholders with local-only values, then run `docker compose config` and
+`docker compose up --build`. The Compose API runs migrations before startup.
+Never use `docker compose down -v` against data you need.
+
 ## Emailed links (FRONTEND_URL)
 
 Verification and password-reset emails link to `${FRONTEND_URL}/verify-email?token=…` and
@@ -175,9 +277,9 @@ Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
 ## Deploying: order of operations
 
 1. **Schema.** The in-app notification inbox added a table (`in_app_notifications`). With `synchronize`
-   off, it only exists once a migration is applied. Against a database at the previous schema run
-   `yarn db:migration:generate`, review the generated file, commit it, then apply with `yarn deploy:prod`
-   (`db:migrate:prod` + `db:seed:prod`).
+  off, it only exists once a migration is applied. In development, generate and review the migration,
+  commit its source, then let the deployment pipeline apply it. Never generate migrations against
+  production.
 2. **Seed.** `yarn db:seed:prod` loads the CoEs, the full course catalogue and the six scoring rubric
    dimensions. It is safe to run on every deploy: the rubric seed only inserts *missing* dimensions and never
    overwrites weights an administrator has edited.

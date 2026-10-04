@@ -2,7 +2,13 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { TrainingTier } from '@/common/enums/beneficiary.enum';
 import { CohortStatus } from '@/common/enums/training.enum';
 import { InstitutionRefDto } from '@/modules/beneficiaries/dto/beneficiary-responses.dto';
-
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
+  IsArray,
+  IsUUID,
+} from 'class-validator';
 export class CourseDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
@@ -81,4 +87,13 @@ export class CompletionsResultDto {
   saved!: number;
   @ApiProperty({ type: [RejectionDto] })
   rejected!: RejectionDto[];
+}
+
+export class EnrollBeneficiariesDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(500)
+  @ArrayUnique()
+  @IsUUID(undefined, { each: true })
+  beneficiaryIds!: string[];
 }

@@ -17,7 +17,7 @@ import { CreateBeneficiaryDto } from './dto/create-beneficiary.dto';
 import { GeoAllocationService } from './services/geo-allocation.service';
 import { StorageService } from '../storage/storage.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { encrypt, decrypt, hashDeterministic } from '@/common/utils/encryption';
+import { encrypt, hashDeterministic } from '@/common/utils/encryption';
 import { ConfigService } from '@nestjs/config';
 import { Institution } from '@/modules/institutions/entities/institution.entity';
 import { ListBeneficiariesDto } from './dto/list-beneficiaries.dto';

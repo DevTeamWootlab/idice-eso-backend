@@ -15,6 +15,7 @@ export const environmentSchema = z.object({
   DB_USERNAME: z.string({ message: 'DB_USERNAME is required' }).min(1),
   DB_PASSWORD: z.string({ message: 'DB_PASSWORD is required' }).min(1),
   DB_NAME: z.string({ message: 'DB_NAME is required' }).min(1),
+  DB_SSL_REJECT_UNAUTHORIZED: z.coerce.boolean().default(true),
   FRONTEND_URL: z.string().url('FRONTEND_URL must be a valid URL').default('http://localhost:3000'),
 
   // JWT Configuration

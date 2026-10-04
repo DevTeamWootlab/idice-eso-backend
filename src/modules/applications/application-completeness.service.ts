@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Application } from './entities/application.entity';
-import { DOCUMENT_TYPES, DocumentType } from './entities/application-document.entity';
+import { DOCUMENT_TYPES } from './entities/application-document.entity';
 
 const MANDATORY_DOCUMENT_TYPES = [
   DOCUMENT_TYPES.REGISTRATION_CERTIFICATE,
