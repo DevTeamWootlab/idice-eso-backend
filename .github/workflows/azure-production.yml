@@ -8,6 +8,10 @@ on:
     branches:
       - prod
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   build:
     name: Build App 
