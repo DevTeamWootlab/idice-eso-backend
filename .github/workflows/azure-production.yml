@@ -193,23 +193,31 @@ jobs:
       - name: Restart staging slot to run migrations and seed reference data
         run: az webapp restart --resource-group "$AZURE_RESOURCE_GROUP" --name "$AZURE_APP_SERVICE_NAME" --slot staging
 
-      - name: Wait for database-aware health check
+      - name: Wait for database and migration readiness
         env:
           HEALTH_URL: https://${{ vars.AZURE_APP_SERVICE_NAME }}-staging.azurewebsites.net/api/v1/health/ready
         run: |
           set -euo pipefail
           for attempt in $(seq 1 36); do
             response="$(curl --silent --show-error --fail "$HEALTH_URL" || true)"
-            if RESPONSE="$response" node -e 'const r=JSON.parse(process.env.RESPONSE||"{}"); process.exit(r.data?.database_connected === true && r.data?.status === "UP" ? 0 : 1)' 2>/dev/null; then
-              echo "Staging reports healthy and connected to PostgreSQL."
+            if RESPONSE="$response" node -e 'const r=JSON.parse(process.env.RESPONSE||"{}"); process.exit(r.data?.database_connected === true && r.data?.migrations_pending === false && r.data?.status === "UP" ? 0 : 1)' 2>/dev/null; then
+              echo "Staging reports healthy, connected to PostgreSQL, and fully migrated."
               exit 0
             fi
             echo "Waiting for staging startup/migrations ($attempt/36)."
             sleep 10
           done
-          echo "Staging failed health verification; production slot was not swapped."
+          echo "Staging failed readiness or migration verification; production slot was not swapped."
           az webapp log tail --resource-group "$AZURE_RESOURCE_GROUP" --name "$AZURE_APP_SERVICE_NAME" --slot staging || true
           exit 1
+
+      - name: Smoke-test staging endpoints and validate routes
+        env:
+          API_URL: https://${{ vars.AZURE_APP_SERVICE_NAME }}-staging.azurewebsites.net/api/v1
+          EXPECTED_APP_VERSION: ${{ github.sha }}
+          SYSADMIN_SEED_EMAIL: ${{ vars.SYSADMIN_SEED_EMAIL }}
+          SYSADMIN_SEED_PASSWORD: ${{ secrets.SYSADMIN_SEED_PASSWORD }}
+        run: node scripts/check-deployed-routes.mjs
 
       - name: Swap staging into production
         run: az webapp deployment slot swap --resource-group "$AZURE_RESOURCE_GROUP" --name "$AZURE_APP_SERVICE_NAME" --slot staging --target-slot production
@@ -217,16 +225,29 @@ jobs:
       - name: Verify production and roll back on failure
         env:
           HEALTH_URL: https://${{ vars.AZURE_APP_SERVICE_NAME }}.azurewebsites.net/api/v1/health/ready
+          API_URL: https://${{ vars.AZURE_APP_SERVICE_NAME }}.azurewebsites.net/api/v1
+          EXPECTED_APP_VERSION: ${{ github.sha }}
+          SYSADMIN_SEED_EMAIL: ${{ vars.SYSADMIN_SEED_EMAIL }}
+          SYSADMIN_SEED_PASSWORD: ${{ secrets.SYSADMIN_SEED_PASSWORD }}
         run: |
           set -euo pipefail
           for attempt in $(seq 1 12); do
             response="$(curl --silent --show-error --fail "$HEALTH_URL" || true)"
-            if RESPONSE="$response" node -e 'const r=JSON.parse(process.env.RESPONSE||"{}"); process.exit(r.data?.database_connected === true && r.data?.status === "UP" ? 0 : 1)' 2>/dev/null; then
-              echo "Production health check passed."
-              exit 0
+            if RESPONSE="$response" node -e 'const r=JSON.parse(process.env.RESPONSE||"{}"); process.exit(r.data?.database_connected === true && r.data?.migrations_pending === false && r.data?.status === "UP" && r.data?.version === process.env.EXPECTED_APP_VERSION ? 0 : 1)' 2>/dev/null; then
+              echo "Production health and migration checks passed."
+              break
+            fi
+            if [ "$attempt" -eq 12 ]; then
+              echo "Production readiness failed; swapping the previous deployment back."
+              az webapp deployment slot swap --resource-group "$AZURE_RESOURCE_GROUP" --name "$AZURE_APP_SERVICE_NAME" --slot staging --target-slot production
+              exit 1
             fi
             sleep 10
           done
-          echo "Production health check failed; swapping the previous deployment back."
-          az webapp deployment slot swap --resource-group "$AZURE_RESOURCE_GROUP" --name "$AZURE_APP_SERVICE_NAME" --slot staging --target-slot production
-          exit 1
+          if node scripts/check-deployed-routes.mjs; then
+            echo "Production endpoint smoke tests and route validation passed."
+          else
+            echo "Production endpoint or route validation failed; swapping the previous deployment back."
+            az webapp deployment slot swap --resource-group "$AZURE_RESOURCE_GROUP" --name "$AZURE_APP_SERVICE_NAME" --slot staging --target-slot production
+            exit 1
+          fi
