@@ -57,6 +57,6 @@ jobs:
             docker-compose -f docker-compose.yml down backend
             docker-compose -f docker-compose.yml up -d backend
             docker system prune -f # Purge system (by force) to free up space
-          host: ${{ secrets.SSH_HOST }}
-          user: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PASSWORD }}
+          host: ${{ secrets.AZ_SSH_HOST }}
+          user: ${{ secrets.AZ_SSH_USER }}
+          key: ${{ secrets.AZ_SSH_PASSWORD }}
