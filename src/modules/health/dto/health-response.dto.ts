@@ -22,6 +22,10 @@ export class HealthResponseDto {
   @IsBoolean()
   database_connected: boolean = false;
 
+  @ApiProperty({ example: false })
+  @IsBoolean()
+  migrations_pending: boolean = false;
+
   @ApiProperty({ example: '1.0.0' })
   @IsString()
   @IsNotEmpty()

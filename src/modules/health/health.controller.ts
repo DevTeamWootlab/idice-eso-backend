@@ -32,16 +32,16 @@ export class HealthController {
   /**
    * Readiness is deliberately separate from the general status endpoint.
    * Azure App Service uses this endpoint for health checks and slot warm-up,
-   * so a lost PostgreSQL connection must be a non-2xx response.
+   * so database disconnection or pending migrations must be non-2xx responses.
    */
   @Public()
   @Get('ready')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Database-aware deployment readiness check' })
+  @ApiOperation({ summary: 'Database and migration-aware deployment readiness check' })
   @ApiOkResponse({ type: HealthResponseDto })
   async ready(): Promise<HealthResponseDto> {
     const health = await this.healthService.check();
-    if (!health.database_connected) {
+    if (!health.database_connected || health.migrations_pending) {
       throw new ServiceUnavailableException(health);
     }
     return health;
