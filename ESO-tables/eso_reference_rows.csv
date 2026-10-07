@@ -1,0 +1,88 @@
+id,applicationId,fullName,relationship,organisationName,phoneNumber,email,verified,created_at
+0681d861-9ff8-45bd-a838-4f87a906f62d,acd2d124-3987-4cf0-a35d-c452836b9954,john,client,,07053784537,oluwatobi@ojindo.com,,2026-09-24 15:49:48.812109+00
+0aa9b0ea-9ae7-44ce-bd63-13a619b73bf2,2142ab4b-07d6-4ecd-9181-3c6b595c8bdf,theordore Longji,partner,,08068897177,longji@nhubnigeria.ng,,2026-09-17 18:07:21.493005+00
+0c70d7b7-ae99-4fab-a922-949b990d2d56,8f82b2a1-f56c-4533-b174-979c54fc3172,Huijj,Brother,,648489404049,akagarobaba@gmail.com,,2026-09-22 15:56:58.013501+00
+0e242e05-d4f7-4fee-83dc-a5d4dd85ba99,30941efe-b75d-4bb8-bb31-faa6b91e346f,Mr. Najim Moses,Partner,,+1 (469) 933-3733,footright@4ootright.com,,2026-09-15 09:47:09.787094+00
+10af522b-4905-44f4-b444-5d86e5c45338,7308e392-97e7-477c-9a9c-929eacde3db1,Maryam Lawal Gwadabe,Partner,,08165165754,maryam.gwadabe@fmcide.gov.ng,,2026-09-17 20:19:53.247882+00
+2035d27a-6b44-46d9-91c9-db59581b8dcd,61683ae0-161b-406b-9bea-9f26a143332a,"Mr, Robinson Jack",Owner,,070647584756,meetRobinson@gmail.com,,2026-09-08 10:56:34.777019+00
+20573a17-e549-43e0-81ff-73f3cf894fa9,0e0feaab-9004-4869-ad96-eb995201ca43,Mary Nguveren Igbazua​,Partner,,08147074873,mary.igbazua@gmail.com,,2026-09-04 11:15:17.576267+00
+2223c905-d087-428c-aec8-0a45d46cc2d2,2c915a62-2450-40f9-a27c-844300fc610a,Auwal Muhammad,Client,,08065555679,auwalforall@gmail.com,,2026-09-15 20:37:34.284203+00
+22a84255-9723-4538-b20c-b0f51647f1c2,7fe57f93-fd24-4ccd-a5e9-cf13097503c1,MR. AFOLABI OLAWALE ISAIAH,CLIENT,,07056646430,olawale.afolabi@giz.de,,2026-09-15 18:10:41.6322+00
+26299891-05a7-4653-b141-91ff5584504b,6e817a58-de65-425a-a93c-c560df09522a,Mr David Daser,Former Funder,,07031285559,presiden@dbi.edu.ng,,2026-09-30 17:21:06.554229+00
+2667be4e-2739-4143-a15f-a49e94fd7d93,9497e203-3896-4dd2-865a-c502e902b8d3,Salami olawale,partner,,08070984920,olawalesalami@gmail.com,,2026-09-01 06:01:56.435766+00
+2d82f2c4-ac2c-410a-a002-23d88ea1c442,9497e203-3896-4dd2-865a-c502e902b8d3,Oluwatobi Salami,founder,,09019613810,salamitobimi@gmail.com,,2026-09-01 06:01:56.435766+00
+3ac3ca87-5a79-4724-abf4-f5f5be478200,ac75453a-6637-4e5b-99a5-2a9668818681,Prof. Aondowase Boh,"Former Director, Centre of Entrepreneurship Studies, Benue State Univeristy, Makurdi",,07067725625,sakav2007@yahoo.com,,2026-09-15 22:30:10.068689+00
+3c9ce503-a056-48be-8c95-e7fe682463f0,34518417-9be0-4292-a174-dae71d11e7e8,Dr. Henry Inegbu,Client,,08065000500,Einegbu@fhfl.com.ng,,2026-09-15 15:32:33.010307+00
+3e845fc9-ca2d-4ed9-b827-fc2e7cf070c2,323d4c6d-5d86-42e8-b412-420dea3e39de,Chimdindu Uzowulu,brother,,09030428141,chimdindu73@gmail.com,,2026-09-03 15:19:51.376689+00
+3f189e2f-09cd-417b-a0a7-41b8dddde3db,cae6b4f6-e7e8-4199-87c4-e88dbc703f98,Dr Lotanna Okoye,Partner,,08101223636,dg@ppslacademy.com,,2026-09-12 21:15:17.172372+00
+40ea9ce1-0b74-4f46-abb9-9eabe4563d3b,faaa1ff4-ac01-4ef0-a430-9fccce37061b,Dr. Ese Owie,Client,,+234 803 664 8050,info@numelec.com,,2026-09-14 15:45:51.346327+00
+428325f7-3337-46f9-bad0-2586d60c972f,16ab3a2e-8e18-415e-b7c9-efe617e6b1e8,Jude Adejuwon,Partner,,09017036316,jude@cchub.africa,,2026-10-04 14:52:03.768096+00
+47a26dfd-dd11-4b8a-80db-14cb8150b8cf,2142ab4b-07d6-4ecd-9181-3c6b595c8bdf,Badmus Zainab Olaide,partner,,08035766227,zoabgee@gmail.com,,2026-09-17 18:07:21.493005+00
+4d01c549-a5ec-4714-9ee6-523628bcf93d,cae6b4f6-e7e8-4199-87c4-e88dbc703f98,1.	Jason Atusiuba,Client,,08067768338,Jason.atusiuba@a6gnl.com,,2026-09-12 21:15:17.172372+00
+4da76af3-b194-43b5-88a6-d05caa774f65,7c2e60c6-f8e2-48f0-bdb8-d0ed88292769,Benjamin Oladapo,Partner and Program Sponsor,,+234 803 855 5224,operations@opolo.global,,2026-09-14 13:44:28.51808+00
+4dbb7220-0b4c-4e1f-ba28-1cdecdda58c9,30941efe-b75d-4bb8-bb31-faa6b91e346f,Amb. Kabir Ibrahim,Partner,,+234 803 958 9612,ibrahim36net@gmail.com,,2026-09-15 09:47:09.787094+00
+4e29c8be-9976-41f0-b8ff-12e3838e4d8b,254b2e39-9f1d-49e2-bf08-f10d1e3a0e99,qweruiop,errtyuiodfj,,1324567890,dfghj@gmail.com,,2026-09-25 10:36:12.755888+00
+5b424574-6022-4ec5-b9a7-69ba186eb4c0,c6ac6d12-a506-420b-b5c8-1524b6fc7720,Hon. Victor Olojede,Partner,,08169545820,victorolojede@mail.oyostate.gov.ng,,2026-09-23 16:39:09.477991+00
+5c2f61f6-0f56-4298-a82b-b7df4ad30ee1,34518417-9be0-4292-a174-dae71d11e7e8,Francis Sani,Client,,08160684760,Francis.sani@fmcide.gov.ng,,2026-09-15 15:32:33.010307+00
+5cbe4fec-a128-4b3d-a212-381be2297d42,84e3ebcc-8602-484d-b2ab-c1101806ba34,Mrs Yop Sitdang,Client,,0803 680 3586,wunika2.ys@gmail.com,,2026-09-08 12:01:53.144361+00
+5dee61b1-44df-4088-a7f1-358688c63ffe,7c2e60c6-f8e2-48f0-bdb8-d0ed88292769,Kemi Ogunmiloro,Partner and Sponsor of Program,,+234 903 928 3210,kemiogunmiloro@fintechinstituteng.com,,2026-09-14 13:44:28.51808+00
+625817d8-6f4d-4f0d-8de5-0f2759c2ac1d,718b0c06-5859-414b-b269-30a2dd9c4768,Pelumi Ogunremu,Client,,+234 814 446 1133,pelumi@codesquad.co,,2026-09-13 12:47:54.143102+00
+6340a783-958a-47b5-ad5d-a38d7b2fb529,68454b5a-900d-4a65-97c7-4c9e4f2ddfe6,"Prof. Emmanuel Adagunodo- Obafemi Awolowo University (OAU), Ile-Ife",Institutional Partner and Host of OPOLO Innovation Hub,,08037250909,eadagun@oauife.edu.ng,,2026-09-23 18:32:20.085447+00
+65e6e6f1-e0cc-443e-a631-b283bd2eb796,c6ac6d12-a506-420b-b5c8-1524b6fc7720,Ifreke Brendan,Partner,,07031137966,ifreke.abrendan@gmail.com,,2026-09-23 16:39:09.477991+00
+68a4258d-8f45-4c8d-8fa7-a67b85211bb2,525a4ba8-9412-4df1-8f2b-84562bf4ea44,NITDA,Partner,,+2348 168 401 851,info@nitda.gov.ng,,2026-09-10 19:21:57.209492+00
+6e6033ff-9a63-4e78-9021-eeb8f9fda23f,feb73788-742c-4cab-9155-a75e7679b8b3,Ibrahim Jimoh,Partner,,08160876560,Ibrahim@corestream.ng,,2026-09-15 19:21:26.411386+00
+7160e36f-a696-4693-965a-71d9d146b04c,144f30c7-2e20-4b1a-b8d6-448fbc1f9aa3,Mr Silvanus Kpokpe,Partner,,07031879280,apluscomputer@gmail.com,,2026-09-15 15:42:52.852288+00
+76cf8242-e624-4d73-b74b-db061742d094,4dbbdb5e-5e8a-4a75-9055-c2b9e5bef429,Adefarati Ayodele,Partner,,07033159270,ayodeleadefarati51@gmail.com,,2026-09-28 02:25:09.072809+00
+785f5619-c17e-4e72-a785-e95862139f48,5a01ff89-d047-4161-80ff-3ec6e6ebc6b4,Omachoko Arome,Former Funder,,07052233287,a.omachoko@3mtt.fmcide.gov.ng,,2026-09-11 11:48:57.45818+00
+7d3aecd6-348c-44d4-8b73-6b7fce081eb0,0e0feaab-9004-4869-ad96-eb995201ca43,Ikenna Chukwuma,Funder,,09079179112,ikenna.chukwuma@atcnigeria.ng,,2026-09-04 11:15:17.576267+00
+7e064279-2997-41d4-9713-30cb90690ff7,4dbbdb5e-5e8a-4a75-9055-c2b9e5bef429,Ocholi Esther,Program Partner,,0813 217 7007,ocholie48@gmail.com,,2026-09-28 02:25:09.072809+00
+8081ab78-99f3-4950-a001-f41300dfc3d6,5a01ff89-d047-4161-80ff-3ec6e6ebc6b4,Maimuna Yusuf Ahmad,Former Funder,,08033973905,ed@isnhubs.org,,2026-09-11 11:48:57.45818+00
+81eb21d1-7185-496d-9413-0fbffcf10135,cae6b4f6-e7e8-4199-87c4-e88dbc703f98,Okwudili Nwakobi,Client,,08072091488,okwudili.nwakobi@octolagos.com,,2026-09-12 21:15:17.172372+00
+821c1c90-f362-456f-9246-b320f97089d8,b14c476d-dcf4-4ee1-927b-61361480871f,Kadiri Wasiu Olalekan John,Partner,,08038552682,kadwoj@gmail.com,,2026-09-16 04:17:22.03362+00
+84f55640-74b1-417d-896f-dd2078eb7835,323d4c6d-5d86-42e8-b412-420dea3e39de,Chimdi,jjjj,,09030428141,chimdindu73@gmail.com,,2026-09-03 15:19:51.376689+00
+88bba6e0-4ace-4fa0-9b7b-2f6100be7368,254b2e39-9f1d-49e2-bf08-f10d1e3a0e99,weryuiop,qweruiop[,,1234567890,dfghj@gmail.com,,2026-09-25 10:36:12.755888+00
+8a427ad4-c967-42c9-87db-cadf84817d35,30941efe-b75d-4bb8-bb31-faa6b91e346f,"Mr. Frank Tietie, Esq",Partner,,+234 803 628 6435,franktietie@gmail.com,,2026-09-15 09:47:09.787094+00
+8a777c3b-038e-4320-8196-d957f85f23c0,6e817a58-de65-425a-a93c-c560df09522a,Mr Segun Orume,Partner,,08034005006,ooruame@sbtsgroup.com,,2026-09-30 17:21:06.554229+00
+8b062dad-8e5e-438e-af26-699571fc8981,acd2d124-3987-4cf0-a35d-c452836b9954,Nnamani,brother,,09019613810,oluwatobi@ojindo.com,,2026-09-24 15:49:48.812109+00
+8b3bdc99-e8a4-44e8-b165-355aeaf0bc55,84e3ebcc-8602-484d-b2ab-c1101806ba34,Engr. Dominc Datong (DG PICTDA),Partner,,+234 818 883 4354,datong.gwaman@plateaustate.gov.ng,,2026-09-08 12:01:53.144361+00
+8c379e68-22b7-4caf-9651-b57bd9033d50,16ab3a2e-8e18-415e-b7c9-efe617e6b1e8,Patrick Chukwu,Client,,09154673779,patrick@biudahq.com,,2026-10-04 14:52:03.768096+00
+8d328e81-e7da-4e9d-b2d7-f68a9dde40ab,61683ae0-161b-406b-9bea-9f26a143332a,"Dr, James Julius",Former Professor,,08076545732,jj@gmail.com,,2026-09-08 10:56:34.777019+00
+8ea69028-7100-4c49-80ff-e8a2bc081fdd,144f30c7-2e20-4b1a-b8d6-448fbc1f9aa3,Melody Ayuba Yashim,Client,,09016812545,yashimmelody@gmail.com,,2026-09-15 15:42:52.852288+00
+919c40b8-94ea-4035-a27a-0af7a982dbf8,2142ab4b-07d6-4ecd-9181-3c6b595c8bdf,Olumide Coker,client,,08025244544,olumide.coker@nira.org.ng,,2026-09-17 18:07:21.493005+00
+95fb9b88-3457-4fa6-a7ac-b502f3ddcc0c,8f82b2a1-f56c-4533-b174-979c54fc3172,Hey,Others,,4774849949,akagarobaba@gmail.com,,2026-09-22 15:56:58.013501+00
+9890105e-74cf-497d-aa59-9b5426137624,254b2e39-9f1d-49e2-bf08-f10d1e3a0e99,sdfgjhklyghjk,dfgjhkl;'ghjk,,1234567890,dfghj@gmail.com,,2026-09-25 10:36:12.755888+00
+98c4bfe1-4469-4456-a076-ab0a8c67019f,718b0c06-5859-414b-b269-30a2dd9c4768,Abdulwaheed Anwo,Client,,+234 817 129 9138,waheed@zouse.co,,2026-09-13 12:47:54.143102+00
+9c0d4d81-f3fe-4938-8eb3-a0813b5f7270,faaa1ff4-ac01-4ef0-a430-9fccce37061b,Prince Oyemike Asobi,Client,,+2348139377294,expertprojects2000@yahoo.com,,2026-09-14 15:45:51.346327+00
+9cf2b08a-77b0-433f-8c6a-948c45c89696,68454b5a-900d-4a65-97c7-4c9e4f2ddfe6,Seun Folorunsho - Fintech Association of Nigeria (FintechNGR),Ecosystem Partner,,07030596333,exec.sec@fintechng.org,,2026-09-23 18:32:20.085447+00
+9e2f4ed0-f0bf-4bad-a590-83c7298dc03a,feb73788-742c-4cab-9155-a75e7679b8b3,Nkem Agunwa,Former Funder,,08031550302,nkem@witness.org,,2026-09-15 19:21:26.411386+00
+a003a80c-32d5-4009-b675-ae0276cccf47,7fe57f93-fd24-4ccd-a5e9-cf13097503c1,MR. AHMED SHUAIBU GWADA,FUNDER,,08035118351,ahmedsgwada@gmail.com,,2026-09-15 18:10:41.6322+00
+a112238f-b61c-4f91-83dc-f5369aca0ce3,5a01ff89-d047-4161-80ff-3ec6e6ebc6b4,Mike Ameh,Partner,,08064765156,mikekwuby@gmail.com,,2026-09-11 11:48:57.45818+00
+a23d0c77-34fb-4329-aa3d-20484c89d47e,ac75453a-6637-4e5b-99a5-2a9668818681,Mrs. Blessing Ehi Ugwu,"National Coordinator, IDEAs Project, Federal Ministry of Educaiton, FCT-Abuja",,08027644701,blessingogwu63@gmail.com,,2026-09-15 22:30:10.068689+00
+a4b49a4c-3ff9-45e7-9dbd-d27e0190aea7,2c915a62-2450-40f9-a27c-844300fc610a,Ahmad Bature,Partner,,08061339648,baturae1@gmail.com,,2026-09-15 20:37:34.284203+00
+abf3a41d-be0e-4eca-94d6-1acd909ac07c,68454b5a-900d-4a65-97c7-4c9e4f2ddfe6,Emmanuel Ojowuro - Bank of Industry,Strategic Partner / Programme Sponsor,,08034228585,eojowuro@boi.ng,,2026-09-23 18:32:20.085447+00
+ae0e9b1d-31ff-4711-b8a2-7c4b171ba03d,61683ae0-161b-406b-9bea-9f26a143332a,Mr OJO james,"Client, Partner",,0807777722,ojoj@gmail.com,,2026-09-08 10:56:34.777019+00
+b10470bb-e452-4afd-a3ea-6e2ab524ac6d,323d4c6d-5d86-42e8-b412-420dea3e39de,alvari john,mmm,,803401722,alvarij60@gmail.com,,2026-09-03 15:19:51.376689+00
+b589c424-c717-43e6-9c17-0d7fc6632117,718b0c06-5859-414b-b269-30a2dd9c4768,Gideon George,Partner,,+234 803 878 9872,gideon@datascientistsfoundation.org,,2026-09-13 12:47:54.143102+00
+ba0c3e60-108a-4944-8e14-8476e95282be,144f30c7-2e20-4b1a-b8d6-448fbc1f9aa3,Jerry Adejo,Partner,,09064028410,jerryadejo1@gmail.com,,2026-09-15 15:42:52.852288+00
+bf8321e8-fce0-4279-aa28-1c34860f377f,7fe57f93-fd24-4ccd-a5e9-cf13097503c1,ABUBAKAR HABU AHMADU,PARTNER,,09062442548,habu.ahmadu@giz.de,,2026-09-15 18:10:41.6322+00
+c89d82fe-a654-4b2c-a054-7180e7d36f6c,7c2e60c6-f8e2-48f0-bdb8-d0ed88292769,Seun Folorunso,Ecosystem Partner and Investor,,0903 000 3013,exec.sec@fintechng.org,,2026-09-14 13:44:28.51808+00
+caca7435-954d-4f76-b201-222d26aeed08,7308e392-97e7-477c-9a9c-929eacde3db1,Gideon Brefo,Partner,,+233200447661,gideon@hapaspace.com,,2026-09-17 20:19:53.247882+00
+cfdaa99d-17bd-428a-aec4-f8802ba43600,acd2d124-3987-4cf0-a35d-c452836b9954,Tinubu,funder,,07053784537,salamitopbimi@gmail.com,,2026-09-24 15:49:48.812109+00
+d0e98277-89e0-4635-a288-160d72dc978f,9497e203-3896-4dd2-865a-c502e902b8d3,wurola samuel,former funder,,09019613810,samraola@gmail.com,,2026-09-01 06:01:56.435766+00
+d141ce80-0521-4b6c-a44b-e1445d3a699c,84e3ebcc-8602-484d-b2ab-c1101806ba34,Engr Mustapha Ibrahim,Funder,,+234 903 392 3639,mustapha@roadrunner.africa,,2026-09-08 12:01:53.144361+00
+d156e5d5-aeff-4193-a9be-dedc1856715c,2c915a62-2450-40f9-a27c-844300fc610a,Aminu Idris,Partner,,08148954596,registrar@icdfa.org.ng,,2026-09-15 20:37:34.284203+00
+d15ef900-a44a-42ff-82a1-86bedc6e6cd1,b14c476d-dcf4-4ee1-927b-61361480871f,Muniru Suleiman,Client,,08145471529,suleiman1muniru@gmail.com,,2026-09-16 04:17:22.03362+00
+d47a4175-1a3b-432b-aa48-30a34d906cb8,8f82b2a1-f56c-4533-b174-979c54fc3172,Hdhfjfjfj,Sister,,637389494,akagarobaba@gmail.com,,2026-09-22 15:56:58.013501+00
+d717c28b-03c2-4a4f-ba07-cfd54a225a06,faaa1ff4-ac01-4ef0-a430-9fccce37061b,Segun Deogratia Ebozoje,Client,,+2348033702659,segun@gention.tech,,2026-09-14 15:45:51.346327+00
+d9f390ac-0229-4393-9504-3d97c7da9637,34518417-9be0-4292-a174-dae71d11e7e8,Dr. Mark Ayaka,Partner,,07018927998,ayakamark@yahoo.com,,2026-09-15 15:32:33.010307+00
+da96039c-8034-4bb8-9751-23bad4144150,16ab3a2e-8e18-415e-b7c9-efe617e6b1e8,Suleman Ibrahim,Partner,,08135869788,suleman.ibrahim@ihstowers.com,,2026-10-04 14:52:03.768096+00
+dc6a856c-6f2c-4eee-b636-be0550b34f62,525a4ba8-9412-4df1-8f2b-84562bf4ea44,3MTT,Partner,,tvet.support@education.gov.ng,tvet.support@education.gov.ng,,2026-09-10 19:21:57.209492+00
+ddb91aa3-6c1c-4815-aaa0-46603643fe10,feb73788-742c-4cab-9155-a75e7679b8b3,Samirah Bello,Partner,,07061389449,samirah.bello@thriveagric.com,,2026-09-15 19:21:26.411386+00
+dec679d8-9c64-42bb-9e7f-77e9902a166a,c6ac6d12-a506-420b-b5c8-1524b6fc7720,Amb. Tijani Saheed Oluwadare,Partner,,08024604090,oluwadare.tijani@lagosstate.gov.ng,,2026-09-23 16:39:09.477991+00
+df6e70c6-b4ff-43f3-ba80-0a03da3bae16,4dbbdb5e-5e8a-4a75-9055-c2b9e5bef429,Jennifer Obioarah,Partner,,+234 902 435 6203,obiorahjenifa@gmail.com,,2026-09-28 02:25:09.072809+00
+e16fc085-e999-422b-b4a5-ffb11dc1536e,525a4ba8-9412-4df1-8f2b-84562bf4ea44,Manian CSB,Business Partner,,+1(860)466-9635,Manian@stratzian.com,,2026-09-10 19:21:57.209492+00
+e54bcd93-b2ca-4dca-95b6-1a085edf1198,ac75453a-6637-4e5b-99a5-2a9668818681,Mr. John Adah,"State Manager, SMEDAN, Benue Office",,08038122636,kobowise@gmail.com,,2026-09-15 22:30:10.068689+00
+f2219004-cd7a-42fa-9b4a-bc4c3d554fca,7308e392-97e7-477c-9a9c-929eacde3db1,Hon. Suleiman Isah,Ecosystem Partner,,08034516730,suleiman.isah@nigerstate.gov.ng,,2026-09-17 20:19:53.247882+00
+f2ce9984-39a2-4617-bd49-2bc5a2760ef3,6e817a58-de65-425a-a93c-c560df09522a,Dr Yusuf Ahmed Salihu,Client,,08060940039,yuxuf8015@gmail.com,,2026-09-30 17:21:06.554229+00
+fc13f884-41bd-45de-a3d6-af3283a05437,0e0feaab-9004-4869-ad96-eb995201ca43,Funmilayo Caulcrick,Funder,,08108333123,funmilayo@afrilabs.com,,2026-09-04 11:15:17.576267+00
+ffa94f75-2249-4dbb-95db-dfa523ce1965,b14c476d-dcf4-4ee1-927b-61361480871f,Cindy Ezerioha,Partner,,08021473721,cindy@startupbridge.ng,,2026-09-16 04:17:22.03362+00

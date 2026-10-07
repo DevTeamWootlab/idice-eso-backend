@@ -32,6 +32,7 @@
     "db:seed:prod": "node dist/database/seeds/seed.js",
     "db:seed:supabase:prod": "node dist/database/seeds/supabase-import.js",
     "deploy:prod": "yarn db:migrate:prod && yarn db:seed:prod",
+    "seed:azure": "cross-env DB_SSL_REJECT_UNAUTHORIZED=true node dist/database/seeds/seed.js",
     "db:migrate:revert": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:revert -d src/database/data-source.ts",
     "db:migration:generate": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:generate src/database/migrations/InitialSchema -d src/database/data-source.ts",
     "db:migration:show": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:show -d src/database/data-source.ts",

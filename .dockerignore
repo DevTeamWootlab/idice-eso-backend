@@ -6,6 +6,8 @@ dist
 coverage
 logs
 ESO-tables
+!ESO-tables/
+!ESO-tables/*.csv
 .env
 .env.*
 !.env.example

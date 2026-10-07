@@ -47,9 +47,13 @@ var appSettings = {
   HOST: '0.0.0.0'
   DB_HOST: '${postgresServerName}.postgres.database.azure.com'
   DB_PORT: '5432'
-  DB_USERNAME: '${databaseAdminLogin}@${postgresServerName}'
+  DB_USERNAME: databaseAdminLogin
   DB_PASSWORD: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=DB-PASSWORD)'
   DB_SSL_REJECT_UNAUTHORIZED: 'true'
+  STORAGE_PROVIDER: 'cloudinary'
+  CLOUDINARY_CLOUD_NAME: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=CLOUDINARY-CLOUD-NAME)'
+  CLOUDINARY_API_KEY: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=CLOUDINARY-API-KEY)'
+  CLOUDINARY_API_SECRET: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=CLOUDINARY-API-SECRET)'
   FRONTEND_URL: frontendUrl
   CORS_ORIGINS: corsOrigins
   MAIL_PROVIDER: 'resend'
