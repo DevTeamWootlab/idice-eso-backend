@@ -18,7 +18,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Role } from '../../common/enums/role.enum';
 import { JwtPayload } from '../../common/interfaces/jwt-payload.interface';
-import { documentUploadOptions } from '@/config/multer.config';
+import { evidenceUploadOptions } from '@/config/multer.config';
 
 @ApiTags('Field validation')
 @ApiBearerAuth()
@@ -64,14 +64,14 @@ export class ValidationController {
     summary: 'Upload a geotagged site-visit photo',
     description:
       'Requires role: ROLE_VALIDATOR. Uploads one photo and returns a descriptor ' +
-      '(storageKey/latitude/longitude/takenAt) — the frontend accumulates these ' +
+      '(storageKey/latitude/longitude/takenAt/fileName/contentType) — the frontend accumulates these ' +
       "client-side and includes the full array in the submit-validation call's " +
       'geotaggedPhotos field, since a ValidationRecord does not exist until submission.',
   })
   @ApiCreatedResponse({ description: 'Upload a geotagged site-visit photo.' })
   @ApiConsumes('multipart/form-data')
   @Post(':id/validation/photos')
-  @UseInterceptors(FileInterceptor('file', documentUploadOptions))
+  @UseInterceptors(FileInterceptor('file', evidenceUploadOptions))
   uploadSiteVisitPhoto(
     @CurrentUser() user: JwtPayload,
     @Param('id', ParseUUIDPipe) id: string,

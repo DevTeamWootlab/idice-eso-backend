@@ -9,6 +9,14 @@ import {
 } from '@nestjs/common';
 import { IStorageProvider } from '@/common/interfaces/storage-provider.interface';
 import { CloudinaryClient, parseCloudinaryUrl } from './cloudinary.client';
+import { sniffFileType, withExtension } from '@/common/utils/file-sniff';
+
+export interface StoredEvidence {
+  storageKey: string;
+  fileName: string;
+  contentType: string;
+  provider: 'cloudinary' | 'default';
+}
 
 const EXTERNAL_HOST_PATTERNS = [/^res\.cloudinary\.com$/i, /\.supabase\.co$/i];
 const EXTERNAL_FETCH_TIMEOUT_MS = 20_000;
@@ -35,6 +43,35 @@ export class StorageService {
     fileName: string,
   ): Promise<string> {
     return this.provider.uploadFile(buffer, folderKey, fileName);
+  }
+
+  async uploadEvidence(
+    buffer: Buffer,
+    folderKey: string,
+    originalName: string,
+    declaredType?: string,
+  ): Promise<StoredEvidence> {
+    const sniffed = sniffFileType(buffer);
+    const fileName = sniffed ? withExtension(originalName, sniffed.ext) : withExtension(originalName, 'bin');
+    const contentType = sniffed?.mime ?? declaredType ?? 'application/octet-stream';
+    if (this.cloudinary) {
+      const storageKey = await this.cloudinary.upload(buffer, folderKey, fileName, {
+        contentType,
+        browserSafe: true,
+      });
+      const convertedToJpeg = sniffed?.ext !== 'jpg' && /\.jpg$/i.test(storageKey.split('?')[0]);
+      return {
+        storageKey,
+        fileName: convertedToJpeg ? withExtension(fileName, 'jpg') : fileName,
+        contentType: convertedToJpeg ? 'image/jpeg' : contentType,
+        provider: 'cloudinary',
+      };
+    }
+    this.logger.warn(
+      'Validation evidence is going to the default storage provider because Cloudinary is not configured (set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET).',
+    );
+    const storageKey = await this.provider.uploadFile(buffer, folderKey, fileName);
+    return { storageKey, fileName, contentType, provider: 'default' };
   }
 
   readFile(storageKey: string): Promise<Buffer> {

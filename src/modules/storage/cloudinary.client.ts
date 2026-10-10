@@ -16,7 +16,27 @@ export interface CloudinaryAssetRef {
   format?: string;
 }
 
-const IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'bmp', 'tif', 'tiff']);
+const IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'avif', 'bmp', 'tif', 'tiff']);
+const BROWSER_UNSAFE_IMAGE_FORMATS = new Set(['heic', 'heif', 'avif', 'tif', 'tiff', 'bmp']);
+
+export interface CloudinaryUploadOptions {
+  contentType?: string;
+  browserSafe?: boolean;
+}
+
+export function withDeliveryFormat(url: string, format: string): string {
+  const [path, query] = url.split('?');
+  const slash = path.lastIndexOf('/');
+  const dot = path.lastIndexOf('.');
+  const next = dot > slash ? `${path.slice(0, dot)}.${format}` : `${path}.${format}`;
+  return query ? `${next}?${query}` : next;
+}
+
+export function browserSafeCloudinaryUrl(url: string): string {
+  const ref = parseCloudinaryUrl(url);
+  if (!ref || ref.resourceType !== 'image' || !ref.format) return url;
+  return BROWSER_UNSAFE_IMAGE_FORMATS.has(ref.format) ? withDeliveryFormat(url, 'jpg') : url;
+}
 const REQUEST_TIMEOUT_MS = 30_000;
 
 export function isCloudinaryConfigured(config: Partial<CloudinaryConfig> | undefined): config is CloudinaryConfig {
@@ -113,7 +133,12 @@ export class CloudinaryClient {
     }
   }
 
-  async upload(buffer: Buffer, folderKey: string, fileName: string): Promise<string> {
+  async upload(
+    buffer: Buffer,
+    folderKey: string,
+    fileName: string,
+    options: CloudinaryUploadOptions = {},
+  ): Promise<string> {
     const ext = extensionOf(fileName);
     const resourceType = IMAGE_EXTENSIONS.has(ext) ? 'image' : 'raw';
     const folder = [this.config.folder, folderKey]
@@ -127,7 +152,11 @@ export class CloudinaryClient {
     const signature = this.sign({ public_id: publicId, timestamp });
 
     const form = new FormData();
-    form.append('file', new Blob([new Uint8Array(buffer)]), fileName);
+    form.append(
+      'file',
+      new Blob([new Uint8Array(buffer)], options.contentType ? { type: options.contentType } : undefined),
+      fileName,
+    );
     form.append('public_id', publicId);
     form.append('timestamp', String(timestamp));
     form.append('api_key', this.config.apiKey);
@@ -142,7 +171,7 @@ export class CloudinaryClient {
       this.logger.error(`Cloudinary upload failed (${response.status}): ${body.error?.message ?? 'no details'}`);
       throw new BadGatewayException(`Cloudinary upload failed: ${body.error?.message ?? response.statusText}`);
     }
-    return body.secure_url;
+    return options.browserSafe && resourceType === 'image' ? browserSafeCloudinaryUrl(body.secure_url) : body.secure_url;
   }
 
   canSign(ref: CloudinaryAssetRef): boolean {

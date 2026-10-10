@@ -19,6 +19,9 @@ import { StorageService } from '../storage/storage.service';
 import { ApplicationStatus } from '@/common/enums/application.enum';
 import { SubmitValidationDto } from './dto/submit-validation.dto';
 import { ResolveVarianceDto } from './dto/resolve-variance.dto';
+import { sniffFileType } from '@/common/utils/file-sniff';
+
+const EVIDENCE_TYPES = new Set(['jpg', 'png', 'webp', 'heic', 'heif', 'avif', 'pdf']);
 
 const QUALIFICATION_THRESHOLD = 70.0; // percent — same 70% gate as the ordinary scoring path
 
@@ -162,7 +165,22 @@ export class ValidationService {
 
     record.siteInspectionNotes = siteInspectionNotes;
     record.checklist = dto.checklist ?? null;
-    record.geotaggedPhotos = dto.geotaggedPhotos ?? [];
+    const photoFolder = `validation/${applicationId}/photos`;
+    const photos = (dto.geotaggedPhotos ?? []).filter((photo) => photo.storageKey?.trim());
+    const foreign = photos.filter((photo) => !photo.storageKey.includes(photoFolder));
+    if (foreign.length > 0) {
+      throw new BadRequestException(
+        `${foreign.length} photo(s) were not uploaded for this application. Remove them and upload them again from this page.`,
+      );
+    }
+    record.geotaggedPhotos = photos.map((photo) => ({
+      storageKey: photo.storageKey.trim(),
+      latitude: photo.latitude,
+      longitude: photo.longitude,
+      takenAt: photo.takenAt,
+      ...(photo.fileName ? { fileName: photo.fileName } : {}),
+      ...(photo.contentType ? { contentType: photo.contentType } : {}),
+    }));
     record.physicalFootprintVerified = dto.physicalFootprintVerified;
     record.validatedAt = new Date();
     record.validatorId = validatorId;
@@ -207,18 +225,60 @@ export class ValidationService {
   ) {
     // Confirms the validator is actually in scope for this application before letting
     // them upload anything against it.
-    await this.assertInScope(applicationId, validatorId);
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Attach the photo or PDF to upload as evidence');
+    }
+    if (!Number.isFinite(Number(latitude)) || !Number.isFinite(Number(longitude))) {
+      throw new BadRequestException('A location is required with every site-visit photo');
+    }
+    const application = await this.assertInScope(applicationId, validatorId);
+    if (
+      ![
+        ApplicationStatus.SHORTLISTED,
+        ApplicationStatus.PENDING_ECOSYSTEM_VALIDATION,
+      ].includes(application.status)
+    ) {
+      throw new BadRequestException(
+        `Application is in ${application.status} status and is not awaiting field validation`,
+      );
+    }
 
-    const storageKey = await this.storageService.uploadFile(
+    const sniffed = sniffFileType(file.buffer);
+    if (!sniffed || !EVIDENCE_TYPES.has(sniffed.ext)) {
+      throw new BadRequestException(
+        'This file does not look like a photo or PDF. Upload a JPEG, PNG, WebP or HEIC photo, or a PDF.',
+      );
+    }
+
+    const stored = await this.storageService.uploadEvidence(
       file.buffer,
       `validation/${applicationId}/photos`,
       file.originalname,
+      sniffed.mime,
     );
 
+    await this.auditLogService.record({
+      actorId: validatorId,
+      actorRole: 'ROLE_VALIDATOR',
+      action: 'FIELD_VALIDATION_EVIDENCE_UPLOADED',
+      entityType: 'Application',
+      entityId: applicationId,
+      metadata: {
+        fileName: stored.fileName,
+        contentType: stored.contentType,
+        sizeBytes: file.size,
+        storage: stored.provider,
+        latitude: Number(latitude),
+        longitude: Number(longitude),
+      },
+    });
+
     return {
-      storageKey,
-      latitude,
-      longitude,
+      storageKey: stored.storageKey,
+      fileName: stored.fileName,
+      contentType: stored.contentType,
+      latitude: Number(latitude),
+      longitude: Number(longitude),
       takenAt: new Date().toISOString(),
     };
   }
