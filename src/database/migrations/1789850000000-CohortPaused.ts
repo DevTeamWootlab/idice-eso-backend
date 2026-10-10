@@ -2,7 +2,6 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CohortPaused1789850000000 implements MigrationInterface {
   name = 'CohortPaused1789850000000';
-  transaction = false as const;
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
