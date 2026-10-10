@@ -4,13 +4,10 @@ on:
   push:
     branches:
       - prod
-  pull_request:
-    branches:
-      - prod
 
 permissions:
-  id-token: write
   contents: read
+  id-token: write
 
 jobs:
   build:
@@ -23,7 +20,7 @@ jobs:
         node: [24]
 
     env:
-      IMAGE_URI: ${{ secrets.TEST_REPO }}
+      IMAGE_URI: ${{ secrets.PROD_REPO }}
       TAG_NAME: "v1"
 
     steps:
@@ -58,10 +55,10 @@ jobs:
             # Login to ACR from the server using a service principal / ACR token
             echo "${{ secrets.ACR_PASSWORD }}" | docker login ${{ secrets.ACR_LOGIN_SERVER }} --username "${{ secrets.ACR_USERNAME }}" --password-stdin
             cd api
-            docker-compose pull backend
-            docker-compose -f docker-compose.yml down backend
-            docker-compose -f docker-compose.yml up -d backend
+            docker compose pull backend
+            docker compose -f docker-compose.yml down backend
+            docker compose -f docker-compose.yml up -d backend
             docker system prune -f # Purge system (by force) to free up space
           host: ${{ secrets.AZ_SSH_HOST }}
           user: ${{ secrets.AZ_SSH_USER }}
-          key: ${{ secrets.AZ_SSH_PASSWORD }}
+          pass: ${{ secrets.AZ_SSH_PASSWORD }}
