@@ -12,6 +12,9 @@ import { User } from '@/modules/users/entities/user.entity';
 import { Application } from '@/modules/applications/entities/application.entity';
 import { ApplicationReference } from '@/modules/applications/entities/application-reference.entity';
 import { AuditLog } from '@/modules/audit-log/entities/audit-log.entity';
+import { Institution } from '@/modules/institutions/entities/institution.entity';
+import { seedInstitutions } from './institutions.seed';
+import { parseCsv } from './csv-parser';
 import { Role } from '@/common/enums/role.enum';
 import {
   ApplicationStatus,
@@ -25,55 +28,36 @@ import { DataSource } from 'typeorm';
 import { toOperatingState } from '@/common/utils/parse-env';
 
 const DEFAULT_PASSWORD = 'ChangeMe@123';
-const CSV_DIRECTORY = path.resolve(__dirname, '../../../ESO-tables');
+const CSV_DIRECTORY = path.join(process.cwd(), 'ESO-tables');
 
-
+// const ESO_TABLES_DIR = path.join(process.cwd(), 'ESO-tables');
+// const usersCsvPath = path.join(ESO_TABLES_DIR, 'users_rows.csv');
 
 /**
- * Maps state names to their corresponding list of valid host institution UUIDs in Production.
+ * Maps each operating state to its valid host institution UUIDs.
  *
  * Used during application validation to ensure a selected `preferredInstitutionId`
  * belongs to the state where the organization operates.
  */
 const VALID_INSTITUTIONS_BY_STATE: Record<string, string[]> = {
-  BENUE: ['b1e4938d-24b1-4188-ad1c-cfb8a677ca04'],
-  KWARA: ['99706fbd-93da-4dd5-bdd4-f78bf54655f8', 'f6a1ddb3-3fd4-4fdc-82e9-c0cc752677e0'],
-  NIGER: ['f54bbae0-1e38-4cad-8002-2d28fa7f2132', '178d3d19-2b8e-4f07-ab4e-18d0763d293c'],
-  KOGI: ['4e23500d-e934-463b-889f-e1fdd072bc3f', '126dc2f1-9881-49d4-888c-3d99f0af5e42', 'af4c3ea5-cef6-4ad4-b20e-606c1f24cafa'],
-  FCT: ['b1f1db86-c9b3-432d-9c62-e5c26c9bb800'],
-  NASARAWA: ['4aec9a58-c323-4b35-9ddc-dabf0796cba6'],
-  PLATEAU: ['bdda738c-c1c4-4726-8dbb-99e053ca1fc9'],
+  BENUE: ['0c9b8d16-a929-4449-8cd3-1391f7175796'],
+  KWARA: [
+    '81e4d3e6-a12d-4761-8d1d-89057ff42ea9',
+    '1fd0f539-e2b5-41ef-b9cd-0063d2bccfc7',
+  ],
+  NIGER: [
+    '1c510fe8-ad6d-4204-84ec-7562eb5900c5',
+    '82eeadc4-81cf-40c9-af3f-d93ef1f85d2a',
+  ],
+  KOGI: [
+    '530c10b5-061b-4b89-946e-adc1f59d9e2f',
+    '902c83e0-cb67-418c-9023-3d775e6c81b4',
+    '3fb7b4e7-e625-44b9-b266-b74d5b38b2ae',
+  ],
+  FCT: ['04e34081-9746-4d77-a729-c21c75147b8b'],
+  NASARAWA: ['e1012e27-3058-4443-85c2-2eec0ee79a76'],
+  PLATEAU: ['00605d6a-980d-406e-a669-c49fc93044cd'],
 };
-
-/**
- * DEVELOPMENT & LOCAL SEEDING ONLY:
- * 
- * Local database migrations/seeds generate different UUIDs for institutions than Production.
- * 
- * NOTE FOR CONTRIBUTORS:
- * If you are seeding data or running tests locally, swap the UUID values in `VALID_INSTITUTIONS_BY_STATE`
- * above with the local IDs as query from your database if calling or use the above if pointing to the production db, or ensure your local `institutions` table contains the Production UUIDs
- * to prevent Foreign Key constraint (`FK_ce400242c0a02af55adebb26723`) errors.
- */
-// const VALID_INSTITUTIONS_BY_STATE: Record<string, string[]> = {
-//   BENUE: ['bc7259b7-1f7c-4c58-80b6-f60d111f84af'],
-//   KWARA: [
-//     '92ae87de-7907-42fc-9987-6e125a2a1db6',
-//     '9f8d08e3-f252-4811-8a34-9338a68e33d2',
-//   ],
-//   NIGER: [
-//     '1a134753-30b3-41ac-9144-06a441fc13c8',
-//     '13dcbafd-ff86-443d-a2a7-d6cc8f0802d5',
-//   ],
-//   KOGI: [
-//     '9aad6d38-7d61-4760-83f6-bf540802ea02',
-//     '34577b4f-aa95-498f-b6e2-1ae487e84435',
-//     'cff2081e-98be-47d7-b379-bb13a3a02189',
-//   ],
-//   FCT: ['9ffb3115-9348-4003-a9c2-c48dc5c48602'],
-//   NASARAWA: ['d902d0b7-704c-40cf-b9c0-f0ad32c54c3b'],
-//   PLATEAU: ['a40e2f03-679a-4968-a50a-3ca0c4b7fdbc'],
-// };
 
 function resolveValidInstitutionId(
   rawState: string | undefined,
@@ -98,39 +82,7 @@ function resolveValidInstitutionId(
   return allowedIds[0];
 }
 
-const missingFields: Record<string, string[]> = {};
 const warnings: string[] = [];
-
-function parseCsvLine(line: string): string[] {
-  const values: string[] = [];
-  let current = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i += 1) {
-    const char = line[i];
-
-    if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        current += '"';
-        i += 1;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-
-    if (char === ',' && !inQuotes) {
-      values.push(current.trim());
-      current = '';
-      continue;
-    }
-
-    current += char;
-  }
-
-  values.push(current.trim());
-  return values;
-}
 
 function readCsv(fileName: string): {
   headers: string[];
@@ -141,20 +93,32 @@ function readCsv(fileName: string): {
     throw new Error(`CSV file not found: ${filePath}`);
   }
 
-  const content = fs.readFileSync(filePath, 'utf8');
-  const lines = content.split(/\r?\n/).filter((line) => line.trim() !== '');
-
-  if (lines.length < 2) {
+  const records = parseCsv(fs.readFileSync(filePath, 'utf8'));
+  if (records.length === 0) {
     return { headers: [], rows: [] };
   }
 
-  const headers = parseCsvLine(lines[0]).map((header) => header.trim());
-  const rows = lines.slice(1).map((line) => {
-    const values = parseCsvLine(line);
-    return headers.reduce<Record<string, string>>((acc, header, index) => {
-      acc[header] = values[index] ?? '';
-      return acc;
-    }, {});
+  const headers = records[0].map((header) =>
+    header.replace(/^\uFEFF/, '').trim(),
+  );
+  const duplicateHeaders = headers.filter(
+    (header, index) => headers.indexOf(header) !== index,
+  );
+  if (duplicateHeaders.length > 0) {
+    throw new Error(
+      `${fileName} contains duplicate column headers: ${[...new Set(duplicateHeaders)].join(', ')}`,
+    );
+  }
+
+  const rows = records.slice(1).map((values, index) => {
+    if (values.length !== headers.length) {
+      throw new Error(
+        `${fileName} record ${index + 2} has ${values.length} fields; expected ${headers.length}.`,
+      );
+    }
+    return Object.fromEntries(
+      headers.map((header, column) => [header, values[column]]),
+    );
   });
 
   return { headers, rows };
@@ -187,7 +151,10 @@ const PROXIMITY_ALIASES: Record<string, string> = {
   gt_60: 'OVER_30_MINS',
 };
 
-function aliasValue(aliases: Record<string, string>, value: string | undefined): string | undefined {
+function aliasValue(
+  aliases: Record<string, string>,
+  value: string | undefined,
+): string | undefined {
   if (!value) return value;
   return aliases[normalizeText(value).toLowerCase()] ?? value;
 }
@@ -213,8 +180,6 @@ function normalizeEnum<T extends Record<string, string>>(
   return (compactMatch as T[keyof T]) ?? fallback;
 }
 
-
-
 function safeInt(value: string | undefined): number | null {
   if (!value || value.trim() === '') return null;
   const parsed = Number.parseInt(value, 10);
@@ -227,149 +192,106 @@ function safeDate(value: string | undefined): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function parseJsonArray(value: string | undefined): string[] {
+function parseJsonArray(
+  value: string | undefined,
+  fieldName: string,
+  rowId: string,
+): string[] {
   if (!value || value.trim() === '') return [];
   try {
     const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed.map(String) : [];
-  } catch {
-    return [];
+    if (
+      !Array.isArray(parsed) ||
+      !parsed.every((item): item is string => typeof item === 'string')
+    ) {
+      throw new Error('expected a JSON array of strings');
+    }
+    return parsed;
+  } catch (error) {
+    throw new Error(
+      `eso_applications_rows.csv row ${rowId || '(without id)'} has invalid ${fieldName}: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
-function parseOperatingStateArray(value: string | undefined): OperatingState[] {
-  const parsed = parseJsonArray(value);
-  const normalized = parsed
-    .map((entry) => normalizeEnum(OperatingState, entry as string))
-    .filter((entry): entry is OperatingState => !!entry);
+function parseOperatingStateArray(
+  value: string | undefined,
+  rowId: string,
+): OperatingState[] {
+  return parseJsonArray(value, 'states of operation', rowId).map((entry) => {
+    const state = normalizeEnum(OperatingState, entry, undefined);
+    if (!state) {
+      throw new Error(
+        `eso_applications_rows.csv row ${rowId || '(without id)'} has unsupported state of operation '${entry}'.`,
+      );
+    }
+    return state;
+  });
+}
+
+function strictEnum<T extends Record<string, string>>(
+  enumObj: T,
+  value: string | undefined,
+  fieldName: string,
+  rowId: string,
+): T[keyof T] | undefined {
+  if (!normalizeText(value)) return undefined;
+  const normalized = normalizeEnum(enumObj, value, undefined);
+  if (!normalized) {
+    throw new Error(
+      `eso_applications_rows.csv row ${rowId || '(without id)'} has unsupported ${fieldName} '${value}'.`,
+    );
+  }
   return normalized;
 }
 
 function ensureHeaders(
   fileName: string,
   headers: string[],
-  expected: string[],
+  requiredColumns: string[][],
 ) {
-  const missing = expected.filter((header) => !headers.includes(header));
+  const missing = requiredColumns
+    .filter(
+      (alternatives) =>
+        !alternatives.some((header) => headers.includes(header)),
+    )
+    .map((alternatives) => alternatives.join(' or '));
   if (missing.length > 0) {
-    missingFields[fileName] = missing;
+    throw new Error(
+      `${fileName} is missing required column(s): ${missing.join(', ')}`,
+    );
   }
 }
 
-// INSTITUTION SEED - MUST RUN FIRST
-// async function seedInstitutions(dataSource: DataSource) {
-//   const institutionsRepo = dataSource.getRepository(Institution);
-
-//   const institutionsData = [
-//     {
-//       id: '13dcbafd-ff86-443d-a2a7-d6cc8f0802d5',
-//       name: 'Abdulkadir Kure University',
-//       state: 'Niger',
-//       hubType: 'STANDARD',
-//     },
-//     {
-//       id: 'bc7259b7-1f7c-4c58-80b6-f60d111f84af',
-//       name: 'Benue State University',
-//       state: 'Benue',
-//       hubType: 'STANDARD',
-//     },
-//     {
-//       id: 'cff2081e-98be-47d7-b379-bb13a3a02189',
-//       name: 'Federal Polytechnic Idah',
-//       state: 'Kogi',
-//       hubType: 'STANDARD',
-//     },
-//     {
-//       id: 'd902d0b7-704c-40cf-b9c0-f0ad32c54c3b',
-//       name: 'Federal Polytechnic Nasarawa',
-//       state: 'Nasarawa',
-//       hubType: 'STANDARD',
-//     },
-//     {
-//       id: '1a134753-30b3-41ac-9144-06a441fc13c8',
-//       name: 'Federal University of Technology, Minna',
-//       state: 'Niger',
-//       hubType: 'VR',
-//     },
-//     {
-//       id: '9f8d08e3-f252-4811-8a34-9338a68e33d2',
-//       name: 'Kwara State Polytechnic',
-//       state: 'Kwara',
-//       hubType: 'STANDARD',
-//     },
-//     {
-//       id: 'a40e2f03-679a-4968-a50a-3ca0c4b7fdbc',
-//       name: 'National Film Institute Jos',
-//       state: 'Plateau',
-//       hubType: 'CREATIVE',
-//     },
-//     {
-//       id: '9ffb3115-9348-4003-a9c2-c48dc5c48602',
-//       name: 'National Open University of Nigeria (NOUN)',
-//       state: 'FCT',
-//       hubType: 'STANDARD',
-//     },
-//     {
-//       id: '34577b4f-aa95-498f-b6e2-1ae487e84435',
-//       name: 'Prince Abubakar Audu University',
-//       state: 'Kogi',
-//       hubType: 'STANDARD',
-//     },
-//     {
-//       id: '9aad6d38-7d61-4760-83f6-bf540802ea02',
-//       name: 'Salem University',
-//       state: 'Kogi',
-//       hubType: 'STANDARD',
-//     },
-//     {
-//       id: '92ae87de-7907-42fc-9987-6e125a2a1db6',
-//       name: 'University of Ilorin',
-//       state: 'Kwara',
-//       hubType: 'GAMING',
-//     },
-//   ];
-
-//   for (const data of institutionsData) {
-//     const existing = await institutionsRepo.findOne({
-//       where: { id: data.id },
-//     });
-//     if (existing) continue;
-
-//     await institutionsRepo.save(
-//       institutionsRepo.create({
-//         id: data.id,
-//         name: data.name,
-//         state: data.state,
-//         hubType: data.hubType as any,
-//         isActive: true,
-//       }),
-//     );
-//   }
-
-//   console.log(`✓ Seeded ${institutionsData.length} institutions`);
-// }
 // id,email,passwordHash,role,fullName,isEmailVerified,mfaEnabled,isActive,assignedState,created_at,updated_at
 // USER SEED - MUST RUN SECOND
 async function seedUsers(dataSource: DataSource) {
   const csv = readCsv('users_rows.csv');
   const emailUpdates = readCsv('updated_user_email.csv');
-  const emailByUserId = new Map(
-    emailUpdates.rows
-      .map((row) => [normalizeText(row.id), normalizeText(row.email)] as const)
-      .filter(([id, email]) => !!id && !!email),
-  );
+  ensureHeaders('updated_user_email.csv', emailUpdates.headers, [
+    ['id'],
+    ['email'],
+  ]);
+  const emailByUserId = new Map<string, string>();
+  for (const [index, row] of emailUpdates.rows.entries()) {
+    const id = normalizeText(row.id);
+    const email = normalizeText(row.email);
+    if (!id || !email) {
+      throw new Error(
+        `updated_user_email.csv record ${index + 2} must include both id and email.`,
+      );
+    }
+    if (emailByUserId.has(id)) {
+      throw new Error(
+        `updated_user_email.csv contains duplicate user ID at record ${index + 2}.`,
+      );
+    }
+    emailByUserId.set(id, email);
+  }
   ensureHeaders('users_rows.csv', csv.headers, [
-    'id',
-    'email',
-    'passwordHash',
-    'role',
-    'fullName',
-    'isEmailVerified',
-    'mfaEnabled',
-    'isActive',
-    'assignedState',
-    'created_at',
-    'updated_at',
+    ['id'],
+    ['fullName', 'full_name'],
+    ['assignedState', 'state'],
   ]);
 
   const repo = dataSource.getRepository(User);
@@ -385,13 +307,15 @@ async function seedUsers(dataSource: DataSource) {
       normalizeText(row.assignedState ?? row.state ?? ''),
     );
 
-    // Generate email from user ID or name if missing
-    let finalEmail = emailValue || `user-${userId.substring(0, 8)}@idice.ng`;
-
     if (!userId) {
-      warnings.push(`users_rows.csv row skipped: missing user ID`);
-      continue;
+      throw new Error(`users_rows.csv record is missing a user ID.`);
     }
+    if (!emailValue) {
+      throw new Error(
+        `No email found in updated_user_email.csv or users_rows.csv for user ${userId}.`,
+      );
+    }
+    const finalEmail = emailValue;
 
     // const existing = await repo.findOne({ where: { id: userId } });
     // if (existing) {
@@ -400,13 +324,10 @@ async function seedUsers(dataSource: DataSource) {
     const existingUser = await repo.findOne({ where: { id: userId } });
     const emailOwner = await repo.findOne({ where: { email: finalEmail } });
     if (emailOwner && emailOwner.id !== userId) {
-      warnings.push(
-        `users_rows.csv user ${userId} cannot use email ${finalEmail}; it is already owned by ${emailOwner.id}. ` +
-        `Using a generated unique email while preserving ID-based synchronization.`,
+      throw new Error(
+        `users_rows.csv email belongs to a different user ID than ${userId}.`,
       );
-      finalEmail = `user-${userId.substring(0, 8)}@idice.ng`;
     }
-
 
     if (existingUser) {
       // Strategy: Update the existing legacy row record inline with fresh CSV data changes instead of crashing
@@ -416,8 +337,8 @@ async function seedUsers(dataSource: DataSource) {
       existingUser.role =
         normalizeEnum(Role, row.role, existingUser.role as any) ??
         existingUser.role;
-      existingUser.isEmailVerified = toBoolean(row.isEmailVerified);  
-      existingUser.mfaEnabled = toBoolean(row.mfaEnabled);    
+      existingUser.isEmailVerified = toBoolean(row.isEmailVerified);
+      existingUser.mfaEnabled = toBoolean(row.mfaEnabled);
       existingUser.isActive =
         row.isActive === undefined ? true : toBoolean(row.isActive);
       existingUser.assignedState = assignedState || existingUser.assignedState;
@@ -435,7 +356,7 @@ async function seedUsers(dataSource: DataSource) {
         email: finalEmail,
         passwordHash,
         fullName: fullName || `User ${userId.substring(0, 8)}`,
-        role, 
+        role,
         assignedState: assignedState || undefined,
         isEmailVerified: true,
         mfaEnabled: false,
@@ -453,60 +374,25 @@ async function seedUsers(dataSource: DataSource) {
 async function seedApplications(dataSource: DataSource) {
   const csv = readCsv('eso_applications_rows.csv');
   ensureHeaders('eso_applications_rows.csv', csv.headers, [
-    'id',
-    'submittedByOrgId',
-    'preferredInstitutionId',
-    'applicationRef',
-    'status',
-    'stateOfOperation',
-    'organisationLegalName',
-    'registrationType',
-    'yearEstablished',
-    'organisationType',
-    'websiteOrSocialHandle',
-    'primaryContactName',
-    'primaryContactRole',
-    'primaryContactPhone',
-    'primaryContactEmail',
-    'statesOfOperation',
-    'physicalAddress',
-    'proximityToHostInstitution',
-    'tin',
-    'staffingSummary',
-    'governanceStructure',
-    'sectorFocus',
-    'programmeDeliveryTrackRecord',
-    'mentorshipIndustryNetwork',
-    'inclusionAccessibilityCapacity',
-    'existingInstitutionalRelationships',
-    'institutionalCoordinationPlan',
-    'staffFacultyEngagementPlan',
-    'beneficiaryReferralPlan',
-    'hasConductedIncubation',
-    'hasConductedAcceleration',
-    'monitoringReportingSystems',
-    'sustainabilityPlan',
-    'employmentPathway',
-    'conflictOfInterestDeclared',
-    'safeguardingPolicyCommitted',
-    'genderInclusionPolicyCommitted',
-    'idiceReportingQaCommitted',
-    'ndpaComplianceAccepted',
-    'declarationOfAccuracyConfirmed',
-    'brownfieldRestrictionAccepted',
-    'authorisedSignatoryName',
-    'authorisedSignatoryTitle',
-    'signedAt',
-    'submittedAt',
-    'created_at',
-    'updated_at',
+    ['id'],
+    ['submittedByOrgId', 'applicant_user_id'],
+    ['preferredInstitutionId', 'organization_id'],
+    ['applicationRef', 'code'],
+    ['stateOfOperation', 'state', 'sa_state'],
+    ['statesOfOperation', 'sb_states'],
   ]);
 
   const repo = dataSource.getRepository(Application);
   const userRepo = dataSource.getRepository(User);
+  const institutionIds = new Set(
+    (
+      await dataSource.getRepository(Institution).find({
+        select: { id: true },
+      })
+    ).map((institution) => institution.id),
+  );
   let imported = 0;
   let updated = 0;
-  let skipped = 0;
   const applicationRefs = new Set<string>();
 
   for (const row of csv.rows) {
@@ -520,11 +406,9 @@ async function seedApplications(dataSource: DataSource) {
     );
 
     if (!sourceApplicationRef || !submittedByOrgId) {
-      warnings.push(
-        `eso_applications row skipped: missing code or applicant_user_id/submittedByOrgId.`,
+      throw new Error(
+        `eso_applications row ${rowId || '(without id)'} is missing its application code or applicant user ID.`,
       );
-      skipped++;
-      continue;
     }
 
     // Verify user exists before creating or updating the application
@@ -532,16 +416,13 @@ async function seedApplications(dataSource: DataSource) {
       where: { id: submittedByOrgId },
     });
     if (!userExists) {
-      warnings.push(
-        `eso_applications row skipped: User ${submittedByOrgId} not found in users table. ` +
-          `Application ref: ${sourceApplicationRef}`,
+      throw new Error(
+        `eso_applications row ${rowId || '(without id)'} references user ${submittedByOrgId}, which was not imported.`,
       );
-      skipped++;
-      continue;
     }
 
     const status =
-      normalizeEnum(ApplicationStatus, row.status, ApplicationStatus.DRAFT) ??
+      strictEnum(ApplicationStatus, row.status, 'status', rowId) ??
       ApplicationStatus.DRAFT;
     const organisationLegalName = normalizeText(
       row.sa_legal_name ||
@@ -550,29 +431,50 @@ async function seedApplications(dataSource: DataSource) {
         row.organization_name ||
         row.name,
     );
-    const registrationType = normalizeEnum(
+    const registrationType = strictEnum(
       RegistrationType,
       row.sa_registration_type || row.registrationType,
-      undefined,
+      'registration type',
+      rowId,
     );
-    const organisationType = normalizeEnum(
+    const organisationType = strictEnum(
       OrganisationType,
-      aliasValue(ORGANISATION_TYPE_ALIASES, row.sa_organisation_type || row.organisationType),
-      undefined,
+      aliasValue(
+        ORGANISATION_TYPE_ALIASES,
+        row.sa_organisation_type || row.organisationType,
+      ),
+      'organisation type',
+      rowId,
     );
-    const sectorFocus = parseJsonArray(row.sc_sector_focus)
-      .map((value) => normalizeEnum(SectorFocus, value, undefined))
-      .filter((value): value is SectorFocus => !!value);
+    const sectorFocus = parseJsonArray(
+      row.sc_sector_focus,
+      'sector focus',
+      rowId,
+    ).map((value) => {
+      const sector = normalizeEnum(SectorFocus, value, undefined);
+      if (!sector) {
+        throw new Error(
+          `eso_applications_rows.csv row ${rowId || '(without id)'} has unsupported sector focus '${value}'.`,
+        );
+      }
+      return sector;
+    });
     const statesOfOperation = parseOperatingStateArray(
       row.sb_states || row.statesOfOperation,
+      rowId,
     );
-    const proximityToHostInstitution = normalizeEnum(
+    const proximityToHostInstitution = strictEnum(
       ProximityToHost,
-      aliasValue(PROXIMITY_ALIASES, row.sb_proximity_to_host || row.proximityToHostInstitution),
-      undefined,
+      aliasValue(
+        PROXIMITY_ALIASES,
+        row.sb_proximity_to_host || row.proximityToHostInstitution,
+      ),
+      'proximity to host institution',
+      rowId,
     );
 
-    const rawFallbackState = row.state || row.sa_state || row.stateOfOperation;
+    const rawFallbackState =
+      statesOfOperation[0] || row.state || row.sa_state || row.stateOfOperation;
     const fallbackStateEnum = toOperatingState(rawFallbackState);
     const institutionId = resolveValidInstitutionId(
       rawFallbackState,
@@ -580,11 +482,14 @@ async function seedApplications(dataSource: DataSource) {
     );
 
     if (!institutionId) {
-      warnings.push(
-        `eso_applications row skipped: no valid institution mapping for state '${rawFallbackState}' and application ref '${sourceApplicationRef}'.`,
+      throw new Error(
+        `eso_applications row ${rowId || '(without id)'} has no institution mapping for state '${rawFallbackState}'.`,
       );
-      skipped++;
-      continue;
+    }
+    if (!institutionIds.has(institutionId)) {
+      throw new Error(
+        `eso_applications row ${rowId} maps state '${rawFallbackState}' to institution ${institutionId}, but that institution is not present in the database. Ensure the current institution seed ran successfully before importing applications.`,
+      );
     }
 
     const parsedStatesOfOperation: OperatingState[] =
@@ -598,11 +503,9 @@ async function seedApplications(dataSource: DataSource) {
 
     let applicationRef = sourceApplicationRef;
     if (!rowId) {
-      warnings.push(
-        `eso_applications row skipped: missing CSV application id for ${sourceApplicationRef}.`,
+      throw new Error(
+        `eso_applications row for ${sourceApplicationRef} is missing its application ID.`,
       );
-      skipped++;
-      continue;
     }
 
     const duplicateRef = applicationRefs.has(sourceApplicationRef);
@@ -739,9 +642,7 @@ async function seedApplications(dataSource: DataSource) {
       signedAt: safeDate(row.sh_signed_at || row.signedAt) ?? undefined,
       submittedAt: safeDate(row.submitted_at || row.submittedAt) ?? undefined,
       createdAt: safeDate(row.created_at || row.createdAt) ?? undefined,
-      updated_at:
-        safeDate(row.updated_at || row.updated_at || row.updatedAt) ??
-        undefined,
+      updated_at: safeDate(row.updated_at || row.updatedAt) ?? undefined,
     };
 
     if (isUpdate) {
@@ -761,7 +662,7 @@ async function seedApplications(dataSource: DataSource) {
   }
 
   console.log(
-    `✓ Data Ingestion Complete: ${imported} created, ${updated} updated, (${skipped} skipped)`,
+    `✓ Data Ingestion Complete: ${imported} created, ${updated} updated`,
   );
 }
 
@@ -769,15 +670,14 @@ async function seedApplications(dataSource: DataSource) {
 // id,applicationId,fullName,relationship,organisationName,phoneNumber,email,verified,created_at
 
 async function seedApplicationReferences(dataSource: DataSource) {
-  const csv = readCsv('eso_references_rows.csv');
-  ensureHeaders('eso_references_rows.csv', csv.headers, [
-    'id',
-    'applicationId',
-    'fullName',
-    'relationship',
-    'phoneNumber',
-    'email',
-    'created_at',
+  const csv = readCsv('eso_reference_rows.csv');
+  ensureHeaders('eso_reference_rows.csv', csv.headers, [
+    ['id'],
+    ['applicationId', 'application_id'],
+    ['fullName', 'name'],
+    ['relationship'],
+    ['phoneNumber', 'phone'],
+    ['email'],
   ]);
 
   const repo = dataSource.getRepository(ApplicationReference);
@@ -796,28 +696,33 @@ async function seedApplicationReferences(dataSource: DataSource) {
 
   for (const row of csv.rows) {
     const rowId = normalizeText(row.id);
-    const applicationId = normalizeText(row.applicationId);
-    const fullName = normalizeText(row.fullName);
-    const phoneNumber = normalizeText(row.phoneNumber);
+    const applicationId = normalizeText(
+      row.applicationId || row.application_id,
+    );
+    const fullName = normalizeText(row.fullName || row.name);
+    const phoneNumber = normalizeText(row.phoneNumber || row.phone);
     const email = normalizeText(row.email);
     const organisationName = normalizeText(row.organisationName || 'N/A');
     const relationship = normalizeText(row.relationship);
 
     if (!applicationId || !fullName || !phoneNumber || !email) {
-      warnings.push(
-        `eso_references_rows.csv row skipped: missing required fields for application_reference import.`,
+      throw new Error(
+        `eso_reference_rows.csv row ${rowId || '(without id)'} is missing applicationId, fullName, phoneNumber, or email.`,
       );
-      continue;
+    }
+    if (!relationship) {
+      throw new Error(
+        `eso_reference_rows.csv row ${rowId || '(without id)'} is missing the required relationship.`,
+      );
     }
 
     const applicationExists = await applicationRepo.exists({
       where: { id: applicationId },
     });
     if (!applicationExists) {
-      warnings.push(
-        `eso_references_rows.csv row ${rowId || '(without id)'} skipped: application ${applicationId} was not imported.`,
+      throw new Error(
+        `eso_reference_rows.csv row ${rowId || '(without id)'} references application ${applicationId}, which was not imported.`,
       );
-      continue;
     }
 
     // 🔴 IDEMPOTENCY FIX: Look for an existing reference matching the primary key or unique composite criteria
@@ -834,7 +739,8 @@ async function seedApplicationReferences(dataSource: DataSource) {
       organisationName: organisationName,
       phoneNumber,
       email,
-      verified: false,
+      verified: toBoolean(row.verified),
+      createdAt: safeDate(row.created_at) ?? undefined,
     };
 
     if (isUpdate) {
@@ -858,9 +764,11 @@ async function seedApplicationReferences(dataSource: DataSource) {
 
 const DOCUMENT_TYPE_MAP: Record<string, DocumentType> = {
   REGISTRATION_CERTIFICATE: DOCUMENT_TYPES.REGISTRATION_CERTIFICATE,
+  REGISTRATION_CERT: DOCUMENT_TYPES.REGISTRATION_CERTIFICATE,
   TAX_CLEARANCE: DOCUMENT_TYPES.TAX_CLEARANCE,
   ORGANOGRAM: DOCUMENT_TYPES.ORGANOGRAM,
   CV: DOCUMENT_TYPES.CV,
+  MANAGEMENT_CV: DOCUMENT_TYPES.CV,
   AUDITED_ACCOUNTS: DOCUMENT_TYPES.AUDITED_ACCOUNTS,
   BANK_REFERENCE_LETTER: DOCUMENT_TYPES.BANK_REFERENCE_LETTER,
   CONCEPT_NOTE: DOCUMENT_TYPES.CONCEPT_NOTE,
@@ -882,54 +790,66 @@ const DOCUMENT_TYPE_MAP: Record<string, DocumentType> = {
 async function seedApplicationDocuments(dataSource: DataSource) {
   const csv = readCsv('application_files_rows.csv');
   ensureHeaders('application_files_rows.csv', csv.headers, [
-    'id',
-    'applicationId',
-    'documentType',
-    'storageKey',
-    'originalFileName',
-    'mimeType',
-    'fileSizeBytes',
-    'created_at',
+    ['id'],
+    ['applicationId', 'application_id'],
+    ['documentType', 'fileType', 'file_type'],
+    ['storageKey', 's3_url'],
+    ['originalFileName', 'file_name'],
+    ['mimeType', 'mime_type'],
+    ['fileSizeBytes', 'file_size'],
   ]);
 
   const repo = dataSource.getRepository(ApplicationDocument);
   const applicationRepo = dataSource.getRepository(Application);
   let imported = 0;
   let updated = 0;
-  let skipped = 0;
 
   for (const row of csv.rows) {
     const rowId = normalizeText(row.id);
-    const applicationId = normalizeText(row.applicationId);
-    const fileType = normalizeText(row.documentType || row.fileType);
-    const storageKey = normalizeText(row.storageKey);
-    const originalFileName = normalizeText(row.originalFileName);
+    const applicationId = normalizeText(
+      row.applicationId || row.application_id,
+    );
+    const fileType = normalizeText(
+      row.documentType || row.fileType || row.file_type,
+    );
+    const storageKey = normalizeText(row.storageKey || row.s3_url);
+    const originalFileName = normalizeText(
+      row.originalFileName || row.file_name,
+    );
 
     if (!applicationId || !fileType || !storageKey) {
-      skipped++;
-      continue;
+      throw new Error(
+        `application_files_rows.csv row ${rowId || '(without id)'} is missing application, document type, or storage key.`,
+      );
+    }
+    if (!originalFileName) {
+      throw new Error(
+        `application_files_rows.csv row ${rowId || '(without id)'} is missing its original file name.`,
+      );
     }
 
     const applicationExists = await applicationRepo.exists({
       where: { id: applicationId },
     });
     if (!applicationExists) {
-      warnings.push(
-        `application_files_rows.csv row ${rowId || '(without id)'} skipped: application ${applicationId} was not imported.`,
+      throw new Error(
+        `application_files_rows.csv row ${rowId || '(without id)'} references application ${applicationId}, which was not imported.`,
       );
-      skipped++;
-      continue;
     }
 
     const normalizedType = fileType.replace(/\s+/g, '_').toUpperCase();
     const documentType = DOCUMENT_TYPE_MAP[normalizedType];
 
     if (!documentType) {
-      warnings.push(
-        `Skipped application document type '${fileType}' because it does not map to a current document enum.`,
+      throw new Error(
+        `application_files_rows.csv row ${rowId || '(without id)'} has unknown document type '${fileType}'.`,
       );
-      skipped++;
-      continue;
+    }
+    const fileSizeBytes = safeInt(row.fileSizeBytes || row.file_size);
+    if (fileSizeBytes === null || fileSizeBytes < 0) {
+      throw new Error(
+        `application_files_rows.csv row ${rowId || '(without id)'} has an invalid file size.`,
+      );
     }
 
     // 🔴 IDEMPOTENCY FIX: Look for an existing document by its ID or its unique storage path identifier
@@ -944,8 +864,11 @@ async function seedApplicationDocuments(dataSource: DataSource) {
       documentType,
       storageKey,
       originalFileName,
-      mimeType: normalizeText(row.mimeType) || 'application/octet-stream',
-      fileSizeBytes: safeInt(row.fileSizeBytes) ?? 0,
+      mimeType:
+        normalizeText(row.mimeType || row.mime_type) ||
+        'application/octet-stream',
+      fileSizeBytes,
+      createdAt: safeDate(row.created_at || row.uploaded_at) ?? undefined,
     };
 
     if (isUpdate) {
@@ -963,23 +886,24 @@ async function seedApplicationDocuments(dataSource: DataSource) {
   }
 
   console.log(
-    `✓ Application Documents Sync Complete: ${imported} created, ${updated} updated (${skipped} skipped)`,
+    `✓ Application Documents Sync Complete: ${imported} created, ${updated} updated`,
   );
 }
 
 async function seedAuditLogs(dataSource: DataSource) {
   const csv = readCsv('application_status_history_rows.csv');
   ensureHeaders('application_status_history_rows.csv', csv.headers, [
-    'id',
-    'application_id',
-    'previous_status',
-    'new_status',
-    'changed_by',
-    'comments',
-    'created_at',
+    ['id'],
+    ['application_id'],
+    ['previous_status'],
+    ['new_status'],
+    ['changed_by'],
+    ['comments'],
+    ['created_at'],
   ]);
 
   const repo = dataSource.getRepository(AuditLog);
+  const applicationRepo = dataSource.getRepository(Application);
   let imported = 0;
   let updated = 0;
 
@@ -989,7 +913,19 @@ async function seedAuditLogs(dataSource: DataSource) {
     const previousStatus = normalizeText(row.previous_status);
     const newStatus = normalizeText(row.new_status);
 
-    if (!applicationId || !previousStatus || !newStatus) continue;
+    if (!rowId || !applicationId || !previousStatus || !newStatus) {
+      throw new Error(
+        `application_status_history_rows.csv row ${rowId || '(without id)'} is missing required transition fields.`,
+      );
+    }
+    const applicationExists = await applicationRepo.exists({
+      where: { id: applicationId },
+    });
+    if (!applicationExists) {
+      throw new Error(
+        `application_status_history_rows.csv row ${rowId} references application ${applicationId}, which was not imported.`,
+      );
+    }
 
     // 🔴 IDEMPOTENCY FIX: Find-or-Create pattern mapped to the unique history row UUID
     let auditLog = rowId ? await repo.findOne({ where: { id: rowId } }) : null;
@@ -1007,6 +943,7 @@ async function seedAuditLogs(dataSource: DataSource) {
         comments: normalizeText(row.comments),
       },
       ipAddress: 'Ip Address not found.',
+      createdAt: safeDate(row.created_at) ?? undefined,
     };
 
     if (isUpdate) {
@@ -1037,8 +974,8 @@ async function seedSupabaseCsvData() {
       console.log('\n=== STARTING CSV IMPORT ===\n');
 
       // EXECUTION ORDER MATTERS - DO NOT CHANGE
-      // console.log('Step 1: Seeding institutions...');
-      // await seedInstitutions(manager as any);
+      console.log('Step 1: Seeding institutions...');
+      await seedInstitutions(manager);
 
       console.log('Step 2: Seeding users...');
       await seedUsers(manager as any);
@@ -1057,15 +994,6 @@ async function seedSupabaseCsvData() {
 
       console.log('\n=== CSV IMPORT COMPLETE ===\n');
     });
-
-    if (Object.keys(missingFields).length > 0) {
-      console.warn('\nMISMATCH REPORT');
-      for (const [fileName, fields] of Object.entries(missingFields)) {
-        console.warn(
-          `${fileName}: missing expected DB headers -> ${fields.join(', ')}`,
-        );
-      }
-    }
 
     if (warnings.length > 0) {
       console.warn('\nIMPORT WARNINGS');

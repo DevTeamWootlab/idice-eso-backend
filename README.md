@@ -102,6 +102,27 @@ The seed is separate from migrations. To run both deployment database steps in
 one command, use `yarn deploy:prod`. The seed is idempotent and can be run
 again safely; it inserts or updates reference data without duplicating it.
 
+To import the legacy Supabase CSV data in `ESO-tables`, run
+`yarn db:seed:supabase` after applying migrations. This importer seeds the
+institutions first, then imports users and applications. Application institution
+IDs are checked against the first state in `statesOfOperation`, falling back to
+`stateOfOperation` when that array is empty. Existing institutions with a
+different ID are rejected so their application and beneficiary references can
+be reconciled before import.
+The application CSV's `preferredInstitutionId` values should match the seeded
+institution IDs for those states. Rebuild and recreate a running container after
+changing the importer or institution seed; running an existing image can use
+stale compiled code.
+
+The CSV importer accepts the normalized application/user/reference/document
+headers used by the database seed as well as the legacy Supabase export headers.
+It maps those legacy columns to the current entity properties and rejects
+malformed CSV records, missing required columns, invalid enum/JSON values, and
+missing required row values; any failure rolls back the import transaction. All
+reference rows must include a relationship before the import can complete. The
+organization, role, and file-upload-session exports are not imported: the
+current schema has no corresponding tables for them.
+
 Keep `synchronize` disabled. Review generated migrations before applying them
 to a shared or production database.
 
@@ -148,6 +169,11 @@ Set these GitHub `production` environment secrets:
 - `MAIL_API_KEY`, `SMS_API_KEY`
 - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
 - `SYSADMIN_SEED_PASSWORD`
+
+The Cloudinary credentials must belong to the cloud that owns the stored
+document URLs. The Azure app uses these settings to retrieve imported documents
+through Cloudinary's signed API (including PDFs that cannot be delivered through
+the public URL).
 
 The JWT secrets must each be at least 32 characters. The MFA and NIN keys must
 each be 64 hexadecimal characters. Keep the MFA/NIN keys stable after production

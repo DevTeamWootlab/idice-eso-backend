@@ -15,11 +15,18 @@ export class HealthService {
 
   async check(): Promise<HealthResponseDto> {
     const databaseConnected = await this.isDatabaseConnected();
+    const migrationsPending = databaseConnected
+      ? await this.dataSource.showMigrations()
+      : false;
 
     return {
-      status: databaseConnected ? HealthStatus.HEALTHY : HealthStatus.DEGRADED,
+      status:
+        databaseConnected && !migrationsPending
+          ? HealthStatus.HEALTHY
+          : HealthStatus.DEGRADED,
       timestamp: new Date().toISOString(),
       database_connected: databaseConnected,
+      migrations_pending: migrationsPending,
       version: this.configService.get<string>('APP_VERSION', '0.1.0'),
     };
   }

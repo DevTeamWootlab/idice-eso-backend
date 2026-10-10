@@ -64,6 +64,9 @@ export default () => ({
       folder: process.env.CLOUDINARY_FOLDER || 'idice-eso',
     },
   },
+  intake: {
+    esoRegistrationOpen: process.env.ESO_REGISTRATION_OPEN === 'true',
+  },
   mfa: {
     encryptionKey: process.env.MFA_ENCRYPTION_KEY,
     issuer: process.env.MFA_ISSUER || 'iDICE ESO Portal',

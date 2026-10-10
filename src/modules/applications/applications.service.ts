@@ -5,6 +5,8 @@ import { buildPdf } from '@/common/utils/pdf';
 
 import { User } from '@/modules/users/entities/user.entity';
 import { ScoreCard } from '@/modules/scoring/entities/score-card.entity';
+import { browserSafeCloudinaryUrl } from '@/modules/storage/cloudinary.client';
+import { sniffFileType, withExtension } from '@/common/utils/file-sniff';
 import { EligibilityChecklist } from '@/modules/eligibility/entities/eligibility-checklist.entity';
 import { toValidPercent } from '@/modules/scoring/scoring-weights';
 import { ValidationRecord } from '@/modules/validation/entities/validation-record.entity';
@@ -234,8 +236,8 @@ export class ApplicationsService {
         latitude: photo.latitude,
         longitude: photo.longitude,
         takenAt: photo.takenAt ?? null,
-        fileName: resolveFileName(null, photo.storageKey),
-        contentType: resolveContentType(null, photo.storageKey),
+        fileName: resolveFileName(photo.fileName ?? null, browserSafeCloudinaryUrl(photo.storageKey)),
+        contentType: resolveContentType(photo.contentType ?? null, browserSafeCloudinaryUrl(photo.storageKey)),
       })),
     };
   }
@@ -247,11 +249,14 @@ export class ApplicationsService {
     });
     const photo = record?.geotaggedPhotos?.[index];
     if (!photo?.storageKey) throw new NotFoundException('Photo not found');
-    const buffer = await this.storageService.readFile(photo.storageKey);
+    const source = browserSafeCloudinaryUrl(photo.storageKey);
+    const buffer = await this.storageService.readFile(source);
+    const sniffed = sniffFileType(buffer);
+    const fileName = resolveFileName(photo.fileName ?? null, source);
     return {
       buffer,
-      fileName: resolveFileName(null, photo.storageKey),
-      contentType: resolveContentType(null, photo.storageKey),
+      fileName: sniffed ? withExtension(fileName, sniffed.ext) : fileName,
+      contentType: sniffed?.mime ?? resolveContentType(photo.contentType ?? null, source),
     };
   }
 
@@ -818,9 +823,18 @@ export class ApplicationsService {
 
     const incomingReviewer =
       await this.usersService.findById(incomingReviewerId);
-    if (!incomingReviewer || incomingReviewer.role !== Role.SCORING_REVIEWER) {
+    if (
+      !incomingReviewer ||
+      incomingReviewer.role !== Role.SCORING_REVIEWER ||
+      !incomingReviewer.isActive
+    ) {
       throw new BadRequestException(
         'The incoming reviewer must be an active Scoring Reviewer account',
+      );
+    }
+    if (incomingReviewerId === outgoingReviewerId) {
+      throw new BadRequestException(
+        'Choose a different reviewer to take over this application',
       );
     }
     const outgoingReviewer = await this.usersService.findById(outgoingReviewerId);
@@ -831,15 +845,23 @@ export class ApplicationsService {
     if (slotProblem) throw new BadRequestException(slotProblem);
 
     const otherAssignment = await this.reviewerAssignmentRepo.findOne({
-      where: { applicationId, queueType: ReviewerQueueType.SCORING },
-      order: { assignedAt: 'ASC' },
+      where: {
+        applicationId,
+        reviewerId: incomingReviewerId,
+        queueType: ReviewerQueueType.SCORING,
+      },
     });
-    if (otherAssignment && otherAssignment.reviewerId === incomingReviewerId) {
+    if (otherAssignment) {
       throw new BadRequestException(
         'The incoming reviewer is already assigned as the other scorer on this application',
       );
     }
 
+    await this.dataSource.getRepository(ScoreCard).delete({
+      applicationId,
+      reviewerId: outgoingReviewerId,
+      submitted: false,
+    } as any);
     assignment.reviewerId = incomingReviewerId;
     assignment.assignedAt = new Date();
     const saved = await this.reviewerAssignmentRepo.save(assignment);

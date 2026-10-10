@@ -6,6 +6,7 @@ import { ListInternalUsersDto } from './dto/list-internal-users.dto';
 import { UpdateInternalUserDto } from './dto/update-internal-user.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { ResetInternalUserPasswordDto } from './dto/reset-internal-user-password.dto';
+import { ReplaceScoringReviewerDto, TransferScoringWorkDto } from './dto/replace-scoring-reviewer.dto';
 import { Roles } from '@/common/decorators/roles.decorator';
 import { Role } from '@/common/enums/role.enum';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
@@ -72,6 +73,41 @@ export class UsersController {
   @Get(':id/deactivation-impact')
   deactivationImpact(@Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.getDeactivationImpact(id);
+  }
+
+  @ApiOperation({
+    summary: 'Replace a Scoring Reviewer and hand over their open work',
+    description:
+      'Requires role: ROLE_SYSADMIN. In one transaction: suspends the outgoing reviewer and ends their sessions, ' +
+      'creates a new Scoring Reviewer (or reactivates a suspended one) in the same slot, and moves every unscored ' +
+      'assignment to them. Scores the outgoing reviewer already submitted stay with them. Works around the ' +
+      'two-active-reviewer cap, which otherwise blocks creating the replacement first.',
+  })
+  @ApiCreatedResponse({ description: 'What was moved, what was skipped, and the replacement account.' })
+  @Post(':id/replace-scoring-reviewer')
+  replaceScoringReviewer(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReplaceScoringReviewerDto,
+    @CurrentUser() actor: JwtPayload,
+  ) {
+    return this.usersService.replaceScoringReviewer(id, dto, actor.sub);
+  }
+
+  @ApiOperation({
+    summary: "Move a Scoring Reviewer's unscored work to another reviewer",
+    description:
+      'Requires role: ROLE_SYSADMIN. Moves every unscored assignment from this reviewer (active or suspended) to an ' +
+      'active Scoring Reviewer holding the same slot. Applications where the incoming reviewer is already the other ' +
+      'scorer are skipped and listed.',
+  })
+  @ApiCreatedResponse({ description: 'What was moved and what was skipped.' })
+  @Post(':id/transfer-scoring-work')
+  transferScoringWork(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: TransferScoringWorkDto,
+    @CurrentUser() actor: JwtPayload,
+  ) {
+    return this.usersService.transferScoringWork(id, dto, actor.sub);
   }
 
   @ApiOperation({

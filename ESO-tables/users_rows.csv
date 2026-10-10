@@ -1,48 +1,67 @@
 id,email,passwordHash,role,fullName,isEmailVerified,mfaEnabled,isActive,assignedState,created_at,updated_at
-005e1c4a-d80f-45d7-9376-ba5ff6290662,aisha@lalitah.com,ChangeMe@123,ROLE_ESO,Aisha Abubakar,true,false,true,2026-09-09 16:33:07.50789+00,2026-09-09 16:33:07.50789+00,
-04261bac-6a10-4d39-af73-2a0d1592cd3a,apluscomputertrainingtech@gmail.com.ng,ChangeMe@123,ROLE_ESO,Zhantim Zhakom,true,false,true,2026-09-09 13:51:05.137704+00,2026-09-09 13:51:05.137704+00,
-084a3149-1819-4858-84d9-bc75cd637f36,exec@opolo.global,ChangeMe@123,ROLE_ESO,Benjamin Oladapo,true,false,true,2026-09-10 18:48:34.641133+00,2026-09-10 18:48:34.641133+00,
-0a198fbf-9ca0-4430-a219-fa3814344925,sundayezequiel6565@gmail.com,ChangeMe@123,ROLE_ESO,Ezekiel Sunday,true,false,true,2026-09-02 14:24:19.83961+00,2026-09-02 14:24:19.83961+00,
-0a504f93-e7b7-4dda-8369-cffddeffac75,apluscomputertrainingtech@gmail.com,ChangeMe@123,ROLE_ESO,Zhantim Zhakom,true,false,true,2026-09-09 13:59:56.266202+00,2026-09-09 13:59:56.266202+00,
-0a801c3f-ab76-47e8-a412-23426305aa66,peter@blockfuselabs.com,ChangeMe@123,ROLE_ESO,PETER ADAAKU,true,false,true,2026-09-11 13:10:22.284664+00,2026-09-11 13:10:22.284664+00,
-0d6e1206-4884-4a1e-942d-5dca8e56390a,aishafalkee@gmail.com,ChangeMe@123,ROLE_ESO,Aisha Abubakar,true,false,true,2026-09-09 16:47:52.216948+00,2026-09-09 16:47:52.216948+00,
-10c252df-1f1a-404d-bc51-019dbe21d179,longji@nhubnigeria.ng,ChangeMe@123,ROLE_ESO,Theodore Longji,true,false,true,2026-09-07 18:03:26.981629+00,2026-09-07 18:03:26.981629+00,
-1161bcf7-7519-42ed-8fac-6474374dc0dc,admin@csed.org.ng,ChangeMe@123,ROLE_ESO,Izu Divine Freeman,true,false,true,2026-09-04 12:04:33.049296+00,2026-09-04 12:04:33.049296+00,
-123c946b-cc54-441d-a388-9d2be83d60aa,emmanuel@emmanuelonugwu.com,ChangeMe@123,ROLE_ESO,Emmanuel Onugwu,true,false,true,2026-09-03 22:16:08.608765+00,2026-09-03 22:16:08.608765+00,
-12df8dea-9331-4211-bc0a-146cb2d5e881,houseofhilkiahfoundation@gmail.com,ChangeMe@123,ROLE_ESO,Dorothy Akemde,true,false,true,2026-09-02 15:24:24.059026+00,2026-09-02 15:24:24.059026+00,
-137a5e49-bf2e-43df-983c-67ecc697d397,isyakuabdullahi010@gmail.com,ChangeMe@123,ROLE_ESO,Isyaku Abdullahi,true,false,true,2026-09-02 20:12:51.182399+00,2026-09-02 20:12:51.182399+00,
-279a20ae-6fe7-4ea0-b31f-4ab89a8096ec,ndukaeudeala@gmail.com,ChangeMe@123,ROLE_ESO,Esonu Nduka Udeala,true,false,true,2026-09-02 14:03:26.017775+00,2026-09-02 14:03:26.017775+00,
-27c42ce0-f1a3-4fcd-a031-b3c82f15db80,aicesa@aieducation.africa,ChangeMe@123,ROLE_ESO,African Institute for Innovative computer Education and Skills Advancement,true,false,true,2026-09-03 22:37:26.145721+00,2026-09-03 22:37:26.145721+00,
-2db5feda-ea4c-414f-8ad7-932c3b995361,apluscomputeritacademy@gmail.com,ChangeMe@123,ROLE_ESO,Uzziah Ussaini Musa,true,false,true,2026-09-12 11:22:02.44715+00,2026-09-12 11:22:02.44715+00,
-303a783c-e8ef-4859-a903-dd8d02d36806,ahqohinoyi@gmail.com,ChangeMe@123,ROLE_ESO,Abdulhayyu Obansa,true,false,true,2026-09-03 05:29:57.191594+00,2026-09-03 05:29:57.191594+00,
-3b35e1e1-3c71-43bb-9e56-4345a8f92a51,hello@corestream.ng,ChangeMe@123,ROLE_ESO,Ibrahim Akorede Jimoh,true,false,true,2026-09-07 14:58:24.307878+00,2026-09-07 14:58:24.307878+00,
-40007980-cadf-4827-ba04-7745a7849fad,bgfconsultltd@gmail.com,ChangeMe@123,ROLE_ESO,ABDULLAHI SULEIMAN ERENA,true,false,true,2026-09-11 07:45:14.985583+00,2026-09-11 07:45:14.985583+00,
-44d8822c-d58b-4167-b0cd-ae93be164ea4,nafisat.abubakar@jdlab.ng,ChangeMe@123,ROLE_ESO,Nafisat Abubakar Aguye,true,false,true,2026-09-03 13:29:52.383932+00,2026-09-03 13:29:52.383932+00,
-48976295-240c-403a-a161-c521daaed85b,gracegeorge500@gmail.com,ChangeMe@123,ROLE_ESO,Grace George,true,false,true,2026-09-12 13:38:20.322083+00,2026-09-12 13:38:20.322083+00,
-4b11b949-1d91-49bf-900f-d7688a7c6ce0,salamitobimi@outlook.com,ChangeMe@123,ROLE_ESO,poly,true,false,true,2026-09-03 21:10:11.061317+00,2026-09-03 21:10:11.061317+00,
-520416fe-71f8-49e9-8a9b-77e9e62a7c06,thinkhub03@yahoo.com,ChangeMe@123,ROLE_ESO,Rukayya Grace Umar,true,false,true,2026-09-03 13:14:40.048491+00,2026-09-03 13:14:40.048491+00,
-526705f8-2121-4da8-9c52-3aabda29a31f,mentorbox.ng@gmail.com,ChangeMe@123,ROLE_ESO,Eunice Emmanuel-Agada,true,false,true,2026-09-03 17:00:44.669818+00,2026-09-03 17:00:44.669818+00,
-52ac0791-e6f9-401d-8d64-f37cae8cd7e8,frankirichi2022@gmail.com,ChangeMe@123,ROLE_ESO,"Frank, Imo Imo",true,false,true,2026-09-04 10:06:38.496205+00,2026-09-04 10:06:38.496205+00,
-57e460e5-5032-4a8a-bdc2-7511bc07fb17,toluwani@foundershub.xyz,ChangeMe@123,ROLE_ESO,Toluwani Ogundele,true,false,true,2026-09-10 07:19:19.985106+00,2026-09-10 07:19:19.985106+00,
-5ab46231-753d-4e00-906a-4c0b1821ffca,apluscomputeritacademy@gmail.cm,ChangeMe@123,ROLE_ESO,Uzziah Ussaini Musa,true,false,true,2026-09-12 10:27:59.642738+00,2026-09-12 10:27:59.642738+00,
-64a00dbc-4c53-4204-a59b-ec169b7c6c02,oladipoolayinka7@gmail.com,ChangeMe@123,ROLE_ESO,Oladipo Olayinka Ishola,true,false,true,2026-09-05 22:19:36.61172+00,2026-09-05 22:19:36.61172+00,
-65cf1974-b7cd-49d5-9706-39c9da907001,gideonedachesimon@gmail.com,ChangeMe@123,ROLE_ESO,Gideon Simon Edache,true,false,true,2026-09-08 16:23:32.484913+00,2026-09-08 16:23:32.484913+00,
-71f29769-15b7-48ca-b7dc-5e60e1bf9a0e,cadgiscenter@gmail.com,ChangeMe@123,ROLE_ESO,Sunday Agbo,true,false,true,2026-09-08 11:09:07.693741+00,2026-09-08 11:09:07.693741+00,
-78def931-06f0-4380-b208-314f89a67737,kogiinnovationhub@gmail.com,ChangeMe@123,ROLE_ESO,ItopaKing David,true,false,true,2026-09-04 10:01:47.702919+00,2026-09-04 10:01:47.702919+00,
-79f4fda3-a464-49e3-a275-d1823dded2bb,info@mountmove.org,ChangeMe@123,ROLE_ESO,Dr. Obi Umegbolu,true,false,true,2026-09-02 12:14:41.209935+00,2026-09-02 12:14:41.209935+00,
-84d3d68c-cf5e-4c4d-a921-a2014de17378,tdaser2@gmail.com,ChangeMe@123,ROLE_ESO,Timbyen Daser,true,false,true,2026-09-09 13:50:38.265812+00,2026-09-09 13:50:38.265812+00,
-88ef43b8-049b-468b-95e1-4ee6eb55cfb5,cadgistvet@gmail.com,ChangeMe@123,ROLE_ESO,AGBO SUNDAY,true,false,true,2026-09-08 13:34:29.690864+00,2026-09-08 13:34:29.690864+00,
-8a674ec7-567b-47ce-92df-75b28c2c4168,poyar59655@daugr.com,ChangeMe@123,ROLE_ESO,EsO_KOGI_state,true,false,true,2026-09-10 15:22:26.821837+00,2026-09-10 15:22:26.821837+00,
-984fc179-7631-445d-b6b3-d22defe6de41,kopsongloballimited@gmail.com,ChangeMe@123,ROLE_ESO,Mercy Sylvanus,true,false,true,2026-09-07 15:24:14.592193+00,2026-09-07 15:24:14.592193+00,
-a7f200ac-82b9-4e65-8869-6201edc86b0b,exec@blackaccelerate.com,ChangeMe@123,ROLE_ESO,Kalejaiye Olufemi,true,false,true,2026-09-10 18:57:37.719151+00,2026-09-10 18:57:37.719151+00,
-af99cf86-db61-482e-b874-9cb7241395a8,chimdindu73@gmail.com,ChangeMe@123,ROLE_ESO,Chimdi,true,false,true,2026-08-31 21:16:16.868397+00,2026-08-31 21:16:16.868397+00,
-b392239e-ea40-4845-a0ae-00331bd4c192,info@codex.com.ng,ChangeMe@123,ROLE_ESO,Emmanuel Ebimoh,true,false,true,2026-09-05 00:03:17.438971+00,2026-09-05 00:03:17.438971+00,
-bacc9b99-75e5-4eef-abc6-2f6b3a4fd1f8,bashir@nhubnigeria.ng,ChangeMe@123,ROLE_ESO,Bashir Sheidu,true,false,true,2026-09-03 11:03:05.170515+00,2026-09-03 11:03:05.170515+00,
-d60d7548-c349-44f7-adb4-1127eef1f098,shadrachngutswen@gmail.com,ChangeMe@123,ROLE_ESO,SUURSHATER NGUTSWEN,true,false,true,2026-09-05 19:24:17.48388+00,2026-09-05 19:24:17.48388+00,
-dc4b5692-3b6b-4b1a-9fe6-64b3fa1f5a54,tasiukwaplong@gmail.com,ChangeMe@123,ROLE_ESO,Tasiu Kwaplong,true,false,true,2026-09-12 17:04:28.796503+00,2026-09-12 17:04:28.796503+00,
-f579f6f1-281c-4d22-b00c-273719cbbb26,emordibridget442@gmail.com,ChangeMe@123,ROLE_ESO,Happiness Emordi,true,false,true,2026-09-11 07:50:29.21903+00,2026-09-11 07:50:29.21903+00,
-f656bf34-56d8-4693-953d-bea273e4ccd6,jibrinaisha339@gmail.com,ChangeMe@123,ROLE_ESO,Aisha Aliyu Jibrin,true,false,true,2026-09-02 14:36:00.409158+00,2026-09-02 14:36:00.409158+00,
-f8b9da3f-e660-4ac3-ba13-8d1b38b1815d,programmes@wootlab.ng,ChangeMe@123,ROLE_ESO,Goodnews Akwaowo,true,false,true,2026-09-03 19:27:26.28012+00,2026-09-03 19:27:26.28012+00,
-f95d8365-d028-47ae-bf85-aa1b789e69c8,salamitobimi@gmail.com,ChangeMe@123,ROLE_ESO,Oluwatobi Salami,true,false,true,2026-09-01 05:53:34.523239+00,2026-09-01 05:53:34.523239+00,
-f9d071e6-9615-458c-bd51-5531c7a76e96,kasuwaappng@gmail.com,ChangeMe@123,ROLE_ESO,Isa Usman Musa,true,false,true,2026-09-07 15:09:10.95472+00,2026-09-07 15:09:10.95472+00,
-faad19fa-3e64-4f63-b360-cca0bde30b28,sam@toof.com,ChangeMe@123,ROLE_ESO,Saltman Sam,true,false,true,2026-09-05 09:23:57.846496+00,2026-09-05 09:23:57.846496+00,
+005e1c4a-d80f-45d7-9376-ba5ff6290662,aisha@lalitah.com,,ROLE_ESO,Aisha Abubakar,true,false,true,FCT,2026-09-09 16:33:07.50789+00,2026-09-09 16:33:07.50789+00
+04261bac-6a10-4d39-af73-2a0d1592cd3a,apluscomputertrainingtech@gmail.com.ng,,ROLE_ESO,Zhantim Zhakom,true,false,true,Plateau,2026-09-09 13:51:05.137704+00,2026-09-09 13:51:05.137704+00
+084a3149-1819-4858-84d9-bc75cd637f36,exec@opolo.global,,ROLE_ESO,Benjamin Oladapo,true,false,true,Kwara,2026-09-10 18:48:34.641133+00,2026-09-10 18:48:34.641133+00
+0a198fbf-9ca0-4430-a219-fa3814344925,sundayezequiel6565@gmail.com,,ROLE_ESO,Ezekiel Sunday,true,false,true,Kogi,2026-09-02 14:24:19.83961+00,2026-09-02 14:24:19.83961+00
+0a504f93-e7b7-4dda-8369-cffddeffac75,apluscomputertrainingtech@gmail.com,,ROLE_ESO,Zhantim Zhakom,true,false,true,Plateau,2026-09-09 13:59:56.266202+00,2026-09-09 13:59:56.266202+00
+0a801c3f-ab76-47e8-a412-23426305aa66,peter@blockfuselabs.com,,ROLE_ESO,PETER ADAAKU,true,false,true,Plateau,2026-09-11 13:10:22.284664+00,2026-09-11 13:10:22.284664+00
+0d6e1206-4884-4a1e-942d-5dca8e56390a,aishafalkee@gmail.com,,ROLE_ESO,Aisha Abubakar,true,false,true,FCT,2026-09-09 16:47:52.216948+00,2026-09-09 16:47:52.216948+00
+10c252df-1f1a-404d-bc51-019dbe21d179,longji@nhubnigeria.ng,,ROLE_ESO,Theodore Longji,true,false,true,Plateau,2026-09-07 18:03:26.981629+00,2026-09-07 18:03:26.981629+00
+1161bcf7-7519-42ed-8fac-6474374dc0dc,admin@csed.org.ng,,ROLE_ESO,Izu Divine Freeman,true,false,true,FCT,2026-09-04 12:04:33.049296+00,2026-09-04 12:04:33.049296+00
+123c946b-cc54-441d-a388-9d2be83d60aa,emmanuel@emmanuelonugwu.com,,ROLE_ESO,Emmanuel Onugwu,true,false,true,FCT,2026-09-03 22:16:08.608765+00,2026-09-03 22:16:08.608765+00
+12df8dea-9331-4211-bc0a-146cb2d5e881,houseofhilkiahfoundation@gmail.com,,ROLE_ESO,Dorothy Akemde,true,false,true,Benue,2026-09-02 15:24:24.059026+00,2026-09-02 15:24:24.059026+00
+137a5e49-bf2e-43df-983c-67ecc697d397,isyakuabdullahi010@gmail.com,,ROLE_ESO,Isyaku Abdullahi,true,false,true,Niger,2026-09-02 20:12:51.182399+00,2026-09-02 20:12:51.182399+00
+184482bb-620a-4713-8be1-591c939af66c,haniorj@gmail.com,,ROLE_ESO,David Simon,true,false,true,Benue,2026-09-15 22:47:40.734509+00,2026-09-15 22:47:40.734509+00
+1fb7bfd2-71de-4e4f-884f-d090072a9ac7,jmetechnologyservices@gmail.com,,ROLE_ESO,Engr James Umbugadu Enwongulu,true,false,true,Nasarawa,2026-09-15 12:10:47.155388+00,2026-09-15 12:10:47.155388+00
+279a20ae-6fe7-4ea0-b31f-4ab89a8096ec,ndukaeudeala@gmail.com,,ROLE_ESO,Esonu Nduka Udeala,true,false,true,Nasarawa,2026-09-02 14:03:26.017775+00,2026-09-02 14:03:26.017775+00
+27c42ce0-f1a3-4fcd-a031-b3c82f15db80,aicesa@aieducation.africa,,ROLE_ESO,African Institute for Innovative computer Education and Skills Advancement,true,false,true,FCT,2026-09-03 22:37:26.145721+00,2026-09-03 22:37:26.145721+00
+2db5feda-ea4c-414f-8ad7-932c3b995361,apluscomputeritacademy@gmail.com,,ROLE_ESO,Uzziah Ussaini Musa,true,false,true,Plateau,2026-09-12 11:22:02.44715+00,2026-09-12 11:22:02.44715+00
+303a783c-e8ef-4859-a903-dd8d02d36806,ahqohinoyi@gmail.com,,ROLE_ESO,Abdulhayyu Obansa,true,false,true,Kogi,2026-09-03 05:29:57.191594+00,2026-09-03 05:29:57.191594+00
+3461ca1d-36ec-4a44-b9cc-be6136a07aeb,netkingsnigeria@gmail.com,,ROLE_ESO,Onah charity,true,false,true,FCT,2026-09-14 16:31:07.177064+00,2026-09-14 16:31:07.177064+00
+34fb5a2e-279a-4724-a4f9-317c1a162785,swyefngo@gmail.com,,ROLE_ESO,MARY ENWONGULU,true,false,true,Nasarawa,2026-09-15 12:53:02.404631+00,2026-09-15 12:53:02.404631+00
+3b35e1e1-3c71-43bb-9e56-4345a8f92a51,hello@corestream.ng,,ROLE_ESO,Ibrahim Akorede Jimoh,true,false,true,Plateau,2026-09-07 14:58:24.307878+00,2026-09-07 14:58:24.307878+00
+40007980-cadf-4827-ba04-7745a7849fad,bgfconsultltd@gmail.com,,ROLE_ESO,ABDULLAHI SULEIMAN ERENA,true,false,true,Niger,2026-09-11 07:45:14.985583+00,2026-09-11 07:45:14.985583+00
+43ce159a-184e-46a9-b5c7-fd6a31a4ddb4,ayakamark@yahoo.com,,ROLE_ESO,MARK VAREM IORTYOM,true,false,true,Benue,2026-09-15 14:47:55.720919+00,2026-09-15 14:47:55.720919+00
+44d8822c-d58b-4167-b0cd-ae93be164ea4,nafisat.abubakar@jdlab.ng,,ROLE_ESO,Nafisat Abubakar Aguye,true,false,true,Niger,2026-09-03 13:29:52.383932+00,2026-09-03 13:29:52.383932+00
+48976295-240c-403a-a161-c521daaed85b,gracegeorge500@gmail.com,,ROLE_ESO,Grace George,true,false,true,FCT,2026-09-12 13:38:20.322083+00,2026-09-12 13:38:20.322083+00
+4b11b949-1d91-49bf-900f-d7688a7c6ce0,salamitobimi@outlook.com,,ROLE_ESO,poly,true,false,true,Benue,2026-09-03 21:10:11.061317+00,2026-09-03 21:10:11.061317+00
+520416fe-71f8-49e9-8a9b-77e9e62a7c06,thinkhub03@yahoo.com,,ROLE_ESO,Rukayya Grace Umar,true,false,true,Plateau,2026-09-03 13:14:40.048491+00,2026-09-03 13:14:40.048491+00
+526705f8-2121-4da8-9c52-3aabda29a31f,mentorbox.ng@gmail.com,,ROLE_ESO,Eunice Emmanuel-Agada,true,false,true,Kogi,2026-09-03 17:00:44.669818+00,2026-09-03 17:00:44.669818+00
+52ac0791-e6f9-401d-8d64-f37cae8cd7e8,frankirichi2022@gmail.com,,ROLE_ESO,"Frank, Imo Imo",true,false,true,Niger,2026-09-04 10:06:38.496205+00,2026-09-04 10:06:38.496205+00
+57e460e5-5032-4a8a-bdc2-7511bc07fb17,toluwani@foundershub.xyz,,ROLE_ESO,Toluwani Ogundele,true,false,true,Kwara,2026-09-10 07:19:19.985106+00,2026-09-10 07:19:19.985106+00
+5ab46231-753d-4e00-906a-4c0b1821ffca,apluscomputeritacademy@gmail.cm,,ROLE_ESO,Uzziah Ussaini Musa,true,false,true,Plateau,2026-09-12 10:27:59.642738+00,2026-09-12 10:27:59.642738+00
+5c191834-b34b-45d5-93e4-cabd73f9e641,hubseventeen@gmail.com,,ROLE_ESO,Akpem Shadrach Terese,true,false,true,Benue,2026-09-23 10:34:42.54633+00,2026-09-23 10:34:42.54633+00
+64a00dbc-4c53-4204-a59b-ec169b7c6c02,oladipoolayinka7@gmail.com,,ROLE_ESO,Oladipo Olayinka Ishola,true,false,true,Kwara,2026-09-05 22:19:36.61172+00,2026-09-05 22:19:36.61172+00
+65cf1974-b7cd-49d5-9706-39c9da907001,gideonedachesimon@gmail.com,,ROLE_ESO,Gideon Simon Edache,true,false,true,FCT,2026-09-08 16:23:32.484913+00,2026-09-08 16:23:32.484913+00
+6e61c535-20a5-4371-affc-1e5126c40bce,aromzy22@gmail.com,,ROLE_ESO,Akagwu Arome Fredrick,true,false,true,FCT,2026-09-22 15:30:32.447024+00,2026-09-22 15:30:32.447024+00
+704d5fad-5261-48b8-9d2a-423fa06e917c,orkumahembe@gmail.com,,ROLE_ESO,Orkuma Hembe,true,false,true,Benue,2026-09-15 13:46:40.709305+00,2026-09-15 13:46:40.709305+00
+71f29769-15b7-48ca-b7dc-5e60e1bf9a0e,cadgiscenter@gmail.com,,ROLE_ESO,Sunday Agbo,true,false,true,Benue,2026-09-08 11:09:07.693741+00,2026-09-08 11:09:07.693741+00
+78def931-06f0-4380-b208-314f89a67737,kogiinnovationhub@gmail.com,,ROLE_ESO,ItopaKing David,true,false,true,Kogi,2026-09-04 10:01:47.702919+00,2026-09-04 10:01:47.702919+00
+79f4fda3-a464-49e3-a275-d1823dded2bb,info@mountmove.org,,ROLE_ESO,Dr. Obi Umegbolu,true,false,true,FCT,2026-09-02 12:14:41.209935+00,2026-09-02 12:14:41.209935+00
+7abfef71-b5be-47fb-bb1d-3cde7e8d88a9,yikanit442@fidhost.com,,ROLE_ESO,Able Applicant,true,false,true,Nasarawa,2026-09-08 10:27:07.871669+00,2026-09-08 10:27:07.871669+00
+7f5bd244-6ed6-4fab-a5c4-a8d25fc2796b,info@glowingmindsinitiatives.org,,ROLE_ESO,Shamsudeen Abdulrazak,true,false,true,Niger,2026-09-15 12:37:18.685807+00,2026-09-15 12:37:18.685807+00
+84d3d68c-cf5e-4c4d-a921-a2014de17378,tdaser2@gmail.com,,ROLE_ESO,Timbyen Daser,true,false,true,Plateau,2026-09-09 13:50:38.265812+00,2026-09-09 13:50:38.265812+00
+87aede7a-68c8-4304-a8eb-214ad6af7ad9,ugochionah8363@gmail.com,,ROLE_ESO,Onah charity,true,false,true,FCT,2026-09-16 10:58:27.119485+00,2026-09-16 10:58:27.119485+00
+88ef43b8-049b-468b-95e1-4ee6eb55cfb5,cadgistvet@gmail.com,,ROLE_ESO,AGBO SUNDAY,true,false,true,Niger,2026-09-08 13:34:29.690864+00,2026-09-08 13:34:29.690864+00
+8a674ec7-567b-47ce-92df-75b28c2c4168,poyar59655@daugr.com,,ROLE_ESO,EsO_KOGI_state,true,false,true,Kogi,2026-09-10 15:22:26.821837+00,2026-09-10 15:22:26.821837+00
+8ac7c95f-4d61-4c45-91b3-f722e3d2f04f,hr@ojindo.com,,ROLE_ESO,salt,true,false,true,Kogi,2026-09-24 11:33:10.004384+00,2026-09-24 11:33:10.004384+00
+8dd78066-df22-48ff-a890-ddbd108dcd20,jzever@gmail.com,,ROLE_ESO,Sonter Julius Zever,true,false,true,Benue,2026-09-15 12:12:01.791487+00,2026-09-15 12:12:01.791487+00
+984fc179-7631-445d-b6b3-d22defe6de41,kopsongloballimited@gmail.com,,ROLE_ESO,Mercy Sylvanus,true,false,true,Plateau,2026-09-07 15:24:14.592193+00,2026-09-07 15:24:14.592193+00
+a4947a4f-9a11-4aa0-acbc-15068acfa6c4,aikperokhahub@gmail.com,,ROLE_ESO,THOMPSON AIKPEROKHA ABIOLA,true,false,true,Kogi,2026-09-15 22:21:41.935929+00,2026-09-15 22:21:41.935929+00
+a7f200ac-82b9-4e65-8869-6201edc86b0b,exec@blackaccelerate.com,,ROLE_ESO,Kalejaiye Olufemi,true,false,true,Kogi,2026-09-10 18:57:37.719151+00,2026-09-10 18:57:37.719151+00
+af99cf86-db61-482e-b874-9cb7241395a8,chimdindu73@gmail.com,,ROLE_ESO,Chimdi,true,false,true,FCT,2026-08-31 21:16:16.868397+00,2026-08-31 21:16:16.868397+00
+b392239e-ea40-4845-a0ae-00331bd4c192,info@codex.com.ng,,ROLE_ESO,Emmanuel Ebimoh,true,false,true,Plateau,2026-09-05 00:03:17.438971+00,2026-09-05 00:03:17.438971+00
+bacc9b99-75e5-4eef-abc6-2f6b3a4fd1f8,info@nhubnigeria.ng,,ROLE_ESO,Bashir Sheidu,true,false,true,Plateau,2026-09-03 11:03:05.170515+00,2026-09-03 11:03:05.170515+00
+c36822bf-f748-4886-b7ff-064583cc4a02,13thsnipers@gmail.com,,ROLE_ESO,IORDYE BENJAMIN BEMSHIMA,true,false,true,Benue,2026-09-19 15:10:00.599304+00,2026-09-19 15:10:00.599304+00
+d60d7548-c349-44f7-adb4-1127eef1f098,shadrachngutswen@gmail.com,,ROLE_ESO,SUURSHATER NGUTSWEN,true,false,true,Benue,2026-09-05 19:24:17.48388+00,2026-09-05 19:24:17.48388+00
+dc4b5692-3b6b-4b1a-9fe6-64b3fa1f5a54,02innovationslab@gmail.com,,ROLE_ESO,Tasiu Kwaplong,true,false,true,Nasarawa,2026-09-12 17:04:28.796503+00,2026-09-12 17:04:28.796503+00
+edd1d3d9-603d-49bf-ba46-1fb290f15b62,celestina.wootlab@gmail.com,,ROLE_ESO,TEMITAYO ORILOYE,true,false,true,FCT,2026-09-25 08:50:20.19517+00,2026-09-25 08:50:20.19517+00
+f3611440-62cd-4c27-bef4-77705331d06d,oryimangabriel29@gmail.com,,ROLE_ESO,Terseer Gabriel Oryiman,true,false,true,Benue,2026-09-15 13:47:08.529199+00,2026-09-15 13:47:08.529199+00
+f579f6f1-281c-4d22-b00c-273719cbbb26,emordibridget442@gmail.com,,ROLE_ESO,Happiness Emordi,true,false,true,Niger,2026-09-11 07:50:29.21903+00,2026-09-11 07:50:29.21903+00
+f656bf34-56d8-4693-953d-bea273e4ccd6,jibrinaisha339@gmail.com,,ROLE_ESO,Aisha Aliyu Jibrin,true,false,true,FCT,2026-09-02 14:36:00.409158+00,2026-09-02 14:36:00.409158+00
+f8b9da3f-e660-4ac3-ba13-8d1b38b1815d,programmes@wootlab.ng,,ROLE_ESO,Goodnews Akwaowo,true,false,true,FCT,2026-09-03 19:27:26.28012+00,2026-09-03 19:27:26.28012+00
+f95d8365-d028-47ae-bf85-aa1b789e69c8,salamitobimi@gmail.com,,ROLE_ESO,Oluwatobi Salami,true,false,true,Kwara,2026-09-01 05:53:34.523239+00,2026-09-01 05:53:34.523239+00
+f9d071e6-9615-458c-bd51-5531c7a76e96,kasuwaappng@gmail.com,,ROLE_ESO,Isa Usman Musa,true,false,true,Plateau,2026-09-07 15:09:10.95472+00,2026-09-07 15:09:10.95472+00
+faad19fa-3e64-4f63-b360-cca0bde30b28,sam@toof.com,,ROLE_ESO,Saltman Sam,true,false,true,FCT,2026-09-05 09:23:57.846496+00,2026-09-05 09:23:57.846496+00
+feab08f1-0b96-4cd5-a333-2c7b75d37c98,adebola.oladipo@iih.ng,,ROLE_ESO,Adebola Oladipo,true,false,true,Kwara,2026-09-29 08:41:58.407601+00,2026-09-29 08:41:58.407601+00
+ffa5236d-dbfc-4cbd-bf33-33a756bcfe1f,blucubeinternational@gmail.com,,ROLE_ESO,Samuel Adebayo,true,false,true,Plateau,2026-09-16 11:30:57.724974+00,2026-09-16 11:30:57.724974+00

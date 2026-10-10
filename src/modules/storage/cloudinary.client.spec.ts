@@ -1,7 +1,9 @@
 import { createHash } from 'crypto';
 import {
   CloudinaryClient,
+  browserSafeCloudinaryUrl,
   parseCloudinaryUrl,
+  withDeliveryFormat,
 } from '@/modules/storage/cloudinary.client';
 describe('parseCloudinaryUrl', () => {
   it('reads an image-type PDF uploaded by the earlier Supabase flow', () => {
@@ -63,5 +65,25 @@ describe('CloudinaryClient signing', () => {
         client as unknown as { sign: (p: Record<string, unknown>) => string }
       ).sign({ public_id: 'sample', timestamp: 1315060510 }),
     ).toBe(expected);
+  });
+});
+
+describe('browser-safe delivery', () => {
+  it('delivers HEIC photos as JPEG', () => {
+    expect(
+      browserSafeCloudinaryUrl('https://res.cloudinary.com/demo/image/upload/v1/idice-eso/validation/a/photos/x-IMG_1.heic'),
+    ).toBe('https://res.cloudinary.com/demo/image/upload/v1/idice-eso/validation/a/photos/x-IMG_1.jpg');
+  });
+
+  it('leaves JPEG, PNG and raw files alone', () => {
+    const jpeg = 'https://res.cloudinary.com/demo/image/upload/v1/f/a.jpg';
+    const raw = 'https://res.cloudinary.com/demo/raw/upload/v1/f/a.pdf';
+    expect(browserSafeCloudinaryUrl(jpeg)).toBe(jpeg);
+    expect(browserSafeCloudinaryUrl(raw)).toBe(raw);
+  });
+
+  it('swaps only the final extension', () => {
+    expect(withDeliveryFormat('https://x/a.b/c.heic?x=1', 'jpg')).toBe('https://x/a.b/c.jpg?x=1');
+    expect(withDeliveryFormat('https://x/a/c', 'jpg')).toBe('https://x/a/c.jpg');
   });
 });
