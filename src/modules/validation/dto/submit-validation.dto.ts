@@ -5,6 +5,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  MaxLength,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -33,6 +34,12 @@ class GeotaggedPhotoDto {
 
   @ApiPropertyOptional({ description: 'ISO 8601 timestamp the photo was taken', example: '2026-09-17T10:15:00.000Z' })
   @IsOptional() @IsISO8601() takenAt?: string;
+
+  @ApiPropertyOptional({ description: 'File name returned by the photo upload endpoint', example: 'site-front.jpg' })
+  @IsOptional() @IsString() @MaxLength(200) fileName?: string;
+
+  @ApiPropertyOptional({ description: 'Content type returned by the photo upload endpoint', example: 'image/jpeg' })
+  @IsOptional() @IsString() @MaxLength(100) contentType?: string;
 }
 
 export class SubmitValidationDto {

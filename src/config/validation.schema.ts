@@ -85,6 +85,7 @@ export const environmentSchema = z.object({
     }),
 
   LOCKOUT_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+  ESO_REGISTRATION_OPEN: z.enum(['true', 'false']).optional().default('false'),
   SESSION_MAX_AGE_HOURS: z.coerce.number().int().positive().default(120),
   SESSION_MAX_AGE_ROLES: z.string().optional().default('ROLE_ELIGIBILITY_REVIEWER,ROLE_SCORING_REVIEWER,ROLE_VALIDATOR'),
   LOCKOUT_WINDOW_MINUTES: z.coerce.number().int().positive().default(15),

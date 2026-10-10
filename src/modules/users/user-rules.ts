@@ -15,7 +15,7 @@ export function planScoringSlot(
   if (others.length >= MAX_SCORING_REVIEWERS) {
     return {
       error:
-        'Only two Scoring Reviewers can be active (Reviewer 1 and Reviewer 2). Suspend or change the role of an existing Scoring Reviewer first.',
+        'Only two Scoring Reviewers can be active (Reviewer 1 and Reviewer 2). To bring in someone new, use "Hand over work" on the reviewer being replaced, which creates the new account in the same slot and moves their unscored applications.',
     };
   }
   const taken = new Set(others.map((r) => r.scoringSlot).filter((s): s is number => s !== null));

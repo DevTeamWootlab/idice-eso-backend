@@ -33,6 +33,8 @@ export class ValidationRecord extends BaseEntity {
     latitude: number;
     longitude: number;
     takenAt?: string;
+    fileName?: string;
+    contentType?: string;
   }[];
 
   @Column({ default: false })

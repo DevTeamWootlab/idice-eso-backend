@@ -58,6 +58,11 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
+    if (!this.configService.get<boolean>('intake.esoRegistrationOpen')) {
+      throw new ForbiddenException(
+        'The ESO call for applications has closed and new accounts can no longer be created.',
+      );
+    }
     const existing = await this.usersService.findByEmail(dto.email);
     if (existing) {
       throw new ConflictException('An account with this email already exists');
@@ -137,7 +142,7 @@ export class AuthService {
     if (INTERNAL_ROLES.includes(user.role) && !user.mfaEnabled) {
       return {
         mfaSetupRequired: true,
-        setupToken: this.signShortLivedToken(user.id, 'mfa_setup'),
+        setupToken: this.signShortLivedToken(user.id, 'mfa_setup', '20m'),
       };
     }
 
@@ -365,12 +370,12 @@ export class AuthService {
     }
   }
 
-  private signShortLivedToken(userId: string, purpose: string): string {
+  private signShortLivedToken(userId: string, purpose: string, expiresIn: string = '5m'): string {
     return this.jwtService.sign(
       { sub: userId, purpose },
       {
         secret: this.configService.get<string>('jwt.accessSecret'),
-        expiresIn: '5m',
+        expiresIn: expiresIn as any,
       },
     );
   }
@@ -391,7 +396,7 @@ export class AuthService {
       }
       return payload.sub;
     } catch {
-      throw new UnauthorizedException('Token is invalid or has expired');
+      throw new UnauthorizedException('This sign-in step has expired. Please sign in again to continue.');
     }
   }
 
