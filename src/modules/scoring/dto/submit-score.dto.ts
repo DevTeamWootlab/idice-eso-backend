@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, IsString, Min, Max } from 'class-validator';
+import { IsNumber, IsOptional, IsString, Min, Max, MaxLength, MinLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class SubmitScoreDto {
@@ -76,6 +76,17 @@ export class SubmitScoreDto {
   @IsOptional()
   @IsString()
   comments?: string;
+}
+
+export class ReviseScoreDto extends SubmitScoreDto {
+  @ApiProperty({
+    description: 'Why the score is being changed. Saved on the audit log.',
+    example: 'Re-read the delivery evidence; two completed cohorts were missed on first review.',
+  })
+  @IsString()
+  @MinLength(10)
+  @MaxLength(1000)
+  reason!: string;
 }
 
 export class CompletedQueueItemDto {

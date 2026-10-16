@@ -8,7 +8,19 @@ import { ApplicationStatus } from '@/common/enums/application.enum';
 import { ApplicationsStateMachineService } from '@/modules/applications/applications-state-machine.service';
 import { AuditLogService } from '@/modules/audit-log/audit-log.service';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
-import { MatchCandidate, proposeMatches } from './matching-rules';
+import { MatchCandidate, QUALIFICATION_THRESHOLD, computeMci, proposeMatches } from './matching-rules';
+
+export interface UnmatchedApplication {
+  applicationId: string;
+  applicationRef: string;
+  organisationName: string | null;
+  finalScorePercent: number | null;
+  institutionId: string | null;
+  institutionName: string | null;
+  state: string | null;
+  matchCompatibilityIndex: number | null;
+  reason: string;
+}
 
 export type { MciBreakdown } from './matching-rules';
 
@@ -169,6 +181,78 @@ export class MatchingService {
     }
 
     return { committed, skipped, matches: await this.getLastRun() };
+  }
+
+  async getUnmatched(): Promise<UnmatchedApplication[]> {
+    const pool = await this.applicationRepo.find({
+      where: { status: ApplicationStatus.VALIDATED_SHORTLISTED },
+      relations: { preferredInstitution: true, scoreCards: true },
+      order: { finalScorePercent: 'DESC' },
+    });
+    if (pool.length === 0) return [];
+
+    const matches = await this.matchRepo.find({ relations: { application: true, institution: true } });
+    const byApplication = new Map<string, Match>(matches.map((m: Match) => [m.applicationId, m]));
+    const byInstitution = new Map<string, Match>(matches.map((m: Match) => [m.institutionId, m]));
+    const matchedApplications = await this.applicationRepo.find({
+      where: { status: ApplicationStatus.MATCHED },
+      select: { id: true, preferredInstitutionId: true, organisationLegalName: true },
+    });
+    const committedAt = new Map<string, Application>(
+      matchedApplications
+        .filter((a: Application) => !!a.preferredInstitutionId)
+        .map((a: Application) => [a.preferredInstitutionId, a] as [string, Application]),
+    );
+
+    const rows: UnmatchedApplication[] = [];
+    for (const app of pool) {
+      const current = byApplication.get(app.id);
+      if (current && current.status !== MatchStatus.REJECTED) continue;
+
+      const institution = app.preferredInstitution ?? null;
+      const finalScore = app.finalScorePercent === null || app.finalScorePercent === undefined ? null : Number(app.finalScorePercent);
+      const base = {
+        applicationId: app.id,
+        applicationRef: app.applicationRef,
+        organisationName: app.organisationLegalName ?? null,
+        finalScorePercent: finalScore,
+        institutionId: institution?.id ?? null,
+        institutionName: institution?.name ?? null,
+        state: institution?.state ?? null,
+      };
+      const mci = institution
+        ? computeMci(
+            {
+              applicationId: app.id,
+              institutionId: institution.id,
+              institutionState: institution.state,
+              finalScorePercent: finalScore,
+              sectorFocus: app.sectorFocus ?? [],
+              scoreCards: app.scoreCards ?? [],
+            },
+            { id: institution.id, state: institution.state, hubType: institution.hubType },
+          ).matchCompatibilityIndex
+        : null;
+
+      let reason: string;
+      if (!institution) {
+        reason = 'No Centre of Excellence is selected on this application, so it cannot be paired.';
+      } else if (!institution.isActive) {
+        reason = `${institution.name} is marked inactive, so it is left out of matching.`;
+      } else if (finalScore === null || !(finalScore >= QUALIFICATION_THRESHOLD)) {
+        reason = `The final score (${finalScore ?? 'none'}) is below the ${QUALIFICATION_THRESHOLD}% matching threshold.`;
+      } else if (committedAt.has(institution.id)) {
+        const holder = committedAt.get(institution.id);
+        reason = `${institution.name} already has an approved partner (${holder?.organisationLegalName ?? 'another ESO'}). Each Centre of Excellence takes one ESO.`;
+      } else if (byInstitution.has(institution.id)) {
+        const winner = byInstitution.get(institution.id) as Match;
+        reason = `${institution.name} was proposed to ${winner.application?.organisationLegalName ?? 'another ESO'}, which ranked higher (match index ${Number(winner.matchCompatibilityIndex)} against ${mci ?? 'n/a'}). Each Centre of Excellence takes one ESO.`;
+      } else {
+        reason = 'Not included in the latest run. Run matching again to include it.';
+      }
+      rows.push({ ...base, matchCompatibilityIndex: mci, reason });
+    }
+    return rows;
   }
 
   async getLastRun(): Promise<Match[]> {

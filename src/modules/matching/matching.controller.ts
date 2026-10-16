@@ -52,6 +52,19 @@ export class MatchingController {
   }
 
   @ApiOperation({
+    summary: 'Validated applications that are not in the current set of matches, with the reason',
+    description:
+      'Requires role: ROLE_SYSADMIN. Every VALIDATED_SHORTLISTED application without a proposed or approved match, ' +
+      'with why: no Centre of Excellence selected, centre inactive, score below threshold, centre already taken, ' +
+      'or ranked below the ESO proposed for the same centre.',
+  })
+  @ApiOkResponse({ description: 'Unmatched validated applications.' })
+  @Get('unmatched')
+  unmatched() {
+    return this.matchingService.getUnmatched();
+  }
+
+  @ApiOperation({
     summary: 'Get the current set of matches',
     description:
       'Requires role: ROLE_SYSADMIN. Proposed (GENERATED) and committed (ACCEPTED) matches, best MCI first.',
