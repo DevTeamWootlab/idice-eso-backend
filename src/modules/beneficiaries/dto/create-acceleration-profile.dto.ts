@@ -9,7 +9,11 @@ import {
   Min,
   Max,
   IsNotEmpty,
+  IsEnum,
+  IsInt,
+  MaxLength,
 } from 'class-validator';
+import { AccelerationStage } from '@/common/enums/beneficiary.enum';
 
 export class CreateAccelerationProfileDto {
   @ApiProperty({ example: 'PayNexus Logistics Ltd' })
@@ -95,4 +99,23 @@ export class CreateAccelerationProfileDto {
   @IsOptional()
   @IsString()
   pitchDeckStorageKey?: string;
+
+  @ApiProperty({ enum: AccelerationStage, example: AccelerationStage.EARLY_REVENUE })
+  @IsEnum(AccelerationStage)
+  developmentStage!: AccelerationStage;
+
+  @ApiProperty({ example: 4, description: 'Total team members including co-founders' })
+  @IsInt()
+  @Min(1)
+  @Max(10000)
+  teamSize!: number;
+
+  @ApiProperty({
+    example: 'https://res.cloudinary.com/demo/raw/upload/v1/idice-eso/beneficiaries/cac-documents/x-cac.pdf',
+    description: 'Storage key returned by POST /beneficiaries/cac-document',
+  })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(1000)
+  cacDocumentStorageKey!: string;
 }

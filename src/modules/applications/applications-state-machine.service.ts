@@ -61,6 +61,14 @@ const ALLOWED_TRANSITIONS: Record<ApplicationStatus, ApplicationStatus[]> = {
   [ApplicationStatus.REJECTED]: [],
 };
 
+const SCORE_REVISION_SOURCES: ApplicationStatus[] = [
+  ApplicationStatus.REJECTED,
+  ApplicationStatus.PENDING_VALIDATION,
+  ApplicationStatus.SHORTLISTED,
+  ApplicationStatus.PENDING_ECOSYSTEM_VALIDATION,
+  ApplicationStatus.VALIDATED_SHORTLISTED,
+];
+
 @Injectable()
 export class ApplicationsStateMachineService {
   constructor(
@@ -118,6 +126,35 @@ export class ApplicationsStateMachineService {
     if (application.status !== ApplicationStatus.REJECTED) {
       throw new BadRequestException(
         `Scoring corrections only apply to rejected applications; this one is ${application.status}`,
+      );
+    }
+    await this.applicationRepo.update({ id: applicationId }, { status: targetStatus });
+    await this.announceQueueEntry(application, targetStatus);
+  }
+
+  async applyScoreRevision(
+    applicationId: string,
+    targetStatus:
+      | ApplicationStatus.SHORTLISTED
+      | ApplicationStatus.PENDING_VALIDATION
+      | ApplicationStatus.REJECTED,
+  ): Promise<void> {
+    const application = await this.applicationRepo.findOne({ where: { id: applicationId } });
+    if (!application) {
+      throw new NotFoundException(`Application with ID '${applicationId}' not found`);
+    }
+    if (!SCORE_REVISION_SOURCES.includes(application.status)) {
+      throw new BadRequestException(
+        `A revised score cannot move an application that is ${application.status}`,
+      );
+    }
+    if (application.status === targetStatus) return;
+    if (
+      application.status === ApplicationStatus.VALIDATED_SHORTLISTED &&
+      targetStatus !== ApplicationStatus.REJECTED
+    ) {
+      throw new BadRequestException(
+        'This application has already passed field validation; a revised score can keep it shortlisted or reject it, but cannot send it back to an earlier stage',
       );
     }
     await this.applicationRepo.update({ id: applicationId }, { status: targetStatus });

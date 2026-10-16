@@ -11,9 +11,10 @@ import {
   ValidateIf,
   Matches,
   IsNotEmpty,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { Pillar, Gender, StateOfNigeria, AcademicStatus } from '@/common/enums/beneficiary.enum';
+import { Pillar, Gender, StateOfNigeria, AcademicStatus, EmploymentStatus } from '@/common/enums/beneficiary.enum';
 import { MaxWords } from '@/common/validators/max-word.validator';
 
 import { CreateSkillsProfileDto } from './create-skills-profile.dto';
@@ -87,10 +88,26 @@ export class CreateBeneficiaryDto {
   @ApiProperty({
     enum: AcademicStatus,
     example: AcademicStatus.RECENT_GRADUATE,
-    description: 'Academic / employment status — compulsory. Must agree with isCurrentStudent, isRecentGraduate and isNeet (OTHER = none of them).',
+    description:
+      'Academic status: STUDENT, RECENT_GRADUATE or OTHER (not currently in school). isCurrentStudent and isRecentGraduate must agree with it.',
   })
   @IsEnum(AcademicStatus)
   academicStatus!: AcademicStatus;
+
+  @ApiProperty({
+    enum: EmploymentStatus,
+    example: EmploymentStatus.UNEMPLOYED,
+    description:
+      'Employment status, asked separately from academic status. isNeet must be true only when the applicant is not a student and is UNEMPLOYED.',
+  })
+  @IsEnum(EmploymentStatus)
+  employmentStatus!: EmploymentStatus;
+
+  @ApiProperty({ example: 'BSc/BA', description: 'Highest education level, asked of every applicant' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(80)
+  highestEducationLevel!: string;
 
   @ApiPropertyOptional({ example: 'Mary Doe' })
   @IsOptional()

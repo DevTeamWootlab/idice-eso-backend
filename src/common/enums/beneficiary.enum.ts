@@ -86,3 +86,17 @@ export enum AcademicStatus {
   NEET = 'NEET',
   OTHER = 'OTHER',
 }
+
+export enum EmploymentStatus {
+  FULL_TIME = 'FULL_TIME',
+  PART_TIME = 'PART_TIME',
+  SELF_EMPLOYED = 'SELF_EMPLOYED',
+  UNEMPLOYED = 'UNEMPLOYED',
+}
+
+export enum AccelerationStage {
+  MVP = 'MVP',
+  EARLY_REVENUE = 'EARLY_REVENUE',
+  GROWTH = 'GROWTH',
+  SCALING = 'SCALING',
+}

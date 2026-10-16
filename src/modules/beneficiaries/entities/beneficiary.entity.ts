@@ -75,6 +75,12 @@ export class Beneficiary extends BaseEntity {
   @Column({ type: 'timestamptz', nullable: true })
   allocatedAt!: Date | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  employmentStatus!: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  highestEducationLevel!: string | null;
+
   @Column({ nullable: true })
   emergencyContactName?: string;
 

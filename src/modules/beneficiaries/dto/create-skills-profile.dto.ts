@@ -33,10 +33,13 @@ export class CreateSkillsProfileDto {
   @IsString()
   priorExperience?: string;
 
-  @ApiProperty({ example: 'BACHELORS_DEGREE' })
+  @ApiPropertyOptional({
+    example: 'BSc/BA',
+    description: 'Deprecated here; send highestEducationLevel at the top level. Ignored when the top-level value is present.',
+  })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  highestEducationLevel!: string;
+  highestEducationLevel?: string;
 
   @ApiProperty({ example: true })
   @IsBoolean()

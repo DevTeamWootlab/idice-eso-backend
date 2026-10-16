@@ -15,7 +15,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiCreatedResponse } f
 import { BeneficiariesService } from './beneficiaries.service';
 import { CreateBeneficiaryDto } from './dto/create-beneficiary.dto';
 import { Public } from '@/common/decorators/public.decorator';
-import { pitchDeckUploadOptions } from '@/config/multer.config';
+import { evidenceUploadOptions, pitchDeckUploadOptions } from '@/config/multer.config';
 
 @ApiTags('Public Beneficiary Intake')
 @Controller('beneficiaries')
@@ -42,6 +42,18 @@ export class BeneficiariesController {
     file: Express.Multer.File,
   ) {
     return this.beneficiariesService.uploadPitchDeck(file);
+  }
+
+  @ApiCreatedResponse({ description: 'Storage key for the CAC certificate, to send as accelerationProfile.cacDocumentStorageKey.' })
+  @Public()
+  @Post('cac-document')
+  @UseInterceptors(FileInterceptor('file', evidenceUploadOptions))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Upload the CAC registration certificate for an acceleration application (PDF or photo, max 10MB)',
+  })
+  uploadCacDocument(@UploadedFile() file: Express.Multer.File) {
+    return this.beneficiariesService.uploadCacDocument(file);
   }
 
   @ApiCreatedResponse({ description: 'POST /.' })
