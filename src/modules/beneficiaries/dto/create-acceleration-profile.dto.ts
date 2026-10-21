@@ -95,7 +95,10 @@ export class CreateAccelerationProfileDto {
   @IsUrl()
   liveProductUrl?: string;
 
-  @ApiPropertyOptional({ example: 'beneficiaries/pitch-decks/deck-123.pdf' })
+  @ApiPropertyOptional({
+    example: 'https://res.cloudinary.com/demo/raw/upload/v1/beneficiary-documents/submission_1/deck.pdf',
+    description: 'Cloudinary secure URL of the uploaded pitch deck, or a key returned by POST /beneficiaries/pitch-deck',
+  })
   @IsOptional()
   @IsString()
   pitchDeckStorageKey?: string;
@@ -112,7 +115,7 @@ export class CreateAccelerationProfileDto {
 
   @ApiProperty({
     example: 'https://res.cloudinary.com/demo/raw/upload/v1/idice-eso/beneficiaries/cac-documents/x-cac.pdf',
-    description: 'Storage key returned by POST /beneficiaries/cac-document',
+    description: 'Cloudinary secure URL of the uploaded CAC certificate, or a key returned by POST /beneficiaries/cac-document',
   })
   @IsString()
   @IsNotEmpty()

@@ -46,10 +46,10 @@ export class CreateBeneficiaryDto {
   ageBracket!: AgeBracket;
 
   @ApiProperty({
-    example: 'beneficiaries/id-documents/3f2a.pdf',
-    description: 'Storage key returned by POST /beneficiaries/id-document (government-issued ID or birth certificate).',
+    example: 'https://res.cloudinary.com/demo/image/upload/v1/beneficiary-documents/submission_1/id.jpg',
+    description: 'Cloudinary secure URL of the uploaded government-issued ID card or birth certificate.',
   })
-  @Matches(/^\S{1,500}$/, {
+  @Matches(/^https:\/\/res\.cloudinary\.com\/\S{1,480}$/, {
     message: 'Upload a government-issued ID card or birth certificate before submitting.',
   })
   governmentIdStorageKey!: string;
