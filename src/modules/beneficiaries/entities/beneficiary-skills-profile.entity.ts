@@ -41,4 +41,37 @@ export class BeneficiarySkillsProfile extends BaseEntity {
 
   @Column({ nullable: true })
   portfolioLink?: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  focusArea?: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  preferredSkill?: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  experienceLevel?: string | null;
+
+  @Column({ type: 'smallint', nullable: true })
+  knowledgeRating?: number | null;
+
+  @Column({ type: 'text', array: true, nullable: true })
+  coursesTaken?: string[] | null;
+
+  @Column({ type: 'smallint', nullable: true })
+  confidenceRating?: number | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  practicalApplication?: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  independence?: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  deliveryFormat?: string | null;
+
+  @Column({ type: 'boolean', nullable: true })
+  hasSmartphone?: boolean | null;
+
+  @Column({ type: 'boolean', nullable: true })
+  hasBackupPower?: boolean | null;
 }

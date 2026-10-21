@@ -37,6 +37,9 @@ export class Beneficiary extends BaseEntity {
   @Column({ type: 'enum', enum: Gender })
   gender!: Gender;
 
+  @Column({ type: 'varchar', nullable: true })
+  ageBracket!: string | null;
+
   @Column()
   phoneNumber!: string;
 
@@ -127,6 +130,12 @@ export class Beneficiary extends BaseEntity {
 
   @Column({ default: false })
   codeOfConductAccepted!: boolean;
+
+  @Column({ type: 'boolean', nullable: true })
+  commitmentHoursConfirmed!: boolean | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  governmentIdStorageKey!: string | null;
 
   @Column({ type: 'timestamptz', nullable: true })
   signedAt?: Date;

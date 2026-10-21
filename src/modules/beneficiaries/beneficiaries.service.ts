@@ -30,11 +30,13 @@ import {
 } from '@/modules/applications/admin-applications.query';
 import { checkAcademicStatus } from './academic-status';
 import { hubsShareCourses } from './hub-compatibility';
+import { checkSkillPreference } from './skill-preference';
 import { sniffFileType } from '@/common/utils/file-sniff';
 
 const PITCH_DECK_FOLDER = 'beneficiaries/pitch-decks';
 const CAC_DOCUMENT_FOLDER = 'beneficiaries/cac-documents';
 const CAC_DOCUMENT_TYPES = new Set(['pdf', 'jpg', 'png', 'webp', 'heic', 'heif']);
+const ID_DOCUMENT_FOLDER = 'beneficiaries/id-documents';
 import {
   EsoBeneficiaryAccelerationDto,
   EsoBeneficiaryDto,
@@ -147,6 +149,17 @@ export class BeneficiariesService {
           ownsPersonalDevice: b.skillsProfile.ownsPersonalDevice,
           hasReliableInternet: b.skillsProfile.hasReliableInternet,
           portfolioLink: b.skillsProfile.portfolioLink ?? null,
+          focusArea: b.skillsProfile.focusArea ?? null,
+          preferredSkill: b.skillsProfile.preferredSkill ?? null,
+          experienceLevel: b.skillsProfile.experienceLevel ?? null,
+          knowledgeRating: b.skillsProfile.knowledgeRating ?? null,
+          coursesTaken: b.skillsProfile.coursesTaken ?? null,
+          confidenceRating: b.skillsProfile.confidenceRating ?? null,
+          practicalApplication: b.skillsProfile.practicalApplication ?? null,
+          independence: b.skillsProfile.independence ?? null,
+          deliveryFormat: b.skillsProfile.deliveryFormat ?? null,
+          hasSmartphone: b.skillsProfile.hasSmartphone ?? null,
+          hasBackupPower: b.skillsProfile.hasBackupPower ?? null,
         }
       : null;
 
@@ -243,14 +256,23 @@ export class BeneficiariesService {
       assignedInstitution: institutionRef(b.assignedInstitution),
       createdAt: b.createdAt,
       signedAt: b.signedAt ?? null,
+      ageBracket: b.ageBracket ?? null,
+      commitmentHoursConfirmed: b.commitmentHoursConfirmed ?? null,
+      hasGovernmentIdDocument: !!b.governmentIdStorageKey,
     };
   }
 
-  async getDocumentForAdmin(id: string, kind: 'cac-document' | 'pitch-deck') {
-    const profile = await this.dataSource
-      .getRepository(BeneficiaryAccelerationProfile)
-      .findOne({ where: { beneficiaryId: id } });
-    const storageKey = kind === 'cac-document' ? profile?.cacDocumentStorageKey : profile?.pitchDeckStorageKey;
+  async getDocumentForAdmin(id: string, kind: 'cac-document' | 'pitch-deck' | 'id-document') {
+    let storageKey: string | null | undefined;
+    if (kind === 'id-document') {
+      const beneficiary = await this.beneficiaryRepo.findOne({ where: { id } });
+      storageKey = beneficiary?.governmentIdStorageKey;
+    } else {
+      const profile = await this.dataSource
+        .getRepository(BeneficiaryAccelerationProfile)
+        .findOne({ where: { beneficiaryId: id } });
+      storageKey = kind === 'cac-document' ? profile?.cacDocumentStorageKey : profile?.pitchDeckStorageKey;
+    }
     if (!storageKey) throw new NotFoundException('No document of this kind is on file for this beneficiary');
     const buffer = await this.storageService.readFile(storageKey);
     const sniffed = sniffFileType(buffer);
@@ -394,6 +416,16 @@ export class BeneficiariesService {
     this.validatePillarPayloads(dto);
     const statusProblem = checkAcademicStatus(dto);
     if (statusProblem) throw new BadRequestException(statusProblem);
+    if (!dto.governmentIdStorageKey.includes(ID_DOCUMENT_FOLDER)) {
+      throw new UnprocessableEntityException('The ID document was not uploaded through this form. Upload it again.');
+    }
+    if (dto.pillar === Pillar.SKILLS && dto.skillsProfile?.preferredSkill) {
+      const preferred = await this.dataSource.getRepository(Institution).findOne({
+        where: { id: dto.preferredInstitutionId },
+      });
+      const skillProblem = checkSkillPreference(dto.skillsProfile, preferred?.hubType);
+      if (skillProblem) throw new UnprocessableEntityException(skillProblem);
+    }
 
     // ---- 2. Email & NIN Deduplication Check ----
     const existingEmail = await this.beneficiaryRepo.findOne({
@@ -460,6 +492,7 @@ export class BeneficiariesService {
           fullName: dto.fullName,
           dateOfBirth: dto.dateOfBirth,
           gender: dto.gender,
+          ageBracket: dto.ageBracket,
           phoneNumber: dto.phoneNumber,
           email: dto.email.toLowerCase().trim(),
           nin: encryptedNin,
@@ -486,6 +519,8 @@ export class BeneficiariesService {
           statementOfPurpose: dto.statementOfPurpose,
           ndprConsentGiven: dto.ndprConsentGiven,
           codeOfConductAccepted: dto.codeOfConductAccepted,
+          commitmentHoursConfirmed: dto.commitmentHoursConfirmed ?? null,
+          governmentIdStorageKey: dto.governmentIdStorageKey,
           signedAt: new Date(),
           status: BeneficiaryStatus.SUBMITTED,
         });
@@ -605,6 +640,24 @@ export class BeneficiariesService {
     return { storageKey: stored.storageKey, fileName: stored.fileName, contentType: stored.contentType };
   }
 
+  async uploadIdDocument(file: Express.Multer.File): Promise<{ storageKey: string; fileName: string; contentType: string }> {
+    if (!file?.buffer?.length) throw new BadRequestException('Attach the ID document to upload');
+    if (file.size > 10 * 1024 * 1024) {
+      throw new BadRequestException('The ID document must not be larger than 10MB');
+    }
+    const sniffed = sniffFileType(file.buffer);
+    if (!sniffed || !CAC_DOCUMENT_TYPES.has(sniffed.ext)) {
+      throw new BadRequestException('Upload the ID document as a PDF or a clear photo (JPEG, PNG, WebP or HEIC).');
+    }
+    const stored = await this.storageService.uploadEvidence(
+      file.buffer,
+      ID_DOCUMENT_FOLDER,
+      file.originalname,
+      sniffed.mime,
+    );
+    return { storageKey: stored.storageKey, fileName: stored.fileName, contentType: stored.contentType };
+  }
+
   private validatePillarPayloads(dto: CreateBeneficiaryDto): void {
     if (dto.pillar === Pillar.SKILLS) {
       if (!dto.skillsProfile) {
@@ -615,6 +668,11 @@ export class BeneficiariesService {
       if (dto.incubationProfile || dto.accelerationProfile) {
         throw new UnprocessableEntityException(
           'Cannot submit incubationProfile or accelerationProfile when Pillar is SKILLS.',
+        );
+      }
+      if (dto.commitmentHoursConfirmed !== true) {
+        throw new UnprocessableEntityException(
+          'Confirm that you can commit 10–15 hours a week to training sessions and assignments.',
         );
       }
     }

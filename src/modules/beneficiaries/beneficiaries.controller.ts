@@ -56,6 +56,19 @@ export class BeneficiariesController {
     return this.beneficiariesService.uploadCacDocument(file);
   }
 
+  @ApiCreatedResponse({ description: 'Storage key for the ID document, to send as governmentIdStorageKey.' })
+  @Public()
+  @Post('id-document')
+  @UseInterceptors(FileInterceptor('file', evidenceUploadOptions))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary:
+      'Upload a government-issued ID card or birth certificate (NIN slip, Voter\'s Card, International Passport, Driver\'s Licence or Birth Certificate; PDF or photo, max 10MB)',
+  })
+  uploadIdDocument(@UploadedFile() file: Express.Multer.File) {
+    return this.beneficiariesService.uploadIdDocument(file);
+  }
+
   @ApiCreatedResponse({ description: 'POST /.' })
   @Public()
   @Post()
