@@ -31,12 +31,12 @@ import {
 import { checkAcademicStatus } from './academic-status';
 import { hubsShareCourses } from './hub-compatibility';
 import { checkSkillPreference } from './skill-preference';
+import { parseCloudinaryUrl } from '@/modules/storage/cloudinary.client';
 import { sniffFileType } from '@/common/utils/file-sniff';
 
 const PITCH_DECK_FOLDER = 'beneficiaries/pitch-decks';
 const CAC_DOCUMENT_FOLDER = 'beneficiaries/cac-documents';
 const CAC_DOCUMENT_TYPES = new Set(['pdf', 'jpg', 'png', 'webp', 'heic', 'heif']);
-const ID_DOCUMENT_FOLDER = 'beneficiaries/id-documents';
 import {
   EsoBeneficiaryAccelerationDto,
   EsoBeneficiaryDto,
@@ -416,7 +416,7 @@ export class BeneficiariesService {
     this.validatePillarPayloads(dto);
     const statusProblem = checkAcademicStatus(dto);
     if (statusProblem) throw new BadRequestException(statusProblem);
-    if (!dto.governmentIdStorageKey.includes(ID_DOCUMENT_FOLDER)) {
+    if (!parseCloudinaryUrl(dto.governmentIdStorageKey)) {
       throw new UnprocessableEntityException('The ID document was not uploaded through this form. Upload it again.');
     }
     if (dto.pillar === Pillar.SKILLS && dto.skillsProfile?.preferredSkill) {
@@ -640,24 +640,6 @@ export class BeneficiariesService {
     return { storageKey: stored.storageKey, fileName: stored.fileName, contentType: stored.contentType };
   }
 
-  async uploadIdDocument(file: Express.Multer.File): Promise<{ storageKey: string; fileName: string; contentType: string }> {
-    if (!file?.buffer?.length) throw new BadRequestException('Attach the ID document to upload');
-    if (file.size > 10 * 1024 * 1024) {
-      throw new BadRequestException('The ID document must not be larger than 10MB');
-    }
-    const sniffed = sniffFileType(file.buffer);
-    if (!sniffed || !CAC_DOCUMENT_TYPES.has(sniffed.ext)) {
-      throw new BadRequestException('Upload the ID document as a PDF or a clear photo (JPEG, PNG, WebP or HEIC).');
-    }
-    const stored = await this.storageService.uploadEvidence(
-      file.buffer,
-      ID_DOCUMENT_FOLDER,
-      file.originalname,
-      sniffed.mime,
-    );
-    return { storageKey: stored.storageKey, fileName: stored.fileName, contentType: stored.contentType };
-  }
-
   private validatePillarPayloads(dto: CreateBeneficiaryDto): void {
     if (dto.pillar === Pillar.SKILLS) {
       if (!dto.skillsProfile) {
@@ -703,10 +685,13 @@ export class BeneficiariesService {
       }
 
       const { liveProductUrl, pitchDeckStorageKey, cacDocumentStorageKey } = dto.accelerationProfile;
-      if (pitchDeckStorageKey && !pitchDeckStorageKey.includes(PITCH_DECK_FOLDER)) {
+      if (pitchDeckStorageKey && !parseCloudinaryUrl(pitchDeckStorageKey) && !pitchDeckStorageKey.includes(PITCH_DECK_FOLDER)) {
         throw new UnprocessableEntityException('The pitch deck was not uploaded through this form. Upload it again.');
       }
-      if (!cacDocumentStorageKey || !cacDocumentStorageKey.includes(CAC_DOCUMENT_FOLDER)) {
+      if (
+        !cacDocumentStorageKey ||
+        (!parseCloudinaryUrl(cacDocumentStorageKey) && !cacDocumentStorageKey.includes(CAC_DOCUMENT_FOLDER))
+      ) {
         throw new UnprocessableEntityException('Upload your CAC registration certificate before submitting.');
       }
       if (!liveProductUrl && !pitchDeckStorageKey) {
