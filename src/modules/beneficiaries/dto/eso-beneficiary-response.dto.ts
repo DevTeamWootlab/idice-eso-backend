@@ -35,6 +35,28 @@ export class EsoBeneficiarySkillsDto {
   hasReliableInternet!: boolean;
   @ApiProperty({ nullable: true })
   portfolioLink!: string | null;
+  @ApiProperty({ nullable: true })
+  focusArea!: string | null;
+  @ApiProperty({ nullable: true })
+  preferredSkill!: string | null;
+  @ApiProperty({ nullable: true })
+  experienceLevel!: string | null;
+  @ApiProperty({ nullable: true })
+  knowledgeRating!: number | null;
+  @ApiProperty({ type: [String], nullable: true })
+  coursesTaken!: string[] | null;
+  @ApiProperty({ nullable: true })
+  confidenceRating!: number | null;
+  @ApiProperty({ nullable: true })
+  practicalApplication!: string | null;
+  @ApiProperty({ nullable: true })
+  independence!: string | null;
+  @ApiProperty({ nullable: true })
+  deliveryFormat!: string | null;
+  @ApiProperty({ nullable: true })
+  hasSmartphone!: boolean | null;
+  @ApiProperty({ nullable: true })
+  hasBackupPower!: boolean | null;
 }
 
 export class EsoBeneficiaryIncubationDto {
