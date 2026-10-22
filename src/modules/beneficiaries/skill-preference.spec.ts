@@ -1,4 +1,4 @@
-import { checkSkillPreference } from './skill-preference';
+import { checkCourseForTier, checkSkillPreference } from './skill-preference';
 
 describe('skill preference', () => {
   it('accepts no preference at all', () => {
@@ -21,5 +21,13 @@ describe('skill preference', () => {
     expect(checkSkillPreference({ focusArea: 'CREATIVE', preferredSkill: 'Game Hub Skills' }, 'GAMING')).toBeNull();
     expect(checkSkillPreference({ focusArea: 'CREATIVE', preferredSkill: 'Game Hub Skills' }, 'VR')).toMatch(/Ilorin/);
     expect(checkSkillPreference({ focusArea: 'CREATIVE', preferredSkill: 'Content Creation' }, 'GAMING')).toBeNull();
+  });
+
+  it('only accepts a course that belongs to the chosen level', () => {
+    expect(checkCourseForTier('FOUNDATIONAL', 'Data and AI Fundamentals')).toBeNull();
+    expect(checkCourseForTier('INTERMEDIATE', 'Full-Stack Development')).toBeNull();
+    expect(checkCourseForTier('ADVANCED', 'Software Engineering, Cloud Development and DevOps')).toBeNull();
+    expect(checkCourseForTier('FOUNDATIONAL', 'Advanced Cybersecurity')).toMatch(/not one of the Foundational courses/);
+    expect(checkCourseForTier('ADVANCED', 'Made-up course')).toMatch(/not one of the Advanced courses/);
   });
 });

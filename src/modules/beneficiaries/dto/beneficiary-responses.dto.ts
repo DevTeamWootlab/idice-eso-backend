@@ -1,9 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   BeneficiaryStatus,
+  ExperienceLevel,
   Gender,
   Pillar,
   StateOfNigeria,
+  TrainingTier,
 } from '@/common/enums/beneficiary.enum';
 
 export class InstitutionRefDto {
@@ -13,6 +15,17 @@ export class InstitutionRefDto {
   name!: string;
   @ApiProperty()
   state!: string;
+}
+
+export class BeneficiarySkillsSummaryDto {
+  @ApiProperty({ enum: TrainingTier })
+  skillTier!: TrainingTier;
+  @ApiProperty({ example: 'Data Analytics and Applied AI' })
+  specificSkillArea!: string;
+  @ApiProperty({ enum: ExperienceLevel, nullable: true })
+  experienceLevel!: ExperienceLevel | null;
+  @ApiProperty({ nullable: true, minimum: 1, maximum: 5 })
+  knowledgeRating!: number | null;
 }
 
 export class BeneficiarySummaryDto {
@@ -40,6 +53,8 @@ export class BeneficiarySummaryDto {
   assignedInstitution!: InstitutionRefDto | null;
   @ApiProperty({ format: 'date-time' })
   createdAt!: string;
+  @ApiProperty({ type: BeneficiarySkillsSummaryDto, nullable: true })
+  skillsProfile!: BeneficiarySkillsSummaryDto | null;
 }
 
 export class BeneficiaryListDto {

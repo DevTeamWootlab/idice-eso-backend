@@ -40,3 +40,31 @@ export function checkSkillPreference(
   }
   return null;
 }
+
+export const COURSES_BY_TIER: Record<string, string[]> = {
+  FOUNDATIONAL: [
+    'Data and AI Fundamentals',
+    'Cybersecurity & Safety',
+    'Software Development and Web Design Essentials',
+  ],
+  INTERMEDIATE: [
+    'Data Analytics and Applied AI',
+    'Essentials for understanding and implementing effective cybersecurity strategies',
+    'Full-Stack Development',
+  ],
+  ADVANCED: [
+    'Advanced Data Science and AI Engineering',
+    'Advanced Cybersecurity',
+    'Software Engineering, Cloud Development and DevOps',
+  ],
+};
+
+export function checkCourseForTier(skillTier: string, course: string): string | null {
+  const courses = COURSES_BY_TIER[skillTier];
+  if (!courses) return `Unknown course level "${skillTier}".`;
+  if (!courses.includes(course)) {
+    const level = skillTier.charAt(0) + skillTier.slice(1).toLowerCase();
+    return `"${course}" is not one of the ${level} courses. Choose one of: ${courses.join('; ')}.`;
+  }
+  return null;
+}

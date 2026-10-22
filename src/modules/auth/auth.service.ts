@@ -31,13 +31,6 @@ interface RequestMeta {
   userAgent?: string;
 }
 
-const INTERNAL_ROLES = [
-  Role.ELIGIBILITY_REVIEWER,
-  Role.SCORING_REVIEWER,
-  Role.VALIDATOR,
-  Role.SYSADMIN,
-];
-
 @Injectable()
 export class AuthService {
   constructor(
@@ -136,21 +129,6 @@ export class AuthService {
       throw new UnauthorizedException(
         'Please verify your email before logging in',
       );
-    }
-
-    // internal roles cannot get a full session without MFA — force setup if it's missing
-    if (INTERNAL_ROLES.includes(user.role) && !user.mfaEnabled) {
-      return {
-        mfaSetupRequired: true,
-        setupToken: this.signShortLivedToken(user.id, 'mfa_setup', '20m'),
-      };
-    }
-
-    if (user.mfaEnabled) {
-      return {
-        mfaRequired: true,
-        mfaToken: this.signShortLivedToken(user.id, 'mfa_verify'),
-      };
     }
 
     return this.issueTokenPair(user.id, user.email, user.role, meta);
