@@ -1520,9 +1520,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@nestjs/core@npm:^12.0.1":
-  version: 12.0.1
-  resolution: "@nestjs/core@npm:12.0.1"
+"@nestjs/core@npm:^12.2.0":
+  version: 12.2.0
+  resolution: "@nestjs/core@npm:12.2.0"
   dependencies:
     fast-safe-stringify: "npm:2.1.1"
     iterare: "npm:1.2.1"
@@ -1543,7 +1543,7 @@ __metadata:
       optional: true
     "@nestjs/websockets":
       optional: true
-  checksum: 10c0/ccf18a31ce5d1409466f722805cc8bd1f1525ce13ea4a19dfad83a930a35c9de602b9e8e55a6837a46856ee107966763db2bb79b4e2e691bc29f22d2728fd897
+  checksum: 10c0/0f622f53b232037acfa552107ea0deb579a80d95edec9978f0d2d6d5e9029a8a57715e597343c3bda4d73958cfa6e4566c65290e12aa4f3b7471d9932dc2855b
   languageName: node
   linkType: hard
 
@@ -4057,7 +4057,7 @@ __metadata:
     "@nestjs/cli": "npm:^12.0.0"
     "@nestjs/common": "npm:^12.0.1"
     "@nestjs/config": "npm:^12.0.0"
-    "@nestjs/core": "npm:^12.0.1"
+    "@nestjs/core": "npm:^12.2.0"
     "@nestjs/jwt": "npm:^12.0.1"
     "@nestjs/mau": "npm:^0.2.6"
     "@nestjs/passport": "npm:^12.0.0"
