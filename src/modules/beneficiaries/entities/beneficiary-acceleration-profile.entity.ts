@@ -57,4 +57,13 @@ export class BeneficiaryAccelerationProfile extends BaseEntity {
 
   @Column({ nullable: true })
   pitchDeckStorageKey?: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  developmentStage!: string | null;
+
+  @Column({ type: 'int', nullable: true })
+  teamSize!: number | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  cacDocumentStorageKey!: string | null;
 }

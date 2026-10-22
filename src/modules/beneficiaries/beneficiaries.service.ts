@@ -3,7 +3,7 @@ import { BulkUpdateBeneficiaryStatusDto } from './dto/bulk-update-beneficiary-st
 import { JwtPayload } from '@/common/interfaces/jwt-payload.interface';
 import { Injectable, ConflictException, UnprocessableEntityException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, QueryFailedError } from 'typeorm';
 import { randomUUID } from 'crypto';
 
 import { Beneficiary } from './entities/beneficiary.entity';
@@ -29,6 +29,14 @@ import {
   totalPagesFor,
 } from '@/modules/applications/admin-applications.query';
 import { checkAcademicStatus } from './academic-status';
+import { hubsShareCourses } from './hub-compatibility';
+import { checkCourseForTier, checkSkillPreference } from './skill-preference';
+import { parseCloudinaryUrl } from '@/modules/storage/cloudinary.client';
+import { sniffFileType } from '@/common/utils/file-sniff';
+
+const PITCH_DECK_FOLDER = 'beneficiaries/pitch-decks';
+const CAC_DOCUMENT_FOLDER = 'beneficiaries/cac-documents';
+const CAC_DOCUMENT_TYPES = new Set(['pdf', 'jpg', 'png', 'webp', 'heic', 'heif']);
 import {
   EsoBeneficiaryAccelerationDto,
   EsoBeneficiaryDto,
@@ -60,6 +68,7 @@ export class BeneficiariesService {
     const qb = this.beneficiaryRepo
       .createQueryBuilder('b')
       .leftJoin('b.assignedInstitution', 'institution')
+      .leftJoin('b.skillsProfile', 'skills')
       .select([
         'b.id',
         'b.referenceId',
@@ -73,10 +82,21 @@ export class BeneficiariesService {
         'b.assignedInstitutionId',
         'b.createdAt',
       ])
-      .addSelect(['institution.id', 'institution.name', 'institution.state']);
+      .addSelect(['institution.id', 'institution.name', 'institution.state'])
+      .addSelect([
+        'skills.id',
+        'skills.skillTier',
+        'skills.specificSkillArea',
+        'skills.experienceLevel',
+        'skills.knowledgeRating',
+      ]);
 
     if (query.status) qb.andWhere('b.status = :status', { status: query.status });
     if (query.pillar) qb.andWhere('b.pillar = :pillar', { pillar: query.pillar });
+    if (query.skillTier) qb.andWhere('skills.skillTier = :skillTier', { skillTier: query.skillTier });
+    if (query.experienceLevel) {
+      qb.andWhere('skills.experienceLevel = :experienceLevel', { experienceLevel: query.experienceLevel });
+    }
     if (query.institutionId) {
       qb.andWhere('b.assignedInstitutionId = :institutionId', {
         institutionId: query.institutionId,
@@ -137,10 +157,21 @@ export class BeneficiariesService {
           skillTier: b.skillsProfile.skillTier,
           specificSkillArea: b.skillsProfile.specificSkillArea,
           priorExperience: b.skillsProfile.priorExperience ?? null,
-          highestEducationLevel: b.skillsProfile.highestEducationLevel,
+          highestEducationLevel: b.skillsProfile.highestEducationLevel ?? b.highestEducationLevel ?? '',
           ownsPersonalDevice: b.skillsProfile.ownsPersonalDevice,
           hasReliableInternet: b.skillsProfile.hasReliableInternet,
           portfolioLink: b.skillsProfile.portfolioLink ?? null,
+          focusArea: b.skillsProfile.focusArea ?? null,
+          preferredSkill: b.skillsProfile.preferredSkill ?? null,
+          experienceLevel: b.skillsProfile.experienceLevel ?? null,
+          knowledgeRating: b.skillsProfile.knowledgeRating ?? null,
+          coursesTaken: b.skillsProfile.coursesTaken ?? null,
+          confidenceRating: b.skillsProfile.confidenceRating ?? null,
+          practicalApplication: b.skillsProfile.practicalApplication ?? null,
+          independence: b.skillsProfile.independence ?? null,
+          deliveryFormat: b.skillsProfile.deliveryFormat ?? null,
+          hasSmartphone: b.skillsProfile.hasSmartphone ?? null,
+          hasBackupPower: b.skillsProfile.hasBackupPower ?? null,
         }
       : null;
 
@@ -175,6 +206,9 @@ export class BeneficiariesService {
           twelveMonthGrowthTarget: b.accelerationProfile.twelveMonthGrowthTarget ?? null,
           liveProductUrl: b.accelerationProfile.liveProductUrl ?? null,
           hasPitchDeck: !!b.accelerationProfile.pitchDeckStorageKey,
+          developmentStage: b.accelerationProfile.developmentStage ?? null,
+          teamSize: b.accelerationProfile.teamSize ?? null,
+          hasCacDocument: !!b.accelerationProfile.cacDocumentStorageKey,
         }
       : null;
 
@@ -189,6 +223,8 @@ export class BeneficiariesService {
       isCurrentStudent: b.isCurrentStudent,
       isRecentGraduate: b.isRecentGraduate,
       academicStatus: b.academicStatus ?? null,
+      employmentStatus: b.employmentStatus ?? null,
+      highestEducationLevel: b.highestEducationLevel ?? b.skillsProfile?.highestEducationLevel ?? null,
       institutionName: b.institutionName ?? null,
       studentMatricNumber: b.studentMatricNumber ?? null,
       pwdAssistiveRequirement: b.pwdAssistiveRequirement ?? null,
@@ -202,6 +238,62 @@ export class BeneficiariesService {
       skillsProfile,
       incubationProfile,
       accelerationProfile,
+    };
+  }
+
+  async getForAdmin(id: string) {
+    const b = await this.beneficiaryRepo.findOne({
+      where: { id },
+      relations: {
+        skillsProfile: true,
+        incubationProfile: true,
+        accelerationProfile: true,
+        preferredInstitution: true,
+        assignedInstitution: true,
+      },
+    });
+    if (!b) throw new NotFoundException('Beneficiary not found');
+    const institutionRef = (institution?: Institution | null) =>
+      institution
+        ? { id: institution.id, name: institution.name, state: institution.state, hubType: institution.hubType }
+        : null;
+    return {
+      ...this.toEsoBeneficiaryDto(b),
+      dateOfBirth: b.dateOfBirth,
+      homeAddress: b.homeAddress,
+      emergencyContactName: b.emergencyContactName ?? null,
+      emergencyContactRelationship: b.emergencyContactRelationship ?? null,
+      emergencyContactPhone: b.emergencyContactPhone ?? null,
+      preferredInstitution: institutionRef(b.preferredInstitution),
+      assignedInstitution: institutionRef(b.assignedInstitution),
+      createdAt: b.createdAt,
+      signedAt: b.signedAt ?? null,
+      ageBracket: b.ageBracket ?? null,
+      commitmentHoursConfirmed: b.commitmentHoursConfirmed ?? null,
+      hasGovernmentIdDocument: !!b.governmentIdStorageKey,
+    };
+  }
+
+  async getDocumentForAdmin(id: string, kind: 'cac-document' | 'pitch-deck' | 'id-document') {
+    let storageKey: string | null | undefined;
+    if (kind === 'id-document') {
+      const beneficiary = await this.beneficiaryRepo.findOne({ where: { id } });
+      storageKey = beneficiary?.governmentIdStorageKey;
+    } else {
+      const profile = await this.dataSource
+        .getRepository(BeneficiaryAccelerationProfile)
+        .findOne({ where: { beneficiaryId: id } });
+      storageKey = kind === 'cac-document' ? profile?.cacDocumentStorageKey : profile?.pitchDeckStorageKey;
+    }
+    if (!storageKey) throw new NotFoundException('No document of this kind is on file for this beneficiary');
+    const buffer = await this.storageService.readFile(storageKey);
+    const sniffed = sniffFileType(buffer);
+    const tail = storageKey.split(/[?#]/)[0].split('/').pop() || kind;
+    const base = decodeURIComponent(tail).replace(/\.[a-z0-9]{1,8}$/i, '');
+    return {
+      buffer,
+      fileName: sniffed ? `${base}.${sniffed.ext}` : decodeURIComponent(tail),
+      contentType: sniffed?.mime ?? 'application/octet-stream',
     };
   }
 
@@ -256,6 +348,16 @@ export class BeneficiariesService {
         .findOne({ where: { id: institutionId, isActive: true } });
       if (!institution) {
         throw new BadRequestException('Institution not found or inactive');
+      }
+      if (beneficiary.pillar === Pillar.SKILLS) {
+        const skills = await this.dataSource
+          .getRepository(BeneficiarySkillsProfile)
+          .findOne({ where: { beneficiaryId: beneficiary.id } });
+        if (skills && !hubsShareCourses(institution.hubType, skills.preferredHubType)) {
+          throw new BadRequestException(
+            `${institution.name} is a ${institution.hubType.toLowerCase()} hub and does not run "${skills.specificSkillArea}", the ${skills.preferredHubType.toLowerCase()} course this person applied for. Allocate them to a ${skills.preferredHubType.toLowerCase()} hub instead.`,
+          );
+        }
       }
       if (institution.beneficiaryCapacity > 0) {
         const allocated = await this.beneficiaryRepo.count({
@@ -326,6 +428,20 @@ export class BeneficiariesService {
     this.validatePillarPayloads(dto);
     const statusProblem = checkAcademicStatus(dto);
     if (statusProblem) throw new BadRequestException(statusProblem);
+    if (!parseCloudinaryUrl(dto.governmentIdStorageKey)) {
+      throw new UnprocessableEntityException('The ID document was not uploaded through this form. Upload it again.');
+    }
+    if (dto.pillar === Pillar.SKILLS && dto.skillsProfile) {
+      const courseProblem = checkCourseForTier(dto.skillsProfile.skillTier, dto.skillsProfile.specificSkillArea);
+      if (courseProblem) throw new UnprocessableEntityException(courseProblem);
+    }
+    if (dto.pillar === Pillar.SKILLS && dto.skillsProfile?.preferredSkill) {
+      const preferred = await this.dataSource.getRepository(Institution).findOne({
+        where: { id: dto.preferredInstitutionId },
+      });
+      const skillProblem = checkSkillPreference(dto.skillsProfile, preferred?.hubType);
+      if (skillProblem) throw new UnprocessableEntityException(skillProblem);
+    }
 
     // ---- 2. Email & NIN Deduplication Check ----
     const existingEmail = await this.beneficiaryRepo.findOne({
@@ -355,91 +471,130 @@ export class BeneficiariesService {
       );
     }
 
+    if (dto.pillar === Pillar.ACCELERATION && dto.accelerationProfile) {
+      const cac = dto.accelerationProfile.cacRegistrationNumber.trim();
+      dto.accelerationProfile.cacRegistrationNumber = cac;
+      const existingCac = await this.dataSource
+        .getRepository(BeneficiaryAccelerationProfile)
+        .createQueryBuilder('profile')
+        .where('LOWER(TRIM(profile.cacRegistrationNumber)) = LOWER(:cac)', { cac })
+        .getCount();
+      if (existingCac > 0) {
+        throw new ConflictException(
+          'A business with this CAC registration number has already applied for acceleration.',
+        );
+      }
+    }
+
     // ---- 3. Geo/Hub Allocation ----
-    const assignedInstitutionId = await this.geoAllocationService.allocateHub(
+    const assignedInstitution = await this.geoAllocationService.allocateHub(
       dto.preferredInstitutionId,
       dto.stateOfResidence,
+      dto.pillar === Pillar.SKILLS ? dto.skillsProfile?.preferredHubType : null,
     );
+    const assignedInstitutionId = assignedInstitution.id;
+    const highestEducationLevel = dto.highestEducationLevel.trim();
 
     // ---- 4. Reference ID Generation ----
     const referenceId = `iDICE-BEN-2026-${randomUUID().slice(0, 8).toUpperCase()}`;
 
     // ---- 5. Database Transaction Execution ----
-    const beneficiary = await this.dataSource.transaction(async (manager) => {
-      // Build core beneficiary entity
-      const beneficiary = manager.create(Beneficiary, {
-        referenceId,
-        fullName: dto.fullName,
-        dateOfBirth: dto.dateOfBirth,
-        gender: dto.gender,
-        phoneNumber: dto.phoneNumber,
-        email: dto.email.toLowerCase().trim(),
-        nin: encryptedNin,
-        ninHash: hashedNin,
-        pwdAssistiveRequirement: dto.pwdAssistiveRequirement,
-        isNeet: dto.isNeet,
-        isCurrentStudent: dto.isCurrentStudent,
-        institutionName: dto.institutionName,
-        studentMatricNumber: dto.studentMatricNumber,
-        isRecentGraduate: dto.isRecentGraduate,
-        academicStatus: dto.academicStatus,
-        emergencyContactName: dto.emergencyContactName,
-        emergencyContactRelationship: dto.emergencyContactRelationship,
-        emergencyContactPhone: dto.emergencyContactPhone,
-        stateOfOrigin: dto.stateOfOrigin,
-        stateOfResidence: dto.stateOfResidence,
-        lga: dto.lga,
-        homeAddress: dto.homeAddress,
-        pillar: dto.pillar,
-        preferredInstitutionId: dto.preferredInstitutionId,
-        assignedInstitutionId,
-        statementOfPurpose: dto.statementOfPurpose,
-        ndprConsentGiven: dto.ndprConsentGiven,
-        codeOfConductAccepted: dto.codeOfConductAccepted,
-        signedAt: new Date(),
-        status: BeneficiaryStatus.SUBMITTED,
-      });
-
-      const savedBeneficiary = await manager.save(beneficiary);
-
-      // Save corresponding dynamic pillar profile
-      if (dto.pillar === Pillar.SKILLS && dto.skillsProfile) {
-        const skillsProfile = manager.create(BeneficiarySkillsProfile, {
-          ...dto.skillsProfile,
-          beneficiaryId: savedBeneficiary.id,
+    let beneficiary: Beneficiary;
+    try {
+      beneficiary = await this.dataSource.transaction(async (manager) => {
+        // Build core beneficiary entity
+        const beneficiary = manager.create(Beneficiary, {
+          referenceId,
+          fullName: dto.fullName,
+          dateOfBirth: dto.dateOfBirth,
+          gender: dto.gender,
+          ageBracket: dto.ageBracket,
+          phoneNumber: dto.phoneNumber,
+          email: dto.email.toLowerCase().trim(),
+          nin: encryptedNin,
+          ninHash: hashedNin,
+          pwdAssistiveRequirement: dto.pwdAssistiveRequirement,
+          isNeet: dto.isNeet,
+          isCurrentStudent: dto.isCurrentStudent,
+          institutionName: dto.institutionName,
+          studentMatricNumber: dto.studentMatricNumber,
+          isRecentGraduate: dto.isRecentGraduate,
+          academicStatus: dto.academicStatus,
+          employmentStatus: dto.employmentStatus,
+          highestEducationLevel,
+          emergencyContactName: dto.emergencyContactName,
+          emergencyContactRelationship: dto.emergencyContactRelationship,
+          emergencyContactPhone: dto.emergencyContactPhone,
+          stateOfOrigin: dto.stateOfOrigin,
+          stateOfResidence: dto.stateOfResidence,
+          lga: dto.lga,
+          homeAddress: dto.homeAddress,
+          pillar: dto.pillar,
+          preferredInstitutionId: dto.preferredInstitutionId,
+          assignedInstitutionId,
+          statementOfPurpose: dto.statementOfPurpose,
+          ndprConsentGiven: dto.ndprConsentGiven,
+          codeOfConductAccepted: dto.codeOfConductAccepted,
+          commitmentHoursConfirmed: dto.commitmentHoursConfirmed ?? null,
+          governmentIdStorageKey: dto.governmentIdStorageKey,
+          signedAt: new Date(),
+          status: BeneficiaryStatus.SUBMITTED,
         });
-        await manager.save(skillsProfile);
-      } else if (dto.pillar === Pillar.INCUBATION && dto.incubationProfile) {
-        const incubationProfile = manager.create(BeneficiaryIncubationProfile, {
-          ...dto.incubationProfile,
-          beneficiaryId: savedBeneficiary.id,
-        });
-        await manager.save(incubationProfile);
-      } else if (
-        dto.pillar === Pillar.ACCELERATION &&
-        dto.accelerationProfile
-      ) {
-        const accelerationProfile = manager.create(
-          BeneficiaryAccelerationProfile,
-          {
-            ...dto.accelerationProfile,
+
+        const savedBeneficiary = await manager.save(beneficiary);
+
+        // Save corresponding dynamic pillar profile
+        if (dto.pillar === Pillar.SKILLS && dto.skillsProfile) {
+          const skillsProfile = manager.create(BeneficiarySkillsProfile, {
+            ...dto.skillsProfile,
+            highestEducationLevel,
             beneficiaryId: savedBeneficiary.id,
-          },
-        );
-        await manager.save(accelerationProfile);
-      }
+          });
+          await manager.save(skillsProfile);
+        } else if (dto.pillar === Pillar.INCUBATION && dto.incubationProfile) {
+          const incubationProfile = manager.create(BeneficiaryIncubationProfile, {
+            ...dto.incubationProfile,
+            beneficiaryId: savedBeneficiary.id,
+          });
+          await manager.save(incubationProfile);
+        } else if (
+          dto.pillar === Pillar.ACCELERATION &&
+          dto.accelerationProfile
+        ) {
+          const accelerationProfile = manager.create(
+            BeneficiaryAccelerationProfile,
+            {
+              ...dto.accelerationProfile,
+              beneficiaryId: savedBeneficiary.id,
+            },
+          );
+          await manager.save(accelerationProfile);
+        }
 
-      // Re-fetch complete beneficiary with relations
-      return await manager.findOneOrFail(Beneficiary, {
-        where: { id: savedBeneficiary.id },
-        relations: {
-          skillsProfile: true,
-          incubationProfile: true,
-          accelerationProfile: true,
-          preferredInstitution: true,
-        },
+        // Re-fetch complete beneficiary with relations
+        return await manager.findOneOrFail(Beneficiary, {
+          where: { id: savedBeneficiary.id },
+          relations: {
+            skillsProfile: true,
+            incubationProfile: true,
+            accelerationProfile: true,
+            preferredInstitution: true,
+          },
+        });
       });
-    });
+    } catch (error) {
+      if (error instanceof QueryFailedError && (error as unknown as { code?: string }).code === '23505') {
+        const detail = String((error as unknown as { detail?: string }).detail ?? '');
+        throw new ConflictException(
+          /cacRegistrationNumber/i.test(detail)
+            ? 'A business with this CAC registration number has already applied for acceleration.'
+            : /ninHash/i.test(detail)
+              ? 'An application with this National Identification Number (NIN) has already been submitted.'
+              : 'An application with this email address has already been submitted.',
+        );
+      }
+      throw error;
+    }
 
     // Sent after the transaction commits, not inside it — a confirmation email
     // failing (e.g. the mail provider being briefly unavailable) shouldn't roll back
@@ -476,11 +631,29 @@ export class BeneficiariesService {
 
     const storageKey = await this.storageService.uploadFile(
       file.buffer,
-      'beneficiaries/pitch-decks',
+      PITCH_DECK_FOLDER,
       file.originalname,
     );
 
     return { storageKey };
+  }
+
+  async uploadCacDocument(file: Express.Multer.File): Promise<{ storageKey: string; fileName: string; contentType: string }> {
+    if (!file?.buffer?.length) throw new BadRequestException('Attach the CAC certificate to upload');
+    if (file.size > 10 * 1024 * 1024) {
+      throw new BadRequestException('The CAC document must not be larger than 10MB');
+    }
+    const sniffed = sniffFileType(file.buffer);
+    if (!sniffed || !CAC_DOCUMENT_TYPES.has(sniffed.ext)) {
+      throw new BadRequestException('Upload the CAC certificate as a PDF or a clear photo (JPEG, PNG, WebP or HEIC).');
+    }
+    const stored = await this.storageService.uploadEvidence(
+      file.buffer,
+      CAC_DOCUMENT_FOLDER,
+      file.originalname,
+      sniffed.mime,
+    );
+    return { storageKey: stored.storageKey, fileName: stored.fileName, contentType: stored.contentType };
   }
 
   private validatePillarPayloads(dto: CreateBeneficiaryDto): void {
@@ -493,6 +666,11 @@ export class BeneficiariesService {
       if (dto.incubationProfile || dto.accelerationProfile) {
         throw new UnprocessableEntityException(
           'Cannot submit incubationProfile or accelerationProfile when Pillar is SKILLS.',
+        );
+      }
+      if (dto.commitmentHoursConfirmed !== true) {
+        throw new UnprocessableEntityException(
+          'Confirm that you can commit 10–15 hours a week to training sessions and assignments.',
         );
       }
     }
@@ -522,7 +700,16 @@ export class BeneficiariesService {
         );
       }
 
-      const { liveProductUrl, pitchDeckStorageKey } = dto.accelerationProfile;
+      const { liveProductUrl, pitchDeckStorageKey, cacDocumentStorageKey } = dto.accelerationProfile;
+      if (pitchDeckStorageKey && !parseCloudinaryUrl(pitchDeckStorageKey) && !pitchDeckStorageKey.includes(PITCH_DECK_FOLDER)) {
+        throw new UnprocessableEntityException('The pitch deck was not uploaded through this form. Upload it again.');
+      }
+      if (
+        !cacDocumentStorageKey ||
+        (!parseCloudinaryUrl(cacDocumentStorageKey) && !cacDocumentStorageKey.includes(CAC_DOCUMENT_FOLDER))
+      ) {
+        throw new UnprocessableEntityException('Upload your CAC registration certificate before submitting.');
+      }
       if (!liveProductUrl && !pitchDeckStorageKey) {
         throw new UnprocessableEntityException({
           statusCode: 422,

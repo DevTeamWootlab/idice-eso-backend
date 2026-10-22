@@ -3,11 +3,16 @@ import {
   Controller,
   Get,
   Param,
+  ParseEnumPipe,
   ParseUUIDPipe,
   Patch,
   Post,
   Query,
+  Res,
+  StreamableFile,
 } from '@nestjs/common';
+import type { Response } from 'express';
+import { contentDisposition } from '@/common/utils/content-disposition';
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiOkResponse } from '@nestjs/swagger';
 import { Roles } from '@/common/decorators/roles.decorator';
 import { Role } from '@/common/enums/role.enum';
@@ -18,6 +23,8 @@ import { BulkUpdateBeneficiaryStatusDto } from './dto/bulk-update-beneficiary-st
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { JwtPayload } from '@/common/interfaces/jwt-payload.interface';
 import { BeneficiaryListDto, BeneficiarySummaryDto } from './dto/beneficiary-responses.dto';
+
+const BENEFICIARY_DOCUMENT_KINDS = { CAC_DOCUMENT: 'cac-document', PITCH_DECK: 'pitch-deck', ID_DOCUMENT: 'id-document' } as const;
 
 @ApiTags('Beneficiaries (SYSADMIN)')
 @ApiBearerAuth()
@@ -62,5 +69,37 @@ export class InternalBeneficiariesController {
     @Body() dto: UpdateBeneficiaryStatusDto,
   ) {
     return this.beneficiariesService.updateStatusForAdmin(id, dto);
+  }
+
+  @ApiOperation({
+    summary: 'Get one beneficiary',
+    description:
+      'Requires role: ROLE_SYSADMIN. Full intake answers, the Centre of Excellence they chose and the one they are attached to. Never returns NIN data.',
+  })
+  @ApiOkResponse({ description: 'The beneficiary record' })
+  @Get(':id')
+  getOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.beneficiariesService.getForAdmin(id);
+  }
+
+  @ApiOperation({
+    summary: "Download a beneficiary's CAC certificate, pitch deck or government-issued ID document",
+    description: 'Requires role: ROLE_SYSADMIN.',
+  })
+  @ApiOkResponse({ description: 'The file itself' })
+  @Get(':id/documents/:kind')
+  async document(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('kind', new ParseEnumPipe(BENEFICIARY_DOCUMENT_KINDS)) kind: 'cac-document' | 'pitch-deck' | 'id-document',
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const file = await this.beneficiariesService.getDocumentForAdmin(id, kind);
+    res.set({
+      'Content-Type': file.contentType,
+      'Content-Disposition': contentDisposition(file.fileName),
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'private, no-store',
+    });
+    return new StreamableFile(file.buffer);
   }
 }

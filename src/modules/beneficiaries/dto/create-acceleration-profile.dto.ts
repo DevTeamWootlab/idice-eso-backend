@@ -9,7 +9,11 @@ import {
   Min,
   Max,
   IsNotEmpty,
+  IsEnum,
+  IsInt,
+  MaxLength,
 } from 'class-validator';
+import { AccelerationStage } from '@/common/enums/beneficiary.enum';
 
 export class CreateAccelerationProfileDto {
   @ApiProperty({ example: 'PayNexus Logistics Ltd' })
@@ -91,8 +95,30 @@ export class CreateAccelerationProfileDto {
   @IsUrl()
   liveProductUrl?: string;
 
-  @ApiPropertyOptional({ example: 'beneficiaries/pitch-decks/deck-123.pdf' })
+  @ApiPropertyOptional({
+    example: 'https://res.cloudinary.com/demo/raw/upload/v1/beneficiary-documents/submission_1/deck.pdf',
+    description: 'Cloudinary secure URL of the uploaded pitch deck, or a key returned by POST /beneficiaries/pitch-deck',
+  })
   @IsOptional()
   @IsString()
   pitchDeckStorageKey?: string;
+
+  @ApiProperty({ enum: AccelerationStage, example: AccelerationStage.EARLY_REVENUE })
+  @IsEnum(AccelerationStage)
+  developmentStage!: AccelerationStage;
+
+  @ApiProperty({ example: 4, description: 'Total team members including co-founders' })
+  @IsInt()
+  @Min(1)
+  @Max(10000)
+  teamSize!: number;
+
+  @ApiProperty({
+    example: 'https://res.cloudinary.com/demo/raw/upload/v1/idice-eso/beneficiaries/cac-documents/x-cac.pdf',
+    description: 'Cloudinary secure URL of the uploaded CAC certificate, or a key returned by POST /beneficiaries/cac-document',
+  })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(1000)
+  cacDocumentStorageKey!: string;
 }

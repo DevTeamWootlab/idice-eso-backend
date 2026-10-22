@@ -37,6 +37,9 @@ export class Beneficiary extends BaseEntity {
   @Column({ type: 'enum', enum: Gender })
   gender!: Gender;
 
+  @Column({ type: 'varchar', nullable: true })
+  ageBracket!: string | null;
+
   @Column()
   phoneNumber!: string;
 
@@ -74,6 +77,12 @@ export class Beneficiary extends BaseEntity {
   // Set when the youth is allocated to a Centre of Excellence (drives the PCU period filter).
   @Column({ type: 'timestamptz', nullable: true })
   allocatedAt!: Date | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  employmentStatus!: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  highestEducationLevel!: string | null;
 
   @Column({ nullable: true })
   emergencyContactName?: string;
@@ -121,6 +130,12 @@ export class Beneficiary extends BaseEntity {
 
   @Column({ default: false })
   codeOfConductAccepted!: boolean;
+
+  @Column({ type: 'boolean', nullable: true })
+  commitmentHoursConfirmed!: boolean | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  governmentIdStorageKey!: string | null;
 
   @Column({ type: 'timestamptz', nullable: true })
   signedAt?: Date;

@@ -11,13 +11,14 @@ import { ReviewerAssignment } from '../applications/entities/reviewer-assignment
 import { ApplicationsStateMachineService } from '../applications/applications-state-machine.service';
 import { ApplicationStatus } from '@/common/enums/application.enum';
 import { ReviewerQueueType } from '@/common/enums/reviewer.enum';
-import { SubmitScoreDto } from './dto/submit-score.dto';
+import { ReviseScoreDto, SubmitScoreDto } from './dto/submit-score.dto';
 import { AuditLogService } from '@/modules/audit-log/audit-log.service';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
 import { RUBRIC_DIMENSIONS, compositePercent, resolveWeights, validateWeightsInput, RubricWeights, toValidPercent, averageOfPercents } from './scoring-weights';
 import { Role } from '@/common/enums/role.enum';
 import { applicationLabel } from '../applications/application-label';
 import { User } from '@/modules/users/entities/user.entity';
+import { Match, MatchStatus } from '@/modules/matching/entities/match.entity';
 
 import {
   PaginationQueryDto,
@@ -26,6 +27,30 @@ import {
 
 const VARIANCE_THRESHOLD = 15; // percentage points
 const QUALIFICATION_THRESHOLD = 70.0; // percent
+
+const SCORE_FIELDS = [
+  'localPresenceScore',
+  'teamExpertiseScore',
+  'incubationExperienceScore',
+  'credibilityGovernanceScore',
+  'deliveryTrackRecordScore',
+  'institutionalAlignmentScore',
+] as const;
+
+const REVISABLE_STATUSES: ApplicationStatus[] = [
+  ApplicationStatus.IN_REVIEW_SCORING,
+  ApplicationStatus.PENDING_VALIDATION,
+  ApplicationStatus.SHORTLISTED,
+  ApplicationStatus.PENDING_ECOSYSTEM_VALIDATION,
+  ApplicationStatus.VALIDATED_SHORTLISTED,
+  ApplicationStatus.REJECTED,
+];
+
+const SHORTLIST_STAGE: ApplicationStatus[] = [
+  ApplicationStatus.SHORTLISTED,
+  ApplicationStatus.PENDING_ECOSYSTEM_VALIDATION,
+  ApplicationStatus.VALIDATED_SHORTLISTED,
+];
 
 @Injectable()
 export class ScoringService {
@@ -300,6 +325,267 @@ export class ScoringService {
       reviewerId,
       application.primaryContactEmail,
     );
+  }
+
+  async getRevisionState(applicationId: string, reviewerId: string) {
+    await this.assertAssigned(applicationId, reviewerId);
+    const application = await this.applicationRepo.findOne({
+      where: { id: applicationId },
+      select: { id: true, status: true },
+    });
+    if (!application) throw new NotFoundException('Application not found');
+    const card = await this.scoreCardRepo.findOne({ where: { applicationId, reviewerId } });
+    const submittedCount = await this.scoreCardRepo.count({ where: { applicationId, submitted: true } });
+    const problem = this.revisionProblem(application.status, !!card?.submitted, submittedCount);
+    return { canRevise: problem === null, reason: problem, status: application.status };
+  }
+
+  private revisionProblem(status: ApplicationStatus, hasSubmitted: boolean, submittedCount: number): string | null {
+    if (!hasSubmitted) return 'You have not submitted a score for this application yet.';
+    if (status === ApplicationStatus.MATCHED) {
+      return 'This application has already been matched to a Centre of Excellence, so its scores are locked.';
+    }
+    if (!REVISABLE_STATUSES.includes(status)) {
+      return `This application is ${status} and its scores can no longer be changed.`;
+    }
+    if (status === ApplicationStatus.REJECTED && submittedCount < 2) {
+      return 'This application was not rejected at the scoring stage, so there is no score to revise.';
+    }
+    return null;
+  }
+
+  async reviseScore(applicationId: string, reviewerId: string, dto: ReviseScoreDto) {
+    const assignment = await this.assertAssigned(applicationId, reviewerId);
+    const application = await this.applicationRepo.findOne({ where: { id: applicationId } });
+    if (!application) throw new NotFoundException('Application not found');
+
+    const card = await this.scoreCardRepo.findOne({ where: { applicationId, reviewerId } });
+    const submittedCards = await this.scoreCardRepo.find({ where: { applicationId, submitted: true } });
+    const problem = this.revisionProblem(application.status, !!card?.submitted, submittedCards.length);
+    if (problem || !card) throw new BadRequestException(problem ?? 'Score card not found');
+
+    const reason = (dto.reason ?? '').trim();
+    if (reason.length < 10) {
+      throw new BadRequestException('Explain the change in at least 10 characters');
+    }
+
+    const weights = await this.loadWeights();
+    const compositePercentage = toValidPercent(this.calculateComposite(dto, weights));
+    if (compositePercentage === null) {
+      throw new BadRequestException(
+        'The composite score could not be calculated from the revised dimension scores. Check that all six dimensions have a score between 0 and 5.',
+      );
+    }
+
+    const before = {
+      ...Object.fromEntries(SCORE_FIELDS.map((field) => [field, Number(card[field])])),
+      comments: card.comments ?? null,
+      compositePercentage: toValidPercent(card.compositePercentage),
+    };
+    const nextComments = dto.comments === undefined ? (card.comments ?? null) : dto.comments || null;
+    const unchanged =
+      SCORE_FIELDS.every((field) => Number(card[field]) === Number(dto[field])) &&
+      (card.comments ?? null) === nextComments;
+    if (unchanged) {
+      throw new BadRequestException('The revised score is the same as the one already submitted');
+    }
+
+    const other = submittedCards.find((c) => c.id !== card.id) ?? null;
+    if (other && application.status === ApplicationStatus.VALIDATED_SHORTLISTED) {
+      const otherScore = toValidPercent(other.compositePercentage);
+      if (otherScore !== null && Math.abs(otherScore - compositePercentage) > VARIANCE_THRESHOLD) {
+        throw new BadRequestException(
+          `This application has already passed field validation. The revised score would differ from the other reviewer's by more than ${VARIANCE_THRESHOLD} points, which would need a fresh reconciliation. Keep the two scores within ${VARIANCE_THRESHOLD} points or ask the administrator to review it.`,
+        );
+      }
+    }
+
+    for (const field of SCORE_FIELDS) card[field] = dto[field];
+    card.comments = nextComments as string;
+    card.compositePercentage = compositePercentage;
+    card.submitted = true;
+    await this.scoreCardRepo.save(card);
+    if (!assignment.completed) {
+      assignment.completed = true;
+      await this.assignmentRepo.save(assignment);
+    }
+
+    await this.auditLogService.record({
+      actorId: reviewerId,
+      actorRole: 'ROLE_SCORING_REVIEWER',
+      action: 'SCORE_REVISED',
+      entityType: 'Application',
+      entityId: applicationId,
+      metadata: other
+        ? {
+            reviewerSlot: card.reviewerSlot,
+            reason,
+            statusBefore: application.status,
+            before,
+            after: {
+              ...Object.fromEntries(SCORE_FIELDS.map((field) => [field, Number(dto[field])])),
+              comments: nextComments,
+              compositePercentage,
+            },
+          }
+        : { reviewerSlot: card.reviewerSlot, reason, statusBefore: application.status },
+    });
+
+    if (!other) {
+      return { message: 'Your revised score is saved. Awaiting the second reviewer.', status: application.status };
+    }
+    if (application.status === ApplicationStatus.IN_REVIEW_SCORING) {
+      return this.tryFinalize(applicationId, reviewerId, application.primaryContactEmail);
+    }
+    return this.applyRevisedOutcome(application, card, other, reviewerId, reason);
+  }
+
+  private async applyRevisedOutcome(
+    application: Application,
+    mine: ScoreCard,
+    other: ScoreCard,
+    actorId: string,
+    reason: string,
+  ) {
+    const applicationId = application.id;
+    const [first, second] = [mine, other].sort((a, b) => (a.reviewerSlot ?? 0) - (b.reviewerSlot ?? 0));
+    const r1 = toValidPercent(first.compositePercentage);
+    const r2 = toValidPercent(second.compositePercentage);
+    if (r1 === null || r2 === null) {
+      return this.blockFinalization(applicationId, actorId, 'A submitted score card has a missing or invalid composite percentage.', {
+        reviewer1Score: String(first.compositePercentage),
+        reviewer2Score: String(second.compositePercentage),
+      });
+    }
+    const variance = Math.round(Math.abs(r1 - r2) * 100) / 100;
+    const statusBefore = application.status;
+    const label = applicationLabel(application);
+    const href = `/internal/applications/${applicationId}`;
+
+    if (variance > VARIANCE_THRESHOLD) {
+      await this.applicationRepo.update(
+        { id: applicationId },
+        { finalScorePercent: null, scoreVarianceFlagged: true, scoringIntegrityError: null },
+      );
+      await this.stateMachine.applyScoreRevision(applicationId, ApplicationStatus.PENDING_VALIDATION);
+      await this.auditLogService.record({
+        actorId,
+        actorRole: 'ROLE_SCORING_REVIEWER',
+        action: 'SCORE_VARIANCE_ESCALATED',
+        entityType: 'Application',
+        entityId: applicationId,
+        metadata: { reviewer1Score: r1, reviewer2Score: r2, variance, revised: true, statusBefore },
+      });
+      if (statusBefore !== ApplicationStatus.PENDING_VALIDATION) {
+        await this.notificationsService.notifyRole(
+          Role.SYSADMIN,
+          'Revised score sent for reconciliation',
+          `${label}: a reviewer revised their score and the two scores now differ by ${variance} points. It has moved to the validator for reconciliation.`,
+          href,
+        );
+      }
+      return {
+        message: `Revised score saved. The two scores now differ by more than ${VARIANCE_THRESHOLD} points, so the application has gone to the Lead Evaluator for reconciliation.`,
+        variance,
+        status: ApplicationStatus.PENDING_VALIDATION,
+      };
+    }
+
+    const averageScore = averageOfPercents(r1, r2);
+    if (averageScore === null) {
+      return this.blockFinalization(applicationId, actorId, 'The average of the two composite scores could not be calculated.', {
+        reviewer1Score: r1,
+        reviewer2Score: r2,
+      });
+    }
+
+    if (averageScore >= QUALIFICATION_THRESHOLD) {
+      await this.applicationRepo.update(
+        { id: applicationId },
+        { finalScorePercent: averageScore, scoreVarianceFlagged: false, scoringIntegrityError: null },
+      );
+      const moved = !SHORTLIST_STAGE.includes(statusBefore);
+      if (moved) await this.stateMachine.applyScoreRevision(applicationId, ApplicationStatus.SHORTLISTED);
+      if (statusBefore === ApplicationStatus.VALIDATED_SHORTLISTED) {
+        await this.applicationRepo.manager
+          .getRepository(Match)
+          .delete({ applicationId, status: MatchStatus.GENERATED });
+      }
+      await this.auditLogService.record({
+        actorId,
+        actorRole: 'ROLE_SCORING_REVIEWER',
+        action: 'SCORE_FINALIZED_SHORTLISTED',
+        entityType: 'Application',
+        entityId: applicationId,
+        metadata: { averageScore, reviewer1Score: r1, reviewer2Score: r2, revised: true, statusBefore, reason },
+      });
+      if (moved) {
+        if (application.primaryContactEmail) {
+          await this.notificationsService.sendShortlistedNotification(
+            application.primaryContactEmail,
+            averageScore,
+            application.applicationRef,
+          );
+        }
+        await this.notificationsService.notifyRole(
+          Role.SYSADMIN,
+          'Revised score shortlisted an application',
+          `${label} was ${statusBefore === ApplicationStatus.REJECTED ? 'rejected' : 'awaiting reconciliation'} and is now shortlisted at ${averageScore}% after a reviewer revised their score.`,
+          href,
+        );
+      }
+      return {
+        message: moved
+          ? `Revised score saved. The new average is ${averageScore}%, so the application is now shortlisted and goes to field validation.`
+          : statusBefore === ApplicationStatus.VALIDATED_SHORTLISTED
+            ? `Revised score saved. The new average is ${averageScore}% and the application stays shortlisted. Any match proposed for it was cleared, so run matching again before approving.`
+            : `Revised score saved. The new average is ${averageScore}% and the application stays shortlisted.`,
+        averageScore,
+        status: moved ? ApplicationStatus.SHORTLISTED : statusBefore,
+      };
+    }
+
+    await this.applicationRepo.update(
+      { id: applicationId },
+      { finalScorePercent: averageScore, scoreVarianceFlagged: false, scoringIntegrityError: null },
+    );
+    const moved = statusBefore !== ApplicationStatus.REJECTED;
+    if (moved) {
+      await this.stateMachine.applyScoreRevision(applicationId, ApplicationStatus.REJECTED);
+      await this.applicationRepo.manager
+        .getRepository(Match)
+        .delete({ applicationId, status: MatchStatus.GENERATED });
+    }
+    await this.auditLogService.record({
+      actorId,
+      actorRole: 'ROLE_SCORING_REVIEWER',
+      action: 'SCORE_FINALIZED_REJECTED',
+      entityType: 'Application',
+      entityId: applicationId,
+      metadata: { averageScore, reason: 'Below 70% qualification threshold', revised: true, statusBefore, revisionReason: reason },
+    });
+    if (moved) {
+      if (application.primaryContactEmail) {
+        await this.notificationsService.sendDisqualificationNotification(
+          application.primaryContactEmail,
+          `Composite technical score of ${averageScore}% did not meet the 70% qualification threshold.`,
+          application.applicationRef,
+        );
+      }
+      await this.notificationsService.notifyRole(
+        Role.SYSADMIN,
+        'Revised score rejected an application',
+        `${label} dropped to ${averageScore}% after a reviewer revised their score and is now rejected.`,
+        href,
+      );
+    }
+    return {
+      message: moved
+        ? `Revised score saved. The new average is ${averageScore}%, below the 70% threshold, so the application is now rejected.`
+        : `Revised score saved. The new average is ${averageScore}%, still below the 70% threshold.`,
+      averageScore,
+      status: ApplicationStatus.REJECTED,
+    };
   }
 
   private calculateComposite(

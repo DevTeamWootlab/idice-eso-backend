@@ -19,6 +19,7 @@ import {
 import { ScoringService } from './scoring.service';
 import {
   PaginatedCompletedQueueResponseDto,
+  ReviseScoreDto,
   SubmitScoreDto,
 } from './dto/submit-score.dto';
 import { Roles } from '@/common/decorators/roles.decorator';
@@ -144,5 +145,35 @@ export class ScoringController {
     @Body() dto: SubmitScoreDto,
   ) {
     return this.scoringService.submitScore(id, user.sub, dto);
+  }
+
+  @ApiOkResponse({ description: 'Whether I can still revise my submitted score.' })
+  @ApiOperation({
+    summary: 'Check whether my submitted score can be revised',
+    description: 'Requires role: ROLE_SCORING_REVIEWER',
+  })
+  @Get(':id/scoring/revision')
+  getRevisionState(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.scoringService.getRevisionState(id, user.sub);
+  }
+
+  @ApiCreatedResponse({ description: 'Revise my submitted score card.' })
+  @ApiOperation({
+    summary: 'Revise my submitted score card',
+    description:
+      'Requires role: ROLE_SCORING_REVIEWER. Allowed until the application is matched. A reason is required and ' +
+      'the change is audit-logged. Once both reviewers have scored, the final score is recalculated and the ' +
+      'application moves to shortlisted, rejected or reconciliation according to the usual 70% and 15-point rules.',
+  })
+  @Post(':id/scoring/revise')
+  reviseScore(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReviseScoreDto,
+  ) {
+    return this.scoringService.reviseScore(id, user.sub, dto);
   }
 }

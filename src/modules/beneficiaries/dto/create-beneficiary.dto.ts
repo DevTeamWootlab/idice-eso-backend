@@ -11,9 +11,10 @@ import {
   ValidateIf,
   Matches,
   IsNotEmpty,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { Pillar, Gender, StateOfNigeria, AcademicStatus } from '@/common/enums/beneficiary.enum';
+import { Pillar, Gender, StateOfNigeria, AcademicStatus, EmploymentStatus, AgeBracket } from '@/common/enums/beneficiary.enum';
 import { MaxWords } from '@/common/validators/max-word.validator';
 
 import { CreateSkillsProfileDto } from './create-skills-profile.dto';
@@ -35,6 +36,23 @@ export class CreateBeneficiaryDto {
   @ApiProperty({ enum: Gender, example: Gender.MALE })
   @IsEnum(Gender)
   gender!: Gender;
+
+  @ApiProperty({
+    enum: AgeBracket,
+    example: AgeBracket.FROM_18_TO_35,
+    description: 'Age group the applicant selected. Eligibility is still decided from dateOfBirth.',
+  })
+  @IsEnum(AgeBracket)
+  ageBracket!: AgeBracket;
+
+  @ApiProperty({
+    example: 'https://res.cloudinary.com/demo/image/upload/v1/beneficiary-documents/submission_1/id.jpg',
+    description: 'Cloudinary secure URL of the uploaded government-issued ID card or birth certificate.',
+  })
+  @Matches(/^https:\/\/res\.cloudinary\.com\/\S{1,480}$/, {
+    message: 'Upload a government-issued ID card or birth certificate before submitting.',
+  })
+  governmentIdStorageKey!: string;
 
   @ApiProperty({ example: '+2348012345678' })
   @Matches(/^\+234\d{10}$/, {
@@ -87,10 +105,26 @@ export class CreateBeneficiaryDto {
   @ApiProperty({
     enum: AcademicStatus,
     example: AcademicStatus.RECENT_GRADUATE,
-    description: 'Academic / employment status — compulsory. Must agree with isCurrentStudent, isRecentGraduate and isNeet (OTHER = none of them).',
+    description:
+      'Academic status: STUDENT, RECENT_GRADUATE or OTHER (not currently in school). isCurrentStudent and isRecentGraduate must agree with it.',
   })
   @IsEnum(AcademicStatus)
   academicStatus!: AcademicStatus;
+
+  @ApiProperty({
+    enum: EmploymentStatus,
+    example: EmploymentStatus.UNEMPLOYED,
+    description:
+      'Employment status, asked separately from academic status. isNeet must be true only when the applicant is not a student and is UNEMPLOYED.',
+  })
+  @IsEnum(EmploymentStatus)
+  employmentStatus!: EmploymentStatus;
+
+  @ApiProperty({ example: 'BSc/BA', description: 'Highest education level, asked of every applicant' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(80)
+  highestEducationLevel!: string;
 
   @ApiPropertyOptional({ example: 'Mary Doe' })
   @IsOptional()
@@ -151,6 +185,14 @@ export class CreateBeneficiaryDto {
   @ApiProperty({ example: true })
   @IsBoolean()
   codeOfConductAccepted!: boolean;
+
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Required and must be true for the SKILLS pillar: the applicant confirms they can commit 10–15 hours a week to training.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  commitmentHoursConfirmed?: boolean;
 
   // ---- Dynamic Pillar Profile Payload ----
   @ApiPropertyOptional({ type: CreateSkillsProfileDto })

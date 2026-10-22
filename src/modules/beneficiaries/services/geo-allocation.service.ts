@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Institution } from '@/modules/institutions/entities/institution.entity';
 import { StateOfNigeria } from '@/common/enums/beneficiary.enum';
+import { hubsShareCourses, sameState } from '../hub-compatibility';
 
 @Injectable()
 export class GeoAllocationService {
@@ -11,32 +12,35 @@ export class GeoAllocationService {
     private readonly institutionRepository: Repository<Institution>,
   ) {}
 
-  /**
-   * Resolves and assigns the optimal ESO host institution for an applicant
-   */
   async allocateHub(
     preferredInstitutionId: string,
     stateOfResidence: StateOfNigeria,
-  ): Promise<string> {
-    // 1. Verify preferred institution existence & eligibility
+    requiredHubType?: string | null,
+  ): Promise<Institution> {
     const preferred = await this.institutionRepository.findOne({
       where: { id: preferredInstitutionId, isActive: true },
     });
-
     if (preferred) {
-      return preferred.id;
+      if (requiredHubType && !hubsShareCourses(preferred.hubType, requiredHubType)) {
+        throw new BadRequestException(
+          `${preferred.name} does not run the course you selected. Go back, choose the Centre of Excellence again and pick a course from its list.`,
+        );
+      }
+      return preferred;
     }
 
-    // 2. Fallback: Allocate to an active institution within the applicant's state of residence
-    const fallbackInstitution = await this.institutionRepository.findOne({
-      where: { state: stateOfResidence, isActive: true },
+    const active = await this.institutionRepository.find({
+      where: { isActive: true },
+      order: { name: 'ASC' },
     });
+    const inState = active.filter((institution) => sameState(institution.state, stateOfResidence));
+    const fallback = requiredHubType
+      ? inState.find((institution) => hubsShareCourses(institution.hubType, requiredHubType))
+      : inState[0];
+    if (fallback) return fallback;
 
-    if (fallbackInstitution) {
-      return fallbackInstitution.id;
-    }
-
-    // 3. Fallback: Return preferred ID if no fallback exists yet in DB
-    return preferredInstitutionId;
+    throw new BadRequestException(
+      'The Centre of Excellence you selected is no longer taking applications. Choose another one from the list.',
+    );
   }
 }

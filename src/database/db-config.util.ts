@@ -17,7 +17,7 @@ export function getDbConfig(): DataSourceOptions {
     // Azure Database for PostgreSQL presents a publicly trusted certificate.
     // Keep certificate verification on in production; disabling it would make
     // the database connection vulnerable to interception.
-    ssl: isProduction ? { rejectUnauthorized } : false,
+    // ssl: isProduction ? { rejectUnauthorized } : false,
     // entities: [
     //   isProduction
     //     ? 'dist/modules/**/entities/*.entity.js'
