@@ -80,7 +80,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Sign in with email and password',
     description:
-      'Public. Returns access and refresh tokens; internal roles (and ESOs with two-factor on) instead receive `mfaRequired` or `mfaSetupRequired` with a short-lived token to complete sign-in.',
+      'Public. Returns access and refresh tokens after the email and password are verified. Two-factor authentication is not required at sign-in.',
   })
   @Public()
   @Throttle({ default: { limit: 5, ttl: 60000 } })

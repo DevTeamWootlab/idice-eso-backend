@@ -10,7 +10,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { BeneficiaryStatus, Pillar } from '@/common/enums/beneficiary.enum';
+import { BeneficiaryStatus, ExperienceLevel, Pillar, TrainingTier } from '@/common/enums/beneficiary.enum';
 
 const blankToUndefined = ({ value }: { value: unknown }) =>
   typeof value === 'string' && value.trim() === '' ? undefined : value;
@@ -34,6 +34,24 @@ export class ListBeneficiariesDto {
   @Transform(blankToUndefined)
   @IsEnum(Pillar)
   pillar?: Pillar;
+
+  @ApiPropertyOptional({
+    enum: TrainingTier,
+    description: 'Course level the youth applied for (Digital and Creative Skills pillar only)',
+  })
+  @IsOptional()
+  @Transform(blankToUndefined)
+  @IsEnum(TrainingTier)
+  skillTier?: TrainingTier;
+
+  @ApiPropertyOptional({
+    enum: ExperienceLevel,
+    description: 'Self-reported experience level (Digital and Creative Skills pillar only)',
+  })
+  @IsOptional()
+  @Transform(blankToUndefined)
+  @IsEnum(ExperienceLevel)
+  experienceLevel?: ExperienceLevel;
 
   @ApiPropertyOptional({ description: 'Assigned institution (CoE) ID' })
   @IsOptional()

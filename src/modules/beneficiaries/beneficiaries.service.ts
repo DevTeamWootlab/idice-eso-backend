@@ -30,7 +30,7 @@ import {
 } from '@/modules/applications/admin-applications.query';
 import { checkAcademicStatus } from './academic-status';
 import { hubsShareCourses } from './hub-compatibility';
-import { checkSkillPreference } from './skill-preference';
+import { checkCourseForTier, checkSkillPreference } from './skill-preference';
 import { parseCloudinaryUrl } from '@/modules/storage/cloudinary.client';
 import { sniffFileType } from '@/common/utils/file-sniff';
 
@@ -68,6 +68,7 @@ export class BeneficiariesService {
     const qb = this.beneficiaryRepo
       .createQueryBuilder('b')
       .leftJoin('b.assignedInstitution', 'institution')
+      .leftJoin('b.skillsProfile', 'skills')
       .select([
         'b.id',
         'b.referenceId',
@@ -81,10 +82,21 @@ export class BeneficiariesService {
         'b.assignedInstitutionId',
         'b.createdAt',
       ])
-      .addSelect(['institution.id', 'institution.name', 'institution.state']);
+      .addSelect(['institution.id', 'institution.name', 'institution.state'])
+      .addSelect([
+        'skills.id',
+        'skills.skillTier',
+        'skills.specificSkillArea',
+        'skills.experienceLevel',
+        'skills.knowledgeRating',
+      ]);
 
     if (query.status) qb.andWhere('b.status = :status', { status: query.status });
     if (query.pillar) qb.andWhere('b.pillar = :pillar', { pillar: query.pillar });
+    if (query.skillTier) qb.andWhere('skills.skillTier = :skillTier', { skillTier: query.skillTier });
+    if (query.experienceLevel) {
+      qb.andWhere('skills.experienceLevel = :experienceLevel', { experienceLevel: query.experienceLevel });
+    }
     if (query.institutionId) {
       qb.andWhere('b.assignedInstitutionId = :institutionId', {
         institutionId: query.institutionId,
@@ -418,6 +430,10 @@ export class BeneficiariesService {
     if (statusProblem) throw new BadRequestException(statusProblem);
     if (!parseCloudinaryUrl(dto.governmentIdStorageKey)) {
       throw new UnprocessableEntityException('The ID document was not uploaded through this form. Upload it again.');
+    }
+    if (dto.pillar === Pillar.SKILLS && dto.skillsProfile) {
+      const courseProblem = checkCourseForTier(dto.skillsProfile.skillTier, dto.skillsProfile.specificSkillArea);
+      if (courseProblem) throw new UnprocessableEntityException(courseProblem);
     }
     if (dto.pillar === Pillar.SKILLS && dto.skillsProfile?.preferredSkill) {
       const preferred = await this.dataSource.getRepository(Institution).findOne({
