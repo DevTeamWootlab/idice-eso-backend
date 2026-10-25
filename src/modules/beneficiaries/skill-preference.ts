@@ -59,8 +59,26 @@ export const COURSES_BY_TIER: Record<string, string[]> = {
   ],
 };
 
-export function checkCourseForTier(skillTier: string, course: string): string | null {
-  const courses = COURSES_BY_TIER[skillTier];
+export const VR_COURSES_BY_TIER: Record<string, string[]> = {
+  FOUNDATIONAL: ['Foundation of VR and Immersive 3D Creation'],
+  INTERMEDIATE: ['3D Assets, Animation and Engine Programming'],
+  ADVANCED: ['Advanced VR Engineering and XR Development Mastery'],
+};
+
+export const GAME_HUB_COURSES_BY_TIER: Record<string, string[]> = {
+  FOUNDATIONAL: ['Game Development Fundamentals'],
+  INTERMEDIATE: ['Programming, Level Design and Competitive Strategy'],
+  ADVANCED: ['Engine Optimisation, Tactical Mastery and Mental Resilience'],
+};
+
+export function coursesByTierForSkill(preferredSkill?: string | null): Record<string, string[]> {
+  if (preferredSkill === 'Virtual Reality Skills') return VR_COURSES_BY_TIER;
+  if (preferredSkill === 'Game Hub Skills') return GAME_HUB_COURSES_BY_TIER;
+  return COURSES_BY_TIER;
+}
+
+export function checkCourseForTier(skillTier: string, course: string, preferredSkill?: string | null): string | null {
+  const courses = coursesByTierForSkill(preferredSkill)[skillTier];
   if (!courses) return `Unknown course level "${skillTier}".`;
   if (!courses.includes(course)) {
     const level = skillTier.charAt(0) + skillTier.slice(1).toLowerCase();

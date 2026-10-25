@@ -432,7 +432,11 @@ export class BeneficiariesService {
       throw new UnprocessableEntityException('The ID document was not uploaded through this form. Upload it again.');
     }
     if (dto.pillar === Pillar.SKILLS && dto.skillsProfile) {
-      const courseProblem = checkCourseForTier(dto.skillsProfile.skillTier, dto.skillsProfile.specificSkillArea);
+      const courseProblem = checkCourseForTier(
+        dto.skillsProfile.skillTier,
+        dto.skillsProfile.specificSkillArea,
+        dto.skillsProfile.preferredSkill,
+      );
       if (courseProblem) throw new UnprocessableEntityException(courseProblem);
     }
     if (dto.pillar === Pillar.SKILLS && dto.skillsProfile?.preferredSkill) {
