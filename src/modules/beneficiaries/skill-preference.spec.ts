@@ -30,4 +30,12 @@ describe('skill preference', () => {
     expect(checkCourseForTier('FOUNDATIONAL', 'Advanced Cybersecurity')).toMatch(/not one of the Foundational courses/);
     expect(checkCourseForTier('ADVANCED', 'Made-up course')).toMatch(/not one of the Advanced courses/);
   });
+
+  it('uses the Virtual Reality and Game Hub course lists for those skills', () => {
+    expect(checkCourseForTier('FOUNDATIONAL', 'Foundation of VR and Immersive 3D Creation', 'Virtual Reality Skills')).toBeNull();
+    expect(checkCourseForTier('ADVANCED', 'Engine Optimisation, Tactical Mastery and Mental Resilience', 'Game Hub Skills')).toBeNull();
+    expect(checkCourseForTier('FOUNDATIONAL', 'Data and AI Fundamentals', 'Virtual Reality Skills')).toMatch(/not one of the Foundational courses/);
+    expect(checkCourseForTier('INTERMEDIATE', '3D Assets, Animation and Engine Programming', 'Cybersecurity')).toMatch(/not one of the Intermediate courses/);
+    expect(checkCourseForTier('INTERMEDIATE', 'Full-Stack Development', 'Content Creation')).toBeNull();
+  });
 });

@@ -27,6 +27,7 @@ import { OutcomesModule } from './modules/outcomes/outcomes.module';
 import { StartupsModule } from './modules/startups/startups.module';
 import { TrainingModule } from './modules/training/training.module';
 import { MentorshipModule } from './modules/mentorship/mentorship.module';
+import { MonthlyReportsModule } from './modules/monthly-reports/monthly-reports.module';
 import { DatabaseModule } from '@config/db.config';
 import { RolesGuard } from '@/common/guards/roles.guard';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
@@ -62,6 +63,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     StorageModule,
     TrainingModule,
     MentorshipModule,
+    MonthlyReportsModule,
     StartupsModule,
     OutcomesModule,
     MelModule,
