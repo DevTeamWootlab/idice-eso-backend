@@ -20,7 +20,6 @@ describe('skill preference', () => {
     expect(checkSkillPreference({ focusArea: 'CREATIVE', preferredSkill: 'Virtual Reality Skills' }, 'STANDARD')).toMatch(/Minna/);
     expect(checkSkillPreference({ focusArea: 'CREATIVE', preferredSkill: 'Game Hub Skills' }, 'GAMING')).toBeNull();
     expect(checkSkillPreference({ focusArea: 'CREATIVE', preferredSkill: 'Game Hub Skills' }, 'VR')).toMatch(/Ilorin/);
-    expect(checkSkillPreference({ focusArea: 'CREATIVE', preferredSkill: 'Content Creation' }, 'GAMING')).toBeNull();
   });
 
   it('only accepts a course that belongs to the chosen level', () => {
@@ -36,6 +35,16 @@ describe('skill preference', () => {
     expect(checkCourseForTier('ADVANCED', 'Engine Optimisation, Tactical Mastery and Mental Resilience', 'Game Hub Skills')).toBeNull();
     expect(checkCourseForTier('FOUNDATIONAL', 'Data and AI Fundamentals', 'Virtual Reality Skills')).toMatch(/not one of the Foundational courses/);
     expect(checkCourseForTier('INTERMEDIATE', '3D Assets, Animation and Engine Programming', 'Cybersecurity')).toMatch(/not one of the Intermediate courses/);
-    expect(checkCourseForTier('INTERMEDIATE', 'Full-Stack Development', 'Content Creation')).toBeNull();
+    expect(checkCourseForTier('INTERMEDIATE', 'Full-Stack Development', 'Spreadsheet')).toBeNull();
+  });
+
+  it('offers Content Creation only at the regular centres, with its own courses', () => {
+    expect(checkSkillPreference({ focusArea: 'CREATIVE', preferredSkill: 'Content Creation' }, 'STANDARD')).toBeNull();
+    expect(checkSkillPreference({ focusArea: 'CREATIVE', preferredSkill: 'Content Creation' }, 'CREATIVE')).toBeNull();
+    expect(checkSkillPreference({ focusArea: 'CREATIVE', preferredSkill: 'Content Creation' }, 'VR')).toMatch(/not offered at the Virtual Reality or Game Hub centres/);
+    expect(checkSkillPreference({ focusArea: 'CREATIVE', preferredSkill: 'Content Creation' }, 'GAMING')).toMatch(/not offered at the Virtual Reality or Game Hub centres/);
+    expect(checkCourseForTier('FOUNDATIONAL', 'Creative Writing Fundamentals', 'Content Creation')).toBeNull();
+    expect(checkCourseForTier('ADVANCED', 'Mastery in Narrative Architecture and Authorial Voice', 'Content Creation')).toBeNull();
+    expect(checkCourseForTier('INTERMEDIATE', 'Full-Stack Development', 'Content Creation')).toMatch(/not one of the Intermediate courses/);
   });
 });

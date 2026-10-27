@@ -11,6 +11,10 @@ export const SKILL_HUB_RESTRICTIONS: Record<string, { hubType: string; instituti
   'Game Hub Skills': { hubType: 'GAMING', institution: 'University of Ilorin, Kwara State' },
 };
 
+export const SKILL_HUB_EXCLUSIONS: Record<string, string[]> = {
+  'Content Creation': ['VR', 'GAMING'],
+};
+
 export const PRIOR_COURSES = [
   'Data and AI Fundamentals (Beginner)',
   'Cybersecurity & Safety (Beginner)',
@@ -37,6 +41,10 @@ export function checkSkillPreference(
   const restriction = SKILL_HUB_RESTRICTIONS[preferredSkill];
   if (restriction && (institutionHubType ?? '').toUpperCase() !== restriction.hubType) {
     return `${preferredSkill} is only offered at ${restriction.institution}. Choose another skill or that Centre of Excellence.`;
+  }
+  const excluded = SKILL_HUB_EXCLUSIONS[preferredSkill];
+  if (excluded && excluded.includes((institutionHubType ?? '').toUpperCase())) {
+    return `${preferredSkill} is not offered at the Virtual Reality or Game Hub centres. Choose another skill or another Centre of Excellence.`;
   }
   return null;
 }
@@ -71,9 +79,16 @@ export const GAME_HUB_COURSES_BY_TIER: Record<string, string[]> = {
   ADVANCED: ['Engine Optimisation, Tactical Mastery and Mental Resilience'],
 };
 
+export const CONTENT_CREATION_COURSES_BY_TIER: Record<string, string[]> = {
+  FOUNDATIONAL: ['Creative Writing Fundamentals'],
+  INTERMEDIATE: ['Content Strategy and Narrative Architecture'],
+  ADVANCED: ['Mastery in Narrative Architecture and Authorial Voice'],
+};
+
 export function coursesByTierForSkill(preferredSkill?: string | null): Record<string, string[]> {
   if (preferredSkill === 'Virtual Reality Skills') return VR_COURSES_BY_TIER;
   if (preferredSkill === 'Game Hub Skills') return GAME_HUB_COURSES_BY_TIER;
+  if (preferredSkill === 'Content Creation') return CONTENT_CREATION_COURSES_BY_TIER;
   return COURSES_BY_TIER;
 }
 
