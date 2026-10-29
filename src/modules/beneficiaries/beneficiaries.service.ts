@@ -4,7 +4,7 @@ import { JwtPayload } from '@/common/interfaces/jwt-payload.interface';
 import { Injectable, ConflictException, UnprocessableEntityException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource, QueryFailedError } from 'typeorm';
-import { randomUUID } from 'crypto';
+import { randomInt } from 'crypto';
 
 import { Beneficiary } from './entities/beneficiary.entity';
 import { BeneficiarySkillsProfile } from './entities/beneficiary-skills-profile.entity';
@@ -30,7 +30,29 @@ import {
 } from '@/modules/applications/admin-applications.query';
 import { checkAcademicStatus } from './academic-status';
 import { hubsShareCourses } from './hub-compatibility';
-import { checkCourseForTier, checkSkillPreference } from './skill-preference';
+import { checkCourseForTier } from './skill-preference';
+import {
+  ACCELERATION_QUESTIONS,
+  INCUBATION_QUESTIONS,
+  checkAnswers,
+  deriveAccelerationColumns,
+  deriveIncubationColumns,
+} from './prd-questions';
+
+const REFERENCE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+const FILE_ANSWER_KEYS = ['pitchDeck', 'evidenceUpload', 'supportingDocuments'];
+
+function withoutFiles(details: Record<string, unknown> | null | undefined): Record<string, unknown> | null {
+  if (!details) return null;
+  return Object.fromEntries(Object.entries(details).filter(([key]) => !FILE_ANSWER_KEYS.includes(key)));
+}
+
+export function generateBeneficiaryReference(year = new Date().getFullYear()): string {
+  let suffix = '';
+  for (let i = 0; i < 5; i += 1) suffix += REFERENCE_ALPHABET[randomInt(REFERENCE_ALPHABET.length)];
+  return `iDICE-ESONC-${year}-${suffix}`;
+}
 import { parseCloudinaryUrl } from '@/modules/storage/cloudinary.client';
 import { sniffFileType } from '@/common/utils/file-sniff';
 
@@ -187,6 +209,7 @@ export class BeneficiariesService {
           technologyPlatform: b.incubationProfile.technologyPlatform ?? null,
           supportNeeded: b.incubationProfile.supportNeeded ?? null,
           availableForFullDuration: b.incubationProfile.availableForFullDuration,
+          details: withoutFiles(b.incubationProfile.details),
         }
       : null;
 
@@ -209,6 +232,7 @@ export class BeneficiariesService {
           developmentStage: b.accelerationProfile.developmentStage ?? null,
           teamSize: b.accelerationProfile.teamSize ?? null,
           hasCacDocument: !!b.accelerationProfile.cacDocumentStorageKey,
+          details: withoutFiles(b.accelerationProfile.details),
         }
       : null;
 
@@ -216,6 +240,9 @@ export class BeneficiariesService {
       id: b.id,
       referenceId: b.referenceId,
       fullName: b.fullName,
+      firstName: b.firstName ?? null,
+      middleName: b.middleName ?? null,
+      lastName: b.lastName ?? null,
       gender: b.gender,
       email: b.email,
       phoneNumber: b.phoneNumber,
@@ -227,6 +254,7 @@ export class BeneficiariesService {
       highestEducationLevel: b.highestEducationLevel ?? b.skillsProfile?.highestEducationLevel ?? null,
       institutionName: b.institutionName ?? null,
       studentMatricNumber: b.studentMatricNumber ?? null,
+      studentLevel: b.studentLevel ?? null,
       pwdAssistiveRequirement: b.pwdAssistiveRequirement ?? null,
       stateOfOrigin: b.stateOfOrigin,
       stateOfResidence: b.stateOfResidence,
@@ -271,6 +299,13 @@ export class BeneficiariesService {
       ageBracket: b.ageBracket ?? null,
       commitmentHoursConfirmed: b.commitmentHoursConfirmed ?? null,
       hasGovernmentIdDocument: !!b.governmentIdStorageKey,
+      signatureName: b.signatureName ?? null,
+      informationAccurateConfirmed: b.informationAccurateConfirmed,
+      falseInformationAcknowledged: b.falseInformationAcknowledged,
+      ndprConsentGiven: b.ndprConsentGiven,
+      codeOfConductAccepted: b.codeOfConductAccepted,
+      incubationDetails: b.incubationProfile?.details ?? null,
+      accelerationDetails: b.accelerationProfile?.details ?? null,
     };
   }
 
@@ -428,24 +463,30 @@ export class BeneficiariesService {
     this.validatePillarPayloads(dto);
     const statusProblem = checkAcademicStatus(dto);
     if (statusProblem) throw new BadRequestException(statusProblem);
-    if (!parseCloudinaryUrl(dto.governmentIdStorageKey)) {
+    if (dto.governmentIdStorageKey && !parseCloudinaryUrl(dto.governmentIdStorageKey)) {
       throw new UnprocessableEntityException('The ID document was not uploaded through this form. Upload it again.');
     }
-    if (dto.pillar === Pillar.SKILLS && dto.skillsProfile) {
-      const courseProblem = checkCourseForTier(
-        dto.skillsProfile.skillTier,
-        dto.skillsProfile.specificSkillArea,
-        dto.skillsProfile.preferredSkill,
-      );
-      if (courseProblem) throw new UnprocessableEntityException(courseProblem);
+    const declarationsMissing = [
+      dto.informationAccurateConfirmed,
+      dto.falseInformationAcknowledged,
+      dto.ndprConsentGiven,
+      dto.codeOfConductAccepted,
+    ].some((confirmed) => confirmed !== true);
+    if (declarationsMissing) {
+      throw new UnprocessableEntityException('Confirm all four declarations before submitting.');
     }
-    if (dto.pillar === Pillar.SKILLS && dto.skillsProfile?.preferredSkill) {
+    if (dto.pillar === Pillar.SKILLS && dto.skillsProfile) {
       const preferred = await this.dataSource.getRepository(Institution).findOne({
         where: { id: dto.preferredInstitutionId },
       });
-      const skillProblem = checkSkillPreference(dto.skillsProfile, preferred?.hubType);
-      if (skillProblem) throw new UnprocessableEntityException(skillProblem);
+      const courseProblem = checkCourseForTier(
+        dto.skillsProfile.skillTier,
+        dto.skillsProfile.specificSkillArea,
+        preferred?.hubType,
+      );
+      if (courseProblem) throw new UnprocessableEntityException(courseProblem);
     }
+    const fullName = [dto.firstName, dto.middleName, dto.lastName].map((part) => part.trim()).filter(Boolean).join(' ');
 
     // ---- 2. Email & NIN Deduplication Check ----
     const existingEmail = await this.beneficiaryRepo.findOne({
@@ -475,9 +516,12 @@ export class BeneficiariesService {
       );
     }
 
-    if (dto.pillar === Pillar.ACCELERATION && dto.accelerationProfile) {
-      const cac = dto.accelerationProfile.cacRegistrationNumber.trim();
-      dto.accelerationProfile.cacRegistrationNumber = cac;
+    const accelerationColumns =
+      dto.pillar === Pillar.ACCELERATION && dto.accelerationProfile
+        ? deriveAccelerationColumns(dto.accelerationProfile.details)
+        : null;
+    const cac = accelerationColumns?.cacRegistrationNumber;
+    if (cac) {
       const existingCac = await this.dataSource
         .getRepository(BeneficiaryAccelerationProfile)
         .createQueryBuilder('profile')
@@ -497,10 +541,15 @@ export class BeneficiariesService {
       dto.pillar === Pillar.SKILLS ? dto.skillsProfile?.preferredHubType : null,
     );
     const assignedInstitutionId = assignedInstitution.id;
-    const highestEducationLevel = dto.highestEducationLevel.trim();
+    const highestEducationLevel =
+      (dto.pillar === Pillar.SKILLS ? dto.skillsProfile?.highestEducationLevel : dto.highestEducationLevel)?.trim() || null;
 
-    // ---- 4. Reference ID Generation ----
-    const referenceId = `iDICE-BEN-2026-${randomUUID().slice(0, 8).toUpperCase()}`;
+    let referenceId = generateBeneficiaryReference();
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const taken = await this.beneficiaryRepo.count({ where: { referenceId } });
+      if (!taken) break;
+      referenceId = generateBeneficiaryReference();
+    }
 
     // ---- 5. Database Transaction Execution ----
     let beneficiary: Beneficiary;
@@ -509,7 +558,10 @@ export class BeneficiariesService {
         // Build core beneficiary entity
         const beneficiary = manager.create(Beneficiary, {
           referenceId,
-          fullName: dto.fullName,
+          fullName,
+          firstName: dto.firstName.trim(),
+          middleName: dto.middleName.trim(),
+          lastName: dto.lastName.trim(),
           dateOfBirth: dto.dateOfBirth,
           gender: dto.gender,
           ageBracket: dto.ageBracket,
@@ -522,6 +574,7 @@ export class BeneficiariesService {
           isCurrentStudent: dto.isCurrentStudent,
           institutionName: dto.institutionName,
           studentMatricNumber: dto.studentMatricNumber,
+          studentLevel: dto.isCurrentStudent ? dto.studentLevel?.trim() || null : null,
           isRecentGraduate: dto.isRecentGraduate,
           academicStatus: dto.academicStatus,
           employmentStatus: dto.employmentStatus,
@@ -539,8 +592,11 @@ export class BeneficiariesService {
           statementOfPurpose: dto.statementOfPurpose,
           ndprConsentGiven: dto.ndprConsentGiven,
           codeOfConductAccepted: dto.codeOfConductAccepted,
+          informationAccurateConfirmed: dto.informationAccurateConfirmed,
+          falseInformationAcknowledged: dto.falseInformationAcknowledged,
+          signatureName: dto.signatureName.trim(),
           commitmentHoursConfirmed: dto.commitmentHoursConfirmed ?? null,
-          governmentIdStorageKey: dto.governmentIdStorageKey,
+          governmentIdStorageKey: dto.governmentIdStorageKey ?? null,
           signedAt: new Date(),
           status: BeneficiaryStatus.SUBMITTED,
         });
@@ -551,27 +607,23 @@ export class BeneficiariesService {
         if (dto.pillar === Pillar.SKILLS && dto.skillsProfile) {
           const skillsProfile = manager.create(BeneficiarySkillsProfile, {
             ...dto.skillsProfile,
-            highestEducationLevel,
+            highestEducationLevel: highestEducationLevel ?? '',
             beneficiaryId: savedBeneficiary.id,
           });
           await manager.save(skillsProfile);
         } else if (dto.pillar === Pillar.INCUBATION && dto.incubationProfile) {
           const incubationProfile = manager.create(BeneficiaryIncubationProfile, {
-            ...dto.incubationProfile,
+            ...deriveIncubationColumns(dto.incubationProfile.details),
+            details: dto.incubationProfile.details,
             beneficiaryId: savedBeneficiary.id,
           });
           await manager.save(incubationProfile);
-        } else if (
-          dto.pillar === Pillar.ACCELERATION &&
-          dto.accelerationProfile
-        ) {
-          const accelerationProfile = manager.create(
-            BeneficiaryAccelerationProfile,
-            {
-              ...dto.accelerationProfile,
-              beneficiaryId: savedBeneficiary.id,
-            },
-          );
+        } else if (dto.pillar === Pillar.ACCELERATION && dto.accelerationProfile && accelerationColumns) {
+          const accelerationProfile = manager.create(BeneficiaryAccelerationProfile, {
+            ...accelerationColumns,
+            details: dto.accelerationProfile.details,
+            beneficiaryId: savedBeneficiary.id,
+          });
           await manager.save(accelerationProfile);
         }
 
@@ -672,10 +724,8 @@ export class BeneficiariesService {
           'Cannot submit incubationProfile or accelerationProfile when Pillar is SKILLS.',
         );
       }
-      if (dto.commitmentHoursConfirmed !== true) {
-        throw new UnprocessableEntityException(
-          'Confirm that you can commit 10–15 hours a week to training sessions and assignments.',
-        );
+      if (!dto.skillsProfile.highestEducationLevel) {
+        throw new UnprocessableEntityException('Select your highest level of education completed.');
       }
     }
 
@@ -689,6 +739,10 @@ export class BeneficiariesService {
         throw new UnprocessableEntityException(
           'Cannot submit skillsProfile or accelerationProfile when Pillar is INCUBATION.',
         );
+      }
+      const problems = checkAnswers(INCUBATION_QUESTIONS, dto.incubationProfile.details);
+      if (problems.length) {
+        throw new UnprocessableEntityException({ statusCode: 422, error: 'Unprocessable Entity', message: problems });
       }
     }
 
@@ -704,23 +758,9 @@ export class BeneficiariesService {
         );
       }
 
-      const { liveProductUrl, pitchDeckStorageKey, cacDocumentStorageKey } = dto.accelerationProfile;
-      if (pitchDeckStorageKey && !parseCloudinaryUrl(pitchDeckStorageKey) && !pitchDeckStorageKey.includes(PITCH_DECK_FOLDER)) {
-        throw new UnprocessableEntityException('The pitch deck was not uploaded through this form. Upload it again.');
-      }
-      if (
-        !cacDocumentStorageKey ||
-        (!parseCloudinaryUrl(cacDocumentStorageKey) && !cacDocumentStorageKey.includes(CAC_DOCUMENT_FOLDER))
-      ) {
-        throw new UnprocessableEntityException('Upload your CAC registration certificate before submitting.');
-      }
-      if (!liveProductUrl && !pitchDeckStorageKey) {
-        throw new UnprocessableEntityException({
-          statusCode: 422,
-          error: 'Unprocessable Entity',
-          message:
-            'Acceleration applications require either a valid Live Product URL or a Pitch Deck document.',
-        });
+      const problems = checkAnswers(ACCELERATION_QUESTIONS, dto.accelerationProfile.details);
+      if (problems.length) {
+        throw new UnprocessableEntityException({ statusCode: 422, error: 'Unprocessable Entity', message: problems });
       }
     }
   }

@@ -1,72 +1,22 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsEnum,
-  IsString,
-  IsBoolean,
-  IsOptional,
-  IsArray,
-  IsNotEmpty,
-} from 'class-validator';
-import { IncubationStage } from '@/common/enums/beneficiary.enum';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsObject } from 'class-validator';
 
 export class CreateIncubationProfileDto {
-  @ApiPropertyOptional({ example: 'AgroConnect' })
-  @IsOptional()
-  @IsString()
-  ventureName?: string;
-
-  @ApiProperty({ example: 'AGRITECH' })
-  @IsString()
-  @IsNotEmpty()
-  sectorFocus!: string;
-
-  @ApiProperty({ example: 'Smallholder farmers lack direct market access.' })
-  @IsString()
-  @IsNotEmpty()
-  problemStatement!: string;
-
   @ApiProperty({
-    example: 'A mobile marketplace connecting farmers directly to wholesalers.',
+    type: 'object',
+    additionalProperties: true,
+    description:
+      'Answers to the PRD Version 2 incubation questions (sections A–G), keyed as in prd-questions.ts INCUBATION_QUESTIONS. Validated server-side.',
+    example: {
+      ventureName: 'AgroLink',
+      sector: 'Agriculture',
+      stage: 'Prototype',
+      ventureDescription: 'A marketplace linking smallholder farmers to buyers.',
+      problem: 'Farmers lose produce because they cannot reach buyers.',
+      solution: 'A USSD marketplace that matches farmers with buyers.',
+      availability: 'Yes',
+    },
   })
-  @IsString()
-  @IsNotEmpty()
-  proposedSolution!: string;
-
-  @ApiProperty({
-    example: 'Grain and vegetable wholesalers in North-Central Nigeria.',
-  })
-  @IsString()
-  @IsNotEmpty()
-  targetCustomer!: string;
-
-  @ApiProperty({
-    enum: IncubationStage,
-    example: IncubationStage.EARLY_PROTOTYPE,
-  })
-  @IsEnum(IncubationStage)
-  @IsNotEmpty()
-  currentStage!: IncubationStage;
-
-  @ApiProperty({ example: '3 members: 1 CEO, 1 Tech Lead, 1 Operations' })
-  @IsString()
-  @IsNotEmpty()
-  teamSizeAndRoles!: string;
-
-  @ApiPropertyOptional({ example: 'USSD and Web Dashboard' })
-  @IsOptional()
-  @IsString()
-  technologyPlatform?: string;
-
-  @ApiPropertyOptional({
-    example: ['MENTORSHIP', 'PRODUCT_DESIGN', 'LEGAL_ADVICE'],
-    type: [String],
-  })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  supportNeeded?: string[];
-
-  @ApiProperty({ example: true })
-  @IsBoolean()
-  availableForFullDuration!: boolean;
+  @IsObject()
+  details!: Record<string, unknown>;
 }

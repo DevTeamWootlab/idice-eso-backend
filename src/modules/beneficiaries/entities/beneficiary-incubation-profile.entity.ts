@@ -1,7 +1,6 @@
 import { Entity, Column, OneToOne, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from '@/common/entities/base.entity';
 import { Beneficiary } from './beneficiary.entity';
-import { IncubationStage } from '@/common/enums/beneficiary.enum';
 
 @Entity('beneficiary_incubation_profiles')
 export class BeneficiaryIncubationProfile extends BaseEntity {
@@ -30,8 +29,8 @@ export class BeneficiaryIncubationProfile extends BaseEntity {
   @Column()
   targetCustomer!: string;
 
-  @Column({ type: 'enum', enum: IncubationStage })
-  currentStage!: IncubationStage;
+  @Column({ type: 'varchar' })
+  currentStage!: string;
 
   @Column({ type: 'text' })
   teamSizeAndRoles!: string;
@@ -44,4 +43,7 @@ export class BeneficiaryIncubationProfile extends BaseEntity {
 
   @Column({ default: false })
   availableForFullDuration!: boolean;
+
+  @Column({ type: 'jsonb', nullable: true })
+  details!: Record<string, unknown> | null;
 }

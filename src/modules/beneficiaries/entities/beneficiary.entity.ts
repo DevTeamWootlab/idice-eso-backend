@@ -31,6 +31,15 @@ export class Beneficiary extends BaseEntity {
   @Column()
   fullName!: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  firstName!: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  middleName!: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  lastName!: string | null;
+
   @Column({ type: 'date' })
   dateOfBirth!: Date;
 
@@ -66,6 +75,9 @@ export class Beneficiary extends BaseEntity {
 
   @Column({ nullable: true })
   studentMatricNumber?: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  studentLevel!: string | null;
 
   @Column({ default: false })
   isRecentGraduate!: boolean;
@@ -130,6 +142,15 @@ export class Beneficiary extends BaseEntity {
 
   @Column({ default: false })
   codeOfConductAccepted!: boolean;
+
+  @Column({ default: false })
+  informationAccurateConfirmed!: boolean;
+
+  @Column({ default: false })
+  falseInformationAcknowledged!: boolean;
+
+  @Column({ type: 'varchar', nullable: true })
+  signatureName!: string | null;
 
   @Column({ type: 'boolean', nullable: true })
   commitmentHoursConfirmed!: boolean | null;

@@ -1,43 +1,43 @@
 import { AcademicStatus, EmploymentStatus } from '@/common/enums/beneficiary.enum';
-import { checkAcademicStatus, deriveNeet } from './academic-status';
+import { checkAcademicStatus } from './academic-status';
 
-describe('academic and employment status', () => {
-  it('treats only out-of-school unemployed applicants as NEET', () => {
-    expect(deriveNeet(AcademicStatus.STUDENT, EmploymentStatus.UNEMPLOYED)).toBe(false);
-    expect(deriveNeet(AcademicStatus.RECENT_GRADUATE, EmploymentStatus.UNEMPLOYED)).toBe(true);
-    expect(deriveNeet(AcademicStatus.OTHER, EmploymentStatus.UNEMPLOYED)).toBe(true);
-    expect(deriveNeet(AcademicStatus.OTHER, EmploymentStatus.SELF_EMPLOYED)).toBe(false);
-  });
+const base = { isCurrentStudent: false, isRecentGraduate: false, isNeet: false };
 
-  it('accepts consistent answers', () => {
+describe('academic status', () => {
+  it('accepts a student who is employed', () => {
     expect(
-      checkAcademicStatus({
-        academicStatus: AcademicStatus.STUDENT,
-        employmentStatus: EmploymentStatus.PART_TIME,
-        isCurrentStudent: true,
-        isRecentGraduate: false,
-        isNeet: false,
-      }),
-    ).toBeNull();
-    expect(
-      checkAcademicStatus({
-        academicStatus: AcademicStatus.OTHER,
-        employmentStatus: EmploymentStatus.UNEMPLOYED,
-        isCurrentStudent: false,
-        isRecentGraduate: false,
-        isNeet: true,
-      }),
+      checkAcademicStatus({ ...base, isCurrentStudent: true, academicStatus: AcademicStatus.STUDENT, employmentStatus: EmploymentStatus.EMPLOYED }),
     ).toBeNull();
   });
 
-  it('rejects a missing employment status, the retired NEET option and mismatched flags', () => {
-    const base = { isCurrentStudent: false, isRecentGraduate: false, isNeet: false };
-    expect(checkAcademicStatus({ ...base, academicStatus: AcademicStatus.OTHER })).toMatch(/employmentStatus/);
+  it('accepts a recent graduate who is self-employed', () => {
     expect(
-      checkAcademicStatus({ ...base, academicStatus: AcademicStatus.NEET, employmentStatus: EmploymentStatus.UNEMPLOYED }),
-    ).toMatch(/academicStatus/);
+      checkAcademicStatus({ ...base, isRecentGraduate: true, academicStatus: AcademicStatus.RECENT_GRADUATE, employmentStatus: EmploymentStatus.SELF_EMPLOYED }),
+    ).toBeNull();
+  });
+
+  it('accepts a NEET applicant who is unemployed', () => {
     expect(
-      checkAcademicStatus({ ...base, academicStatus: AcademicStatus.OTHER, employmentStatus: EmploymentStatus.UNEMPLOYED }),
+      checkAcademicStatus({ ...base, isNeet: true, academicStatus: AcademicStatus.NEET, employmentStatus: EmploymentStatus.UNEMPLOYED }),
+    ).toBeNull();
+  });
+
+  it('rejects NEET with a job', () => {
+    expect(
+      checkAcademicStatus({ ...base, isNeet: true, academicStatus: AcademicStatus.NEET, employmentStatus: EmploymentStatus.EMPLOYED }),
+    ).toMatch(/must choose Unemployed/);
+  });
+
+  it('rejects the retired OTHER status and old employment values', () => {
+    expect(checkAcademicStatus({ ...base, academicStatus: AcademicStatus.OTHER, employmentStatus: EmploymentStatus.UNEMPLOYED })).toMatch(/STUDENT, RECENT_GRADUATE or NEET/);
+    expect(
+      checkAcademicStatus({ ...base, isCurrentStudent: true, academicStatus: AcademicStatus.STUDENT, employmentStatus: EmploymentStatus.FULL_TIME }),
+    ).toMatch(/EMPLOYED, SELF_EMPLOYED or UNEMPLOYED/);
+  });
+
+  it('rejects flags that disagree with the status', () => {
+    expect(
+      checkAcademicStatus({ ...base, academicStatus: AcademicStatus.STUDENT, employmentStatus: EmploymentStatus.UNEMPLOYED }),
     ).toMatch(/do not agree/);
   });
 });

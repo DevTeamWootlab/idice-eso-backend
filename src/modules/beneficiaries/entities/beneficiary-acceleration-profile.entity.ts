@@ -19,11 +19,11 @@ export class BeneficiaryAccelerationProfile extends BaseEntity {
   @Column()
   registeredBusinessName!: string;
 
-  @Column({ unique: true })
-  cacRegistrationNumber!: string;
+  @Column({ type: 'varchar', unique: true, nullable: true })
+  cacRegistrationNumber!: string | null;
 
-  @Column({ type: 'int' })
-  yearFounded!: number;
+  @Column({ type: 'int', nullable: true })
+  yearFounded!: number | null;
 
   @Column()
   sector!: string;
@@ -43,8 +43,8 @@ export class BeneficiaryAccelerationProfile extends BaseEntity {
   @Column({ nullable: true })
   fundingSourceDetails?: string;
 
-  @Column()
-  primaryGrowthChallenge!: string;
+  @Column({ type: 'varchar', nullable: true })
+  primaryGrowthChallenge!: string | null;
 
   @Column({ type: 'simple-array', nullable: true })
   supportNeeded?: string[];
@@ -66,4 +66,7 @@ export class BeneficiaryAccelerationProfile extends BaseEntity {
 
   @Column({ type: 'varchar', nullable: true })
   cacDocumentStorageKey!: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  details!: Record<string, unknown> | null;
 }

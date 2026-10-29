@@ -88,6 +88,7 @@ export enum AcademicStatus {
 }
 
 export enum EmploymentStatus {
+  EMPLOYED = 'EMPLOYED',
   FULL_TIME = 'FULL_TIME',
   PART_TIME = 'PART_TIME',
   SELF_EMPLOYED = 'SELF_EMPLOYED',

@@ -13,6 +13,7 @@ import {
   IsArray,
   ArrayMaxSize,
   ArrayUnique,
+  MaxLength,
 } from 'class-validator';
 import {
   TrainingTier,
@@ -23,7 +24,7 @@ import {
   ProjectIndependence,
   DeliveryFormat,
 } from '@/common/enums/beneficiary.enum';
-import { PREFERRED_SKILLS, PRIOR_COURSES } from '../skill-preference';
+import { EDUCATION_LEVELS, PRD_COURSES_BY_TIER } from '../skill-preference';
 
 export class CreateSkillsProfileDto {
   @ApiProperty({ enum: PreferredHubType, example: PreferredHubType.STANDARD })
@@ -36,7 +37,11 @@ export class CreateSkillsProfileDto {
   @IsNotEmpty()
   skillTier!: TrainingTier;
 
-  @ApiProperty({ example: 'Fullstack Web Development (Node.js/React)' })
+  @ApiProperty({
+    enum: Object.values(PRD_COURSES_BY_TIER).flat(),
+    example: 'UI/UX Design',
+    description: 'A course from the PRD 7.4 catalogue for the chosen skillTier.',
+  })
   @IsString()
   @IsNotEmpty()
   specificSkillArea!: string;
@@ -46,13 +51,9 @@ export class CreateSkillsProfileDto {
   @IsString()
   priorExperience?: string;
 
-  @ApiPropertyOptional({
-    example: 'BSc/BA',
-    description: 'Deprecated here; send highestEducationLevel at the top level. Ignored when the top-level value is present.',
-  })
-  @IsOptional()
-  @IsString()
-  highestEducationLevel?: string;
+  @ApiProperty({ enum: EDUCATION_LEVELS, example: 'BSc/BA' })
+  @IsIn(EDUCATION_LEVELS)
+  highestEducationLevel!: string;
 
   @ApiProperty({ example: true })
   @IsBoolean()
@@ -72,32 +73,30 @@ export class CreateSkillsProfileDto {
   @IsEnum(SkillFocusArea)
   focusArea?: SkillFocusArea;
 
-  @ApiPropertyOptional({
-    enum: PREFERRED_SKILLS,
-    example: 'Cybersecurity',
-    description:
-      'Must belong to focusArea. Virtual Reality Skills is only accepted at a VR hub and Game Hub Skills only at a gaming hub.',
-  })
+  @ApiPropertyOptional({ example: 'Content Creation', description: 'Retained for older records; not asked on the PRD form.' })
   @IsOptional()
-  @IsIn(PREFERRED_SKILLS)
+  @IsString()
+  @MaxLength(120)
   preferredSkill?: string;
 
-  @ApiProperty({ enum: ExperienceLevel, example: ExperienceLevel.BEGINNER })
+  @ApiPropertyOptional({ enum: ExperienceLevel, example: ExperienceLevel.BEGINNER })
+  @IsOptional()
   @IsEnum(ExperienceLevel)
-  experienceLevel!: ExperienceLevel;
+  experienceLevel?: ExperienceLevel;
 
-  @ApiProperty({ example: 2, minimum: 1, maximum: 5, description: 'Self-graded knowledge, 1 (beginner) to 5 (advanced)' })
+  @ApiPropertyOptional({ example: 2, minimum: 1, maximum: 5, description: 'Self-graded knowledge, 1 (beginner) to 5 (advanced)' })
+  @IsOptional()
   @IsInt()
   @Min(1)
   @Max(5)
-  knowledgeRating!: number;
+  knowledgeRating?: number;
 
-  @ApiPropertyOptional({ type: [String], enum: PRIOR_COURSES, example: ['Data and AI Fundamentals (Beginner)'] })
+  @ApiPropertyOptional({ type: [String], example: ['Digital Literacy & Workplace Productivity'] })
   @IsOptional()
   @IsArray()
-  @ArrayMaxSize(PRIOR_COURSES.length)
+  @ArrayMaxSize(30)
   @ArrayUnique()
-  @IsIn(PRIOR_COURSES, { each: true })
+  @IsString({ each: true })
   coursesTaken?: string[];
 
   @ApiPropertyOptional({ example: 3, minimum: 1, maximum: 5, description: 'Confidence with the tools, 1 (none) to 5 (extremely confident)' })
