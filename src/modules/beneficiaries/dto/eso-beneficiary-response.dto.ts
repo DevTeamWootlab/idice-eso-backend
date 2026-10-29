@@ -6,7 +6,6 @@ import {
   StateOfNigeria,
   TrainingTier,
   PreferredHubType,
-  IncubationStage,
 } from '@/common/enums/beneficiary.enum';
 
 export class EsoInstitutionRefDto {
@@ -70,8 +69,8 @@ export class EsoBeneficiaryIncubationDto {
   proposedSolution!: string;
   @ApiProperty()
   targetCustomer!: string;
-  @ApiProperty({ enum: IncubationStage })
-  currentStage!: IncubationStage;
+  @ApiProperty({ example: 'Prototype' })
+  currentStage!: string;
   @ApiProperty()
   teamSizeAndRoles!: string;
   @ApiProperty({ nullable: true })
@@ -80,15 +79,22 @@ export class EsoBeneficiaryIncubationDto {
   supportNeeded!: string[] | null;
   @ApiProperty()
   availableForFullDuration!: boolean;
+  @ApiProperty({
+    type: 'object',
+    additionalProperties: true,
+    nullable: true,
+    description: 'Every PRD Version 2 incubation answer. Uploaded files are left out of the ESO view.',
+  })
+  details!: Record<string, unknown> | null;
 }
 
 export class EsoBeneficiaryAccelerationDto {
   @ApiProperty()
   registeredBusinessName!: string;
-  @ApiProperty()
-  cacRegistrationNumber!: string;
-  @ApiProperty()
-  yearFounded!: number;
+  @ApiProperty({ nullable: true })
+  cacRegistrationNumber!: string | null;
+  @ApiProperty({ nullable: true })
+  yearFounded!: number | null;
   @ApiProperty()
   sector!: string;
   @ApiProperty({ nullable: true })
@@ -101,8 +107,8 @@ export class EsoBeneficiaryAccelerationDto {
   hasRaisedExternalFunding!: boolean;
   @ApiProperty({ nullable: true })
   fundingSourceDetails!: string | null;
-  @ApiProperty()
-  primaryGrowthChallenge!: string;
+  @ApiProperty({ nullable: true })
+  primaryGrowthChallenge!: string | null;
   @ApiProperty({ type: [String], nullable: true })
   supportNeeded!: string[] | null;
   @ApiProperty({ nullable: true })
@@ -120,6 +126,13 @@ export class EsoBeneficiaryAccelerationDto {
   teamSize!: number | null;
   @ApiProperty()
   hasCacDocument!: boolean;
+  @ApiProperty({
+    type: 'object',
+    additionalProperties: true,
+    nullable: true,
+    description: 'Every PRD C2 acceleration answer. Uploaded files are left out of the ESO view.',
+  })
+  details!: Record<string, unknown> | null;
 }
 
 /**
@@ -132,10 +145,16 @@ export class EsoBeneficiaryAccelerationDto {
 export class EsoBeneficiaryDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
-  @ApiProperty({ example: 'iDICE-BEN-2026-1A2B3C4D' })
+  @ApiProperty({ example: 'iDICE-ESONC-2026-7KQ2M' })
   referenceId!: string;
   @ApiProperty()
   fullName!: string;
+  @ApiProperty({ nullable: true })
+  firstName!: string | null;
+  @ApiProperty({ nullable: true })
+  middleName!: string | null;
+  @ApiProperty({ nullable: true })
+  lastName!: string | null;
   @ApiProperty({ enum: Gender })
   gender!: Gender;
   @ApiProperty()
@@ -158,6 +177,8 @@ export class EsoBeneficiaryDto {
   institutionName!: string | null;
   @ApiProperty({ nullable: true })
   studentMatricNumber!: string | null;
+  @ApiProperty({ nullable: true, example: '300 Level' })
+  studentLevel!: string | null;
   @ApiProperty({ nullable: true, description: 'Set only when the applicant identified as a Person With Disability.' })
   pwdAssistiveRequirement!: string | null;
   @ApiProperty({ enum: StateOfNigeria })

@@ -31,7 +31,7 @@ export class BeneficiarySkillsSummaryDto {
 export class BeneficiarySummaryDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
-  @ApiProperty({ example: 'iDICE-BEN-2026-1A2B3C4D' })
+  @ApiProperty({ example: 'iDICE-ESONC-2026-7KQ2M' })
   referenceId!: string;
   @ApiProperty()
   fullName!: string;

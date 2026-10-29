@@ -44,7 +44,7 @@ export class BeneficiariesController {
     return this.beneficiariesService.uploadPitchDeck(file);
   }
 
-  @ApiCreatedResponse({ description: 'Storage key for the CAC certificate, to send as accelerationProfile.cacDocumentStorageKey.' })
+  @ApiCreatedResponse({ description: 'Storage key for an uploaded CAC certificate. The PRD acceleration form no longer asks for one; kept for older clients.' })
   @Public()
   @Post('cac-document')
   @UseInterceptors(FileInterceptor('file', evidenceUploadOptions))

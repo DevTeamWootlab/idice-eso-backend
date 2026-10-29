@@ -12,6 +12,7 @@ import {
   Matches,
   IsNotEmpty,
   MaxLength,
+  IsIn,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { Pillar, Gender, StateOfNigeria, AcademicStatus, EmploymentStatus, AgeBracket } from '@/common/enums/beneficiary.enum';
@@ -23,36 +24,47 @@ import { CreateAccelerationProfileDto } from './create-acceleration-profile.dto'
 
 export class CreateBeneficiaryDto {
   // ---- Section A: Demographics & Bio ----
-  @ApiProperty({ example: 'Ayo Chukwuma Abubakar' })
+  @ApiProperty({ example: 'Ayo' })
   @IsString()
   @IsNotEmpty()
-  fullName!: string;
+  @MaxLength(80)
+  firstName!: string;
+
+  @ApiProperty({ example: 'Chukwuma', description: 'Mandatory per the PRD.' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(80)
+  middleName!: string;
+
+  @ApiProperty({ example: 'Abubakar', description: 'Last name (surname).' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(80)
+  lastName!: string;
+
+  @ApiPropertyOptional({ description: 'Ignored. The full name is built from firstName, middleName and lastName.' })
+  @IsOptional()
+  @IsString()
+  fullName?: string;
 
   @ApiProperty({ example: '2000-05-15' })
   @IsDateString()
   
   dateOfBirth!: string;
 
-  @ApiProperty({ enum: Gender, example: Gender.MALE })
-  @IsEnum(Gender)
+  @ApiProperty({ enum: [Gender.MALE, Gender.FEMALE], example: Gender.FEMALE })
+  @IsIn([Gender.MALE, Gender.FEMALE], { message: 'gender must be MALE or FEMALE' })
   gender!: Gender;
 
-  @ApiProperty({
-    enum: AgeBracket,
-    example: AgeBracket.FROM_18_TO_35,
-    description: 'Age group the applicant selected. Eligibility is still decided from dateOfBirth.',
-  })
+  @ApiPropertyOptional({ enum: AgeBracket, description: 'Retained for older clients; not asked on the PRD form.' })
+  @IsOptional()
   @IsEnum(AgeBracket)
-  ageBracket!: AgeBracket;
+  ageBracket?: AgeBracket;
 
-  @ApiProperty({
-    example: 'https://res.cloudinary.com/demo/image/upload/v1/beneficiary-documents/submission_1/id.jpg',
-    description: 'Cloudinary secure URL of the uploaded government-issued ID card or birth certificate.',
-  })
-  @Matches(/^https:\/\/res\.cloudinary\.com\/\S{1,480}$/, {
-    message: 'Upload a government-issued ID card or birth certificate before submitting.',
-  })
-  governmentIdStorageKey!: string;
+  @ApiPropertyOptional({ description: 'Retained for older clients; not asked on the PRD form.' })
+  @IsOptional()
+  @Matches(/^https:\/\/res\.cloudinary\.com\/\S{1,480}$/)
+  governmentIdStorageKey?: string;
 
   @ApiProperty({ example: '+2348012345678' })
   @Matches(/^\+234\d{10}$/, {
@@ -98,33 +110,38 @@ export class CreateBeneficiaryDto {
   })
   studentMatricNumber?: string;
 
+  @ApiPropertyOptional({ example: '300 Level' })
+  @ValidateIf((o) => o.isCurrentStudent === true)
+  @IsString()
+  @IsNotEmpty({ message: 'studentLevel is required when isCurrentStudent is true' })
+  @MaxLength(40)
+  studentLevel?: string;
+
   @ApiProperty({ example: false })
   @IsBoolean()
   isRecentGraduate!: boolean;
 
   @ApiProperty({
-    enum: AcademicStatus,
+    enum: [AcademicStatus.STUDENT, AcademicStatus.RECENT_GRADUATE, AcademicStatus.NEET],
     example: AcademicStatus.RECENT_GRADUATE,
-    description:
-      'Academic status: STUDENT, RECENT_GRADUATE or OTHER (not currently in school). isCurrentStudent and isRecentGraduate must agree with it.',
+    description: 'isCurrentStudent, isRecentGraduate and isNeet must agree with it.',
   })
   @IsEnum(AcademicStatus)
   academicStatus!: AcademicStatus;
 
   @ApiProperty({
-    enum: EmploymentStatus,
+    enum: [EmploymentStatus.EMPLOYED, EmploymentStatus.SELF_EMPLOYED, EmploymentStatus.UNEMPLOYED],
     example: EmploymentStatus.UNEMPLOYED,
-    description:
-      'Employment status, asked separately from academic status. isNeet must be true only when the applicant is not a student and is UNEMPLOYED.',
+    description: 'NEET applicants must be UNEMPLOYED.',
   })
   @IsEnum(EmploymentStatus)
   employmentStatus!: EmploymentStatus;
 
-  @ApiProperty({ example: 'BSc/BA', description: 'Highest education level, asked of every applicant' })
+  @ApiPropertyOptional({ example: 'BSc/BA', description: 'Training applicants send this inside skillsProfile.' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(80)
-  highestEducationLevel!: string;
+  highestEducationLevel?: string;
 
   @ApiPropertyOptional({ example: 'Mary Doe' })
   @IsOptional()
@@ -178,18 +195,29 @@ export class CreateBeneficiaryDto {
   @MaxWords(150, { message: 'statementOfPurpose must not exceed 150 words' })
   statementOfPurpose?: string;
 
-  @ApiProperty({ example: true })
+  @ApiProperty({ example: true, description: 'Declaration 1: the information is true, accurate and complete.' })
+  @IsBoolean()
+  informationAccurateConfirmed!: boolean;
+
+  @ApiProperty({ example: true, description: 'Declaration 2: false information may lead to disqualification.' })
+  @IsBoolean()
+  falseInformationAcknowledged!: boolean;
+
+  @ApiProperty({ example: true, description: 'Declaration 3: NDPR data processing consent.' })
   @IsBoolean()
   ndprConsentGiven!: boolean;
 
-  @ApiProperty({ example: true })
+  @ApiProperty({ example: true, description: 'Declaration 4: code of conduct, attendance and reporting obligations.' })
   @IsBoolean()
   codeOfConductAccepted!: boolean;
 
-  @ApiPropertyOptional({
-    example: true,
-    description: 'Required and must be true for the SKILLS pillar: the applicant confirms they can commit 10–15 hours a week to training.',
-  })
+  @ApiProperty({ example: 'Ayo Chukwuma Abubakar', description: 'Electronic signature (typed full name).' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  signatureName!: string;
+
+  @ApiPropertyOptional({ description: 'Retained for older clients; not asked on the PRD form.' })
   @IsOptional()
   @IsBoolean()
   commitmentHoursConfirmed?: boolean;
