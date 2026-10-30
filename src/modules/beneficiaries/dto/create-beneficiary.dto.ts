@@ -30,11 +30,11 @@ export class CreateBeneficiaryDto {
   @MaxLength(80)
   firstName!: string;
 
-  @ApiProperty({ example: 'Chukwuma', description: 'Mandatory per the PRD.' })
+  @ApiPropertyOptional({ example: 'Chukwuma' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(80)
-  middleName!: string;
+  middleName?: string;
 
   @ApiProperty({ example: 'Abubakar', description: 'Last name (surname).' })
   @IsString()

@@ -11,7 +11,7 @@ import { BeneficiarySkillsProfile } from './entities/beneficiary-skills-profile.
 import { BeneficiaryIncubationProfile } from './entities/beneficiary-incubation-profile.entity';
 import { BeneficiaryAccelerationProfile } from './entities/beneficiary-acceleration-profile.entity';
 
-import { Pillar, BeneficiaryStatus } from '@/common/enums/beneficiary.enum';
+import { Pillar, BeneficiaryStatus, TrainingTier } from '@/common/enums/beneficiary.enum';
 import { CreateBeneficiaryDto } from './dto/create-beneficiary.dto';
 // import { CryptoService } from '@/common/services/crypto.service';
 import { GeoAllocationService } from './services/geo-allocation.service';
@@ -486,7 +486,7 @@ export class BeneficiariesService {
       );
       if (courseProblem) throw new UnprocessableEntityException(courseProblem);
     }
-    const fullName = [dto.firstName, dto.middleName, dto.lastName].map((part) => part.trim()).filter(Boolean).join(' ');
+    const fullName = [dto.firstName, dto.middleName ?? '', dto.lastName].map((part) => part.trim()).filter(Boolean).join(' ');
 
     // ---- 2. Email & NIN Deduplication Check ----
     const existingEmail = await this.beneficiaryRepo.findOne({
@@ -560,7 +560,7 @@ export class BeneficiariesService {
           referenceId,
           fullName,
           firstName: dto.firstName.trim(),
-          middleName: dto.middleName.trim(),
+          middleName: dto.middleName?.trim() || null,
           lastName: dto.lastName.trim(),
           dateOfBirth: dto.dateOfBirth,
           gender: dto.gender,
@@ -607,6 +607,8 @@ export class BeneficiariesService {
         if (dto.pillar === Pillar.SKILLS && dto.skillsProfile) {
           const skillsProfile = manager.create(BeneficiarySkillsProfile, {
             ...dto.skillsProfile,
+            priorExperience:
+              dto.skillsProfile.skillTier === TrainingTier.FOUNDATIONAL ? undefined : dto.skillsProfile.priorExperience,
             highestEducationLevel: highestEducationLevel ?? '',
             beneficiaryId: savedBeneficiary.id,
           });
