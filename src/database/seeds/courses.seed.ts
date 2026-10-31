@@ -11,6 +11,8 @@ const courses = [
     8,
   ],
   ['Digital Literacy & Workplace Productivity', TrainingTier.FOUNDATIONAL, 8],
+  ['Game Development Fundamentals', TrainingTier.FOUNDATIONAL, 8],
+  ['Foundation of VR and Immersive 3D Creation', TrainingTier.FOUNDATIONAL, 8],
   [
     'Advanced Customer Service & Process Mapping',
     TrainingTier.INTERMEDIATE,
@@ -27,17 +29,20 @@ const courses = [
   ['UI/UX Design', TrainingTier.INTERMEDIATE, 12],
   ['Coding & Software Engineering Basics', TrainingTier.INTERMEDIATE, 12],
   ['2D Animation & Motion Graphics', TrainingTier.INTERMEDIATE, 12],
+  ['Programming, Level Design and Competitive Strategy', TrainingTier.INTERMEDIATE, 12],
+  ['3D Assets, Animation and Engine Programming', TrainingTier.INTERMEDIATE, 12],
   ['Advanced Motion Graphics & 3D Animation', TrainingTier.ADVANCED, 20],
   ['Applied AI Tools for Creative & Technical Work', TrainingTier.ADVANCED, 20],
   ['Digital Marketing Strategy & Paid Media', TrainingTier.ADVANCED, 16],
   ['Cybersecurity & Data Protection', TrainingTier.ADVANCED, 16],
-  ['Game Design & Interactive Media', TrainingTier.ADVANCED, 20],
-  [
-    'Virtual Reality (VR) / Augmented Reality (AR) Development',
-    TrainingTier.ADVANCED,
-    20,
-  ],
+  ['Engine Optimisation, Tactical Mastery and Mental Resilience', TrainingTier.ADVANCED, 20],
+  ['Advanced VR Engineering and XR Development Mastery', TrainingTier.ADVANCED, 20],
 ] as const;
+
+const retiredCourses = [
+  'Game Design & Interactive Media',
+  'Virtual Reality (VR) / Augmented Reality (AR) Development',
+];
 
 export async function seedCourses(manager: EntityManager): Promise<void> {
   const repository = manager.getRepository(Course);
@@ -47,6 +52,9 @@ export async function seedCourses(manager: EntityManager): Promise<void> {
       { title, tier, durationWeeks, isActive: true },
       ['title', 'tier'],
     );
+  }
+  for (const title of retiredCourses) {
+    await repository.update({ title }, { isActive: false });
   }
 }
 

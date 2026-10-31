@@ -1,10 +1,10 @@
-import { checkCourseForTier, PRD_COURSES_BY_TIER } from './skill-preference';
+import { checkCourseForTier, PRD_COURSES_BY_TIER, COURSE_HUB_RESTRICTIONS } from './skill-preference';
 
 describe('PRD course catalogue', () => {
   it('accepts every listed course at its own tier', () => {
     for (const [tier, courses] of Object.entries(PRD_COURSES_BY_TIER)) {
       for (const course of courses) {
-        expect(checkCourseForTier(tier, course, course.startsWith('Game') ? 'GAMING' : course.startsWith('Virtual') ? 'VR' : 'STANDARD')).toBeNull();
+        expect(checkCourseForTier(tier, course, COURSE_HUB_RESTRICTIONS[course]?.hubType ?? 'STANDARD')).toBeNull();
       }
     }
   });
@@ -14,10 +14,16 @@ describe('PRD course catalogue', () => {
     expect(checkCourseForTier('INTERMEDIATE', 'Cybersecurity & Data Protection', 'STANDARD')).toMatch(/Intermediary \/ Developmental/);
   });
 
-  it('keeps Game Design at the gaming hub and VR/AR at the VR hub', () => {
-    expect(checkCourseForTier('ADVANCED', 'Game Design & Interactive Media', 'STANDARD')).toMatch(/University of Ilorin/);
-    expect(checkCourseForTier('ADVANCED', 'Game Design & Interactive Media', 'GAMING')).toBeNull();
-    expect(checkCourseForTier('ADVANCED', 'Virtual Reality (VR) / Augmented Reality (AR) Development', 'CREATIVE')).toMatch(/Minna/);
+  it('keeps Game Hub courses at the gaming hub and VR courses at the VR hub', () => {
+    expect(checkCourseForTier('FOUNDATIONAL', 'Game Development Fundamentals', 'STANDARD')).toMatch(/University of Ilorin/);
+    expect(checkCourseForTier('FOUNDATIONAL', 'Game Development Fundamentals', 'GAMING')).toBeNull();
+    expect(checkCourseForTier('INTERMEDIATE', 'Programming, Level Design and Competitive Strategy', 'GAMING')).toBeNull();
+    expect(checkCourseForTier('ADVANCED', 'Engine Optimisation, Tactical Mastery and Mental Resilience', 'GAMING')).toBeNull();
+    expect(checkCourseForTier('ADVANCED', 'Engine Optimisation, Tactical Mastery and Mental Resilience', 'VR')).toMatch(/University of Ilorin/);
+    expect(checkCourseForTier('FOUNDATIONAL', 'Foundation of VR and Immersive 3D Creation', 'VR')).toBeNull();
+    expect(checkCourseForTier('INTERMEDIATE', '3D Assets, Animation and Engine Programming', 'VR')).toBeNull();
+    expect(checkCourseForTier('ADVANCED', 'Advanced VR Engineering and XR Development Mastery', 'CREATIVE')).toMatch(/Minna/);
+    expect(checkCourseForTier('INTERMEDIATE', 'Game Development Fundamentals', 'GAMING')).toMatch(/not one of/);
   });
 
   it('rejects an unknown tier', () => {

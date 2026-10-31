@@ -18,12 +18,18 @@ export class MonthlyReportDto {
   reportMonth!: string;
   @ApiProperty({ example: '2026-10-31', description: 'Last day of the reporting month' })
   dueDate!: string;
-  @ApiProperty()
-  fileName!: string;
+  @ApiProperty({ nullable: true, description: 'null for a nil report' })
+  fileName!: string | null;
   @ApiProperty({ format: 'date-time' })
   submittedAt!: string;
   @ApiProperty({ enum: ['ON_TIME', 'LATE'] })
   status!: string;
+  @ApiProperty({ description: 'true when the ESO filed a nil report' })
+  isNil!: boolean;
+  @ApiProperty({ nullable: true, description: 'Beneficiary rows in the file (0 for a nil report)' })
+  beneficiaryCount!: number | null;
+  @ApiProperty({ nullable: true })
+  submittedByName!: string | null;
 }
 
 export class MyMonthlyReportsDto {
