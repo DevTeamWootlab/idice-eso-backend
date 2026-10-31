@@ -7,6 +7,7 @@ import { ApplicationPersonnel } from './entities/application-personnel.entity';
 import { ApplicationReference } from './entities/application-reference.entity';
 import { ApplicationDocument } from './entities/application-document.entity';
 import { ReviewerAssignment } from './entities/reviewer-assignment.entity';
+import { EsoPortalService } from './eso-portal.service';
 import { ApplicationsService } from './applications.service';
 import { ApplicationsStateMachineService } from './applications-state-machine.service';
 import { ApplicationCompletenessService } from './application-completeness.service';
@@ -37,6 +38,7 @@ import { BeneficiariesModule } from '../beneficiaries/beneficiaries.module';
   ],
   providers: [
     ApplicationsService,
+    EsoPortalService,
     ApplicationsStateMachineService,
     ApplicationCompletenessService,
   ],

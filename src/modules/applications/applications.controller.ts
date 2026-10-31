@@ -21,6 +21,7 @@ import {
   ApiCreatedResponse,
 } from '@nestjs/swagger';
 import { ApplicationsService } from './applications.service';
+import { EsoPortalService } from './eso-portal.service';
 import { SaveDraftDto } from './dto/save-draft.dto';
 import { SubmitApplicationDto } from './dto/submit-application.dto';
 import { UploadDocumentDto } from './dto/upload-document.dto';
@@ -37,7 +38,10 @@ import { contentDisposition, resolveContentType, resolveFileName } from '@/commo
 @Controller('applications')
 @Roles(Role.ESO)
 export class ApplicationsController {
-  constructor(private readonly applicationsService: ApplicationsService) {}
+  constructor(
+    private readonly applicationsService: ApplicationsService,
+    private readonly esoPortalService: EsoPortalService,
+  ) {}
 
   @ApiOkResponse({ description: 'The signed-in applicant\'s applications' })
   @ApiOperation({ summary: 'List my applications', description: 'Requires role: ROLE_ESO' })
@@ -87,6 +91,36 @@ export class ApplicationsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.applicationsService.getApplicantBeneficiaries(user.sub, id);
+  }
+
+  @ApiOperation({
+    summary: 'My eligibility checklist and score breakdown',
+    description:
+      'Requires role: ROLE_ESO (owner only). The 12-point eligibility result once decided (pass/fail per check, no reviewer notes) ' +
+      'and, once a final score exists, the average score per evaluation domain across submitted score cards.',
+  })
+  @ApiOkResponse({ description: 'Eligibility checklist result and domain score breakdown' })
+  @Get(':id/assessment')
+  assessment(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.esoPortalService.assessment(user.sub, id);
+  }
+
+  @ApiOperation({
+    summary: 'Cohorts and mentorship at my Centre of Excellence',
+    description:
+      'Requires role: ROLE_ESO (owner only). Training cohorts at the matched Centre of Excellence with member, completion and ' +
+      'certification counts, and how many allocated startups are linked to a mentor. 403 until the application is MATCHED.',
+  })
+  @ApiOkResponse({ description: 'Cohorts and mentorship linkage for the matched Centre of Excellence' })
+  @Get(':id/programme')
+  programme(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.esoPortalService.programme(user.sub, id);
   }
 
   @ApiOkResponse({ description: 'The application with its documents, personnel and references' })

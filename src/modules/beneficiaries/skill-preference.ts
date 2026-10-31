@@ -4,6 +4,8 @@ export const PRD_COURSES_BY_TIER: Record<string, string[]> = {
     'Data Entry & Administrative Operations',
     'Technical Support & IT Helpdesk Fundamentals',
     'Digital Literacy & Workplace Productivity',
+    'Game Development Fundamentals',
+    'Foundation of VR and Immersive 3D Creation',
   ],
   INTERMEDIATE: [
     'Advanced Customer Service & Process Mapping',
@@ -14,23 +16,29 @@ export const PRD_COURSES_BY_TIER: Record<string, string[]> = {
     'UI/UX Design',
     'Coding & Software Engineering Basics',
     '2D Animation & Motion Graphics',
+    'Programming, Level Design and Competitive Strategy',
+    '3D Assets, Animation and Engine Programming',
   ],
   ADVANCED: [
     'Advanced Motion Graphics & 3D Animation',
     'Applied AI Tools for Creative & Technical Work',
     'Digital Marketing Strategy & Paid Media',
     'Cybersecurity & Data Protection',
-    'Game Design & Interactive Media',
-    'Virtual Reality (VR) / Augmented Reality (AR) Development',
+    'Engine Optimisation, Tactical Mastery and Mental Resilience',
+    'Advanced VR Engineering and XR Development Mastery',
   ],
 };
 
+const GAMING_HUB = { hubType: 'GAMING', institution: 'University of Ilorin, Kwara State' };
+const VR_HUB = { hubType: 'VR', institution: 'Federal University of Technology, Minna, Niger State' };
+
 export const COURSE_HUB_RESTRICTIONS: Record<string, { hubType: string; institution: string }> = {
-  'Game Design & Interactive Media': { hubType: 'GAMING', institution: 'University of Ilorin, Kwara State' },
-  'Virtual Reality (VR) / Augmented Reality (AR) Development': {
-    hubType: 'VR',
-    institution: 'Federal University of Technology, Minna, Niger State',
-  },
+  'Game Development Fundamentals': GAMING_HUB,
+  'Programming, Level Design and Competitive Strategy': GAMING_HUB,
+  'Engine Optimisation, Tactical Mastery and Mental Resilience': GAMING_HUB,
+  'Foundation of VR and Immersive 3D Creation': VR_HUB,
+  '3D Assets, Animation and Engine Programming': VR_HUB,
+  'Advanced VR Engineering and XR Development Mastery': VR_HUB,
 };
 
 export const EDUCATION_LEVELS = ['Secondary / SSCE', 'OND', 'HND', 'BSc/BA', 'Postgraduate', 'Non-formal / Self-taught'];

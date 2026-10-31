@@ -13,11 +13,17 @@ export class MonthlyReport extends BaseEntity {
   @Column({ type: 'varchar', length: 7 })
   reportMonth!: string;
 
-  @Column({ type: 'varchar' })
-  fileUrl!: string;
+  @Column({ type: 'varchar', nullable: true })
+  fileUrl!: string | null;
 
-  @Column({ type: 'varchar' })
-  fileName!: string;
+  @Column({ type: 'varchar', nullable: true })
+  fileName!: string | null;
+
+  @Column({ type: 'boolean', default: false })
+  isNil!: boolean;
+
+  @Column({ type: 'int', nullable: true })
+  beneficiaryCount!: number | null;
 
   @Column({ type: 'timestamptz' })
   submittedAt!: Date;

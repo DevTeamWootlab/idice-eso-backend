@@ -1,4 +1,6 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Post, Res, StreamableFile } from '@nestjs/common';
+import type { Response } from 'express';
+import { contentDisposition } from '@/common/utils/content-disposition';
 import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '@/common/decorators/roles.decorator';
 import { Role } from '@/common/enums/role.enum';
@@ -36,5 +38,26 @@ export class MonthlyReportsController {
   @HttpCode(HttpStatus.CREATED)
   submit(@CurrentUser() user: JwtPayload, @Body() dto: SubmitMonthlyReportDto) {
     return this.monthlyReportsService.submit(user.sub, dto);
+  }
+
+  @ApiOperation({
+    summary: 'Download one of my submitted monthly reports',
+    description: 'Requires role: ROLE_ESO (owner only). Nil reports have no file and return 404.',
+  })
+  @ApiOkResponse({ description: 'The file itself' })
+  @Get(':id/download')
+  async download(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const file = await this.monthlyReportsService.downloadMine(user.sub, id);
+    res.set({
+      'Content-Type': file.contentType,
+      'Content-Disposition': contentDisposition(file.fileName, 'attachment'),
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'private, no-store',
+    });
+    return new StreamableFile(file.buffer);
   }
 }
