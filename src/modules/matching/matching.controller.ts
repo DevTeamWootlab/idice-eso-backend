@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -12,7 +12,7 @@ import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { Role } from '@/common/enums/role.enum';
 import { JwtPayload } from '@/common/interfaces/jwt-payload.interface';
 import { MatchingService } from './matching.service';
-import { CommitMatchesDto, CommitMatchesResultDto, MatchDto } from './dto/matching.dto';
+import { CommitMatchesDto, CommitMatchesResultDto, ManualAssignDto, MatchDto } from './dto/matching.dto';
 
 @ApiTags('Partner Match Engine (SYSADMIN)')
 @ApiBearerAuth()
@@ -73,5 +73,31 @@ export class MatchingController {
   @Get('last-run')
   lastRun() {
     return this.matchingService.getLastRun();
+  }
+
+  /** Swap picker: eligible validated-but-unmatched ESOs for one CoE, ranked by MCI. */
+  @Get('institutions/:institutionId/candidates')
+  candidates(@Param('institutionId', ParseUUIDPipe) institutionId: string) {
+    return this.matchingService.getAssignableCandidates(institutionId);
+  }
+
+  /** Override a suggestion or assign to an unmatched CoE. Stages as AWAITING_APPROVAL. */
+  @Post('institutions/:institutionId/assign')
+  assign(
+    @Param('institutionId', ParseUUIDPipe) institutionId: string,
+    @Body() dto: ManualAssignDto,
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.matchingService.manualAssign(user.id, institutionId, dto.applicationId, dto.reason);
+  }
+
+  /** Withdraw a staged manual pairing. */
+  @Delete(':matchId/manual')
+  @HttpCode(204)
+  async cancel(
+    @Param('matchId', ParseUUIDPipe) matchId: string,
+    @CurrentUser() user: { id: string },
+  ): Promise<void> {
+    await this.matchingService.cancelManualAssignment(user.id, matchId);
   }
 }
