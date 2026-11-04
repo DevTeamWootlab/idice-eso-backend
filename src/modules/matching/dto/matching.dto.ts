@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ArrayMaxSize, IsArray, IsOptional, IsUUID } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsNotEmpty, IsString, IsOptional, IsUUID, MinLength, MaxLength } from 'class-validator';
 import { MatchStatus } from '../entities/match.entity';
 
 export class CommitMatchesDto {
@@ -83,4 +83,16 @@ export class CommitMatchesResultDto {
   skipped!: SkippedMatchDto[];
   @ApiProperty({ type: [MatchDto], description: 'The full match list after committing' })
   matches!: MatchDto[];
+}
+
+export class ManualAssignDto {
+  @IsUUID()
+  applicationId!: string;
+
+  /** Shown in the audit trail and on the Awaiting approval row. */
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(10, { message: 'Please give a reason of at least 10 characters.' })
+  @MaxLength(1000)
+  reason!: string;
 }

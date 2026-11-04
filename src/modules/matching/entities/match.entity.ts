@@ -6,8 +6,14 @@ import { decimalTransformer } from '@/common/utils/decimal.transformer';
 
 export enum MatchStatus {
   GENERATED = 'GENERATED',
+  AWAITING_APPROVAL = 'AWAITING_APPROVAL', // manual pairing staged, not yet signed off
   ACCEPTED = 'ACCEPTED',
   REJECTED = 'REJECTED',
+}
+
+export enum MatchSource {
+  SYSTEM = 'SYSTEM',
+  MANUAL = 'MANUAL',
 }
 
 @Entity('matches')
@@ -47,4 +53,16 @@ export class Match extends BaseEntity {
 
   @Column({ type: 'timestamptz', nullable: true })
   matchedAt!: Date;
+
+  @Column({ type: 'enum', enum: MatchSource, default: MatchSource.SYSTEM })
+  source!: MatchSource;
+
+  @Column({ type: 'uuid', nullable: true })
+  overriddenApplicationId!: string | null; // the suggestion this pairing replaced
+
+  @Column({ type: 'text', nullable: true })
+  overrideReason!: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  assignedByUserId!: string | null;
 }
