@@ -267,6 +267,7 @@ export class TrainingService {
     cohortId: string,
     dto: EnrollBeneficiariesDto,
     actorId: string,
+    actorRole = 'ROLE_SYSADMIN',
   ): Promise<BulkEnrollmentResult> {
     return this.dataSource.transaction(async (manager) => {
       // 1. Lock cohort row to prevent concurrent capacity overfill
@@ -370,7 +371,7 @@ export class TrainingService {
       // 6. Audit Trail
       await this.auditLogService.record({
         actorId,
-        actorRole: 'ROLE_SYSADMIN',
+        actorRole,
         action: 'BULK_COHORT_ENROLLMENT',
         entityType: 'Cohort',
         entityId: cohortId,

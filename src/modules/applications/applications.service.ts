@@ -580,6 +580,23 @@ export class ApplicationsService {
    * nobody allocated yet" stays visible to the caller.
    */
   async getApplicantBeneficiaries(userId: string, id: string) {
+    return this.beneficiariesService.listForEso(await this.matchedInstitutionId(userId, id));
+  }
+
+  async getApplicantBeneficiary(userId: string, id: string, beneficiaryId: string) {
+    return this.beneficiariesService.getForEso(await this.matchedInstitutionId(userId, id), beneficiaryId);
+  }
+
+  async getApplicantBeneficiaryDocument(
+    userId: string,
+    id: string,
+    beneficiaryId: string,
+    kind: 'cac-document' | 'pitch-deck',
+  ) {
+    return this.beneficiariesService.getDocumentForEso(await this.matchedInstitutionId(userId, id), beneficiaryId, kind);
+  }
+
+  private async matchedInstitutionId(userId: string, id: string): Promise<string> {
     const application = await this.findOneOwned(userId, id);
     if (application.status !== ApplicationStatus.MATCHED) {
       throw new ForbiddenException(
@@ -594,7 +611,7 @@ export class ApplicationsService {
         'This application has not been matched to a Centre of Excellence yet',
       );
     }
-    return this.beneficiariesService.listForEso(match.institutionId);
+    return match.institutionId;
   }
 
   private async findOrCreateDraft(userId: string): Promise<Application> {

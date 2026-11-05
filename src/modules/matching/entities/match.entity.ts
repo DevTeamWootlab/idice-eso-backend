@@ -6,7 +6,7 @@ import { decimalTransformer } from '@/common/utils/decimal.transformer';
 
 export enum MatchStatus {
   GENERATED = 'GENERATED',
-  AWAITING_APPROVAL = 'AWAITING_APPROVAL', // manual pairing staged, not yet signed off
+  AWAITING_APPROVAL = 'AWAITING_APPROVAL',
   ACCEPTED = 'ACCEPTED',
   REJECTED = 'REJECTED',
 }
@@ -58,7 +58,7 @@ export class Match extends BaseEntity {
   source!: MatchSource;
 
   @Column({ type: 'uuid', nullable: true })
-  overriddenApplicationId!: string | null; // the suggestion this pairing replaced
+  overriddenApplicationId!: string | null;
 
   @Column({ type: 'text', nullable: true })
   overrideReason!: string | null;

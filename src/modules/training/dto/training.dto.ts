@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -49,6 +49,8 @@ export class CreateCohortDto {
   @Min(0)
   capacity?: number;
 }
+
+export class EsoCreateCohortDto extends OmitType(CreateCohortDto, ['institutionId'] as const) {}
 
 export class UpdateCohortDto {
   @ApiPropertyOptional()

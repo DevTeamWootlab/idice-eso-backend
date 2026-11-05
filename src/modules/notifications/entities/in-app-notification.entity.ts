@@ -2,7 +2,7 @@ import { Column, Entity, Index } from 'typeorm';
 import { BaseEntity } from '@/common/entities/base.entity';
 
 @Entity('in_app_notifications')
-@Index(['userId', 'readAt'])
+@Index('IDX_in_app_notifications_user_read', ['userId', 'readAt'])
 export class InAppNotification extends BaseEntity {
   @Column()
   userId!: string;

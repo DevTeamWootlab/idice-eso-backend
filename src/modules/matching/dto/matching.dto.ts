@@ -1,8 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ArrayMaxSize, IsArray, IsNotEmpty, IsString, IsOptional, IsUUID, MinLength, MaxLength } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsNotEmpty, IsString, IsOptional, IsUUID, MinLength, MaxLength } from 'class-validator';
 import { MatchSource, MatchStatus } from '../entities/match.entity';
 
-/** Response item for GET institutions/:institutionId/candidates */
 export class AssignableCandidateDto {
   @ApiProperty({ format: 'uuid' })
   applicationId!: string;
@@ -27,25 +26,51 @@ export class AssignableCandidateDto {
 
   @ApiProperty({ example: 60 })
   institutionalRelationshipScore!: number;
+
+  @ApiPropertyOptional({ nullable: true, type: String, example: 'University of Ilorin' })
+  appliedToInstitutionName!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, type: String, example: 'Kwara', description: "The ESO's state (state of the Centre of Excellence it applied to)" })
+  state!: string | null;
+
+  @ApiProperty({ description: 'true when the ESO is from a different state than this institution' })
+  isCrossState!: boolean;
+
+  @ApiProperty({ description: 'true when the ESO is the current pairing for this institution' })
+  isCurrentMatch!: boolean;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Set when the ESO is already in a suggested, staged or approved pairing. Such ESOs cannot be assigned until that pairing is overridden or withdrawn.',
+    example: { matchId: 'uuid', institutionId: 'uuid', institutionName: 'University of Ilorin', status: 'GENERATED' },
+  })
+  pairedWith!: { matchId: string; institutionId: string; institutionName: string | null; status: MatchStatus } | null;
 }
 
-/**
- * Response item for GET unmatched.
- * NOTE: shape is inferred from the endpoint description. Align it with what
- * MatchingService.getUnmatched() actually returns.
- */
 export class UnmatchedApplicationDto {
   @ApiProperty({ format: 'uuid' })
   applicationId!: string;
 
-  @ApiPropertyOptional({ nullable: true, type: String })
-  organisationLegalName!: string | null;
+  @ApiProperty({ example: 'IDICE-NC-0001' })
+  applicationRef!: string;
 
-  @ApiPropertyOptional({ format: 'uuid', nullable: true, type: String, description: 'Centre of Excellence the ESO applied to, if any' })
-  preferredInstitutionId!: string | null;
+  @ApiPropertyOptional({ nullable: true, type: String })
+  organisationName!: string | null;
 
   @ApiPropertyOptional({ nullable: true, type: Number, example: 68.5 })
   finalScorePercent!: number | null;
+
+  @ApiPropertyOptional({ format: 'uuid', nullable: true, type: String, description: 'Centre of Excellence the ESO applied to, if any' })
+  institutionId!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, type: String })
+  institutionName!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, type: String })
+  state!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, type: Number })
+  matchCompatibilityIndex!: number | null;
 
   @ApiProperty({
     example: 'Final score is below the 70% threshold',
@@ -153,13 +178,11 @@ export class CommitMatchesResultDto {
   matches!: MatchDto[];
 }
 
-/** Request body for POST institutions/:institutionId/assign */
 export class ManualAssignDto {
   @ApiProperty({ format: 'uuid', description: 'The VALIDATED_SHORTLISTED application (ESO) to assign' })
   @IsUUID()
   applicationId!: string;
 
-  /** Shown in the audit trail and on the Awaiting approval row. */
   @ApiProperty({
     minLength: 10,
     maxLength: 1000,
@@ -171,4 +194,73 @@ export class ManualAssignDto {
   @MinLength(10, { message: 'Please give a reason of at least 10 characters.' })
   @MaxLength(1000)
   reason!: string;
+
+  @ApiPropertyOptional({
+    default: false,
+    description:
+      'Bypass the same-state rule for this manual pairing. The cross-state exception, both states and the administrator are recorded in the audit trail.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  allowCrossState?: boolean;
+}
+
+class OverviewMatchDto {
+  @ApiPropertyOptional({ format: 'uuid', nullable: true, type: String, description: 'null for a legacy approved pairing without a match record' })
+  id!: string | null;
+  @ApiProperty({ format: 'uuid' })
+  applicationId!: string;
+  @ApiPropertyOptional({ nullable: true, type: String })
+  organisationLegalName!: string | null;
+  @ApiPropertyOptional({ nullable: true, type: Number })
+  finalScorePercent!: number | null;
+  @ApiPropertyOptional({ nullable: true, type: String, description: "The ESO's own state" })
+  esoState!: string | null;
+  @ApiProperty()
+  isCrossState!: boolean;
+  @ApiPropertyOptional({ nullable: true, type: Number })
+  matchCompatibilityIndex!: number | null;
+  @ApiProperty({ enum: MatchStatus, enumName: 'MatchStatus' })
+  status!: MatchStatus;
+  @ApiProperty({ enum: MatchSource, enumName: 'MatchSource' })
+  source!: MatchSource;
+  @ApiPropertyOptional({ format: 'uuid', nullable: true, type: String })
+  overriddenApplicationId!: string | null;
+  @ApiPropertyOptional({ nullable: true, type: String })
+  overrideReason!: string | null;
+  @ApiPropertyOptional({ format: 'date-time', nullable: true, type: String })
+  matchedAt!: string | null;
+}
+
+class OverviewInstitutionDto {
+  @ApiProperty({ format: 'uuid' })
+  institutionId!: string;
+  @ApiProperty()
+  institutionName!: string;
+  @ApiProperty()
+  state!: string;
+  @ApiProperty({ example: 'GAMING' })
+  hubType!: string;
+  @ApiProperty({ description: 'true when an unpaired, eligible ESO from the same state exists' })
+  hasSameStateCandidate!: boolean;
+  @ApiPropertyOptional({ type: OverviewMatchDto, nullable: true, description: 'null when the institution is unassigned' })
+  match!: OverviewMatchDto | null;
+}
+
+class OverviewSummaryDto {
+  @ApiProperty({ example: 11 }) institutions!: number;
+  @ApiProperty({ example: 7 }) paired!: number;
+  @ApiProperty({ example: 4 }) unassigned!: number;
+  @ApiProperty({ example: 4 }) awaitingApproval!: number;
+  @ApiProperty({ example: 3 }) approved!: number;
+  @ApiProperty({ example: 1 }) manualOverrides!: number;
+  @ApiProperty({ example: 1 }) crossState!: number;
+  @ApiProperty({ example: 2, description: 'Validated ESOs (score of 70% or more) not in any pairing' }) availableEsos!: number;
+}
+
+export class MatchOverviewDto {
+  @ApiProperty({ type: OverviewSummaryDto })
+  summary!: OverviewSummaryDto;
+  @ApiProperty({ type: [OverviewInstitutionDto], description: 'Every active Host Institution, paired or not' })
+  institutions!: OverviewInstitutionDto[];
 }
