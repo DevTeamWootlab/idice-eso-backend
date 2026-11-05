@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseBoolPipe, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -9,6 +9,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import { Roles } from '@/common/decorators/roles.decorator';
@@ -22,6 +23,7 @@ import {
   CommitMatchesResultDto,
   ManualAssignDto,
   MatchDto,
+  MatchOverviewDto,
   UnmatchedApplicationDto,
 } from './dto/matching.dto';
 
@@ -30,7 +32,7 @@ import {
 @Controller('internal/match-engine')
 @Roles(Role.SYSADMIN)
 export class MatchingController {
-  constructor(private readonly matchingService: MatchingService) { }
+  constructor(private readonly matchingService: MatchingService) {}
 
   @ApiOperation({
     summary: 'Run the Partner Match Engine (propose matches)',
@@ -62,7 +64,7 @@ export class MatchingController {
     description: 'Committed matches and any proposals skipped as stale, with reasons.',
     type: CommitMatchesResultDto,
   })
-  @ApiBadRequestResponse({ description: 'There are no proposed matches to approve' })
+  @ApiBadRequestResponse({ description: 'There are no matches awaiting approval' })
   @Post('commit')
   commit(@Body() dto: CommitMatchesDto, @CurrentUser() user: JwtPayload) {
     return this.matchingService.commitMatches(user.sub, dto.matchIds);
@@ -96,37 +98,54 @@ export class MatchingController {
     return this.matchingService.getLastRun();
   }
 
-  /** Swap picker: eligible validated-but-unmatched ESOs for one CoE, ranked by MCI. */
   @ApiOperation({
-    summary: 'Eligible candidates for a Centre of Excellence (swap picker)',
+    summary: 'Every Host Institution with its pairing (or unassigned) and summary counts',
     description:
-      'Requires role: ROLE_SYSADMIN. Eligible validated-but-unmatched ESOs for the given institution ' +
-      '(same state, final score >= 70%, not already staged), ranked by MCI against that institution.',
+      'Requires role: ROLE_SYSADMIN. Lists all active Centres of Excellence, including those with no pairing, ' +
+      'each with its suggested, staged or approved ESO. The summary carries the dashboard counters ' +
+      '(paired, unassigned, awaiting approval, approved, manual overrides, cross-state).',
   })
-  @ApiParam({ name: 'institutionId', format: 'uuid', description: 'Host institution (Centre of Excellence) ID' })
-  @ApiOkResponse({ description: 'Candidates ranked by MCI, best first.', type: [AssignableCandidateDto] })
-  @ApiNotFoundResponse({ description: 'Institution not found' })
-  @Get('institutions/:institutionId/candidates')
-  candidates(@Param('institutionId', ParseUUIDPipe) institutionId: string) {
-    return this.matchingService.getAssignableCandidates(institutionId);
+  @ApiOkResponse({ type: MatchOverviewDto })
+  @Get('overview')
+  overview() {
+    return this.matchingService.getOverview();
   }
 
-  /** Override a suggestion or assign to an unmatched CoE. Stages as AWAITING_APPROVAL. */
+  @ApiOperation({
+    summary: 'Candidate ESOs for a Centre of Excellence (assign / override picker)',
+    description:
+      'Requires role: ROLE_SYSADMIN. Validated ESOs with a final score of 70% or more, ranked by MCI against the ' +
+      'given institution. Same state only unless crossState=true. ESOs already in a suggested, staged or approved ' +
+      'pairing are returned with pairedWith set and cannot be assigned until that pairing is overridden or withdrawn.',
+  })
+  @ApiParam({ name: 'institutionId', format: 'uuid', description: 'Host institution (Centre of Excellence) ID' })
+  @ApiQuery({ name: 'crossState', required: false, type: Boolean, description: 'Include ESOs from every state' })
+  @ApiOkResponse({ description: 'Candidates ranked by MCI, unpaired first.', type: [AssignableCandidateDto] })
+  @ApiNotFoundResponse({ description: 'Institution not found' })
+  @Get('institutions/:institutionId/candidates')
+  candidates(
+    @Param('institutionId', ParseUUIDPipe) institutionId: string,
+    @Query('crossState', new ParseBoolPipe({ optional: true })) crossState?: boolean,
+  ) {
+    return this.matchingService.getAssignableCandidates(institutionId, crossState === true);
+  }
+
   @ApiOperation({
     summary: 'Manually assign an ESO to a Centre of Excellence',
     description:
       'Requires role: ROLE_SYSADMIN. Overrides a suggested match or assigns an ESO to an unmatched centre. ' +
-      'A reason is required and is recorded in the audit trail. The pairing is staged as AWAITING_APPROVAL ' +
+      'A reason is required and is recorded in the audit trail. ESOs from another state need allowCrossState=true; ' +
+      'the cross-state exception and the administrator are logged. The pairing is staged as AWAITING_APPROVAL ' +
       'and only takes effect once approved with POST /internal/match-engine/commit.',
   })
   @ApiParam({ name: 'institutionId', format: 'uuid', description: 'Host institution (Centre of Excellence) ID' })
   @ApiCreatedResponse({ description: 'The staged manual match.', type: MatchDto })
   @ApiBadRequestResponse({
-    description: 'Missing reason, or the application is not eligible for this institution',
+    description: 'Missing reason, the application is not eligible, or it is from another state without allowCrossState',
   })
   @ApiNotFoundResponse({ description: 'Institution or application not found' })
   @ApiConflictResponse({
-    description: 'Institution already has a committed match, or the ESO is already staged elsewhere',
+    description: 'The ESO is already paired with another institution',
   })
   @Post('institutions/:institutionId/assign')
   assign(
@@ -134,10 +153,15 @@ export class MatchingController {
     @Body() dto: ManualAssignDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.matchingService.manualAssign(user.sub, institutionId, dto.applicationId, dto.reason);
+    return this.matchingService.manualAssign(
+      user.sub,
+      institutionId,
+      dto.applicationId,
+      dto.reason,
+      dto.allowCrossState === true,
+    );
   }
 
-  /** Withdraw a staged manual pairing. */
   @ApiOperation({
     summary: 'Withdraw a staged manual pairing',
     description: 'Requires role: ROLE_SYSADMIN. Cancels a manual assignment that is still AWAITING_APPROVAL.',

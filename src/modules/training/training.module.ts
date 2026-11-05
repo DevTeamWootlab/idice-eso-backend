@@ -9,6 +9,8 @@ import { TrainingCompletion } from './entities/training-completion.entity';
 import { Certificate } from './entities/certificate.entity';
 import { TrainingService } from './training.service';
 import { TrainingController } from './training.controller';
+import { EsoTrainingController } from './eso-training.controller';
+import { EsoTrainingService } from './eso-training.service';
 
 @Module({
   imports: [
@@ -22,8 +24,8 @@ import { TrainingController } from './training.controller';
       Certificate,
     ]),
   ],
-  controllers: [TrainingController],
-  providers: [TrainingService],
+  controllers: [TrainingController, EsoTrainingController],
+  providers: [TrainingService, EsoTrainingService],
   exports: [TrainingService],
 })
 export class TrainingModule {}

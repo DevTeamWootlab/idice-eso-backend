@@ -3,7 +3,8 @@ import { BulkUpdateBeneficiaryStatusDto } from './dto/bulk-update-beneficiary-st
 import { JwtPayload } from '@/common/interfaces/jwt-payload.interface';
 import { Injectable, ConflictException, UnprocessableEntityException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
-import { Repository, DataSource, QueryFailedError } from 'typeorm';
+import { Repository, DataSource, QueryFailedError, In } from 'typeorm';
+import { CohortMember } from '@/modules/training/entities/cohort-member.entity';
 import { randomInt } from 'crypto';
 
 import { Beneficiary } from './entities/beneficiary.entity';
@@ -42,6 +43,14 @@ import {
 const REFERENCE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 const FILE_ANSWER_KEYS = ['pitchDeck', 'evidenceUpload', 'supportingDocuments'];
+
+const FULL_DETAIL_RELATIONS = {
+  skillsProfile: true,
+  incubationProfile: true,
+  accelerationProfile: true,
+  preferredInstitution: true,
+  assignedInstitution: true,
+} as const;
 
 function withoutFiles(details: Record<string, unknown> | null | undefined): Record<string, unknown> | null {
   if (!details) return null;
@@ -166,13 +175,29 @@ export class BeneficiariesService {
       order: { allocatedAt: 'DESC' },
     });
 
+    const memberships = beneficiaries.length
+      ? await this.dataSource.getRepository(CohortMember).find({
+          where: { beneficiaryId: In(beneficiaries.map((b) => b.id)), isActive: true },
+          relations: { cohort: true },
+          order: { enrolledAt: 'DESC' },
+        })
+      : [];
+    const cohortOf = new Map<string, { cohortId: string; cohortName: string }>();
+    for (const member of memberships) {
+      if (member.cohort?.institutionId !== institutionId || cohortOf.has(member.beneficiaryId)) continue;
+      cohortOf.set(member.beneficiaryId, { cohortId: member.cohortId, cohortName: member.cohort.name });
+    }
+
     return {
       institution: { id: institution.id, name: institution.name, state: institution.state },
-      items: beneficiaries.map((b) => this.toEsoBeneficiaryDto(b)),
+      items: beneficiaries.map((b) => this.toEsoBeneficiaryDto(b, cohortOf.get(b.id) ?? null)),
     };
   }
 
-  private toEsoBeneficiaryDto(b: Beneficiary): EsoBeneficiaryDto {
+  private toEsoBeneficiaryDto(
+    b: Beneficiary,
+    cohort: { cohortId: string; cohortName: string } | null = null,
+  ): EsoBeneficiaryDto {
     const skillsProfile: EsoBeneficiarySkillsDto | null = b.skillsProfile
       ? {
           preferredHubType: b.skillsProfile.preferredHubType,
@@ -266,27 +291,53 @@ export class BeneficiariesService {
       skillsProfile,
       incubationProfile,
       accelerationProfile,
+      cohortId: cohort?.cohortId ?? null,
+      cohortName: cohort?.cohortName ?? null,
     };
   }
 
   async getForAdmin(id: string) {
-    const b = await this.beneficiaryRepo.findOne({
-      where: { id },
-      relations: {
-        skillsProfile: true,
-        incubationProfile: true,
-        accelerationProfile: true,
-        preferredInstitution: true,
-        assignedInstitution: true,
-      },
-    });
+    const b = await this.beneficiaryRepo.findOne({ where: { id }, relations: FULL_DETAIL_RELATIONS });
     if (!b) throw new NotFoundException('Beneficiary not found');
+    return this.toFullDetail(b);
+  }
+
+  async getForEso(institutionId: string, beneficiaryId: string) {
+    const b = await this.findAllocatedForEso(institutionId, beneficiaryId);
+    const member = await this.dataSource.getRepository(CohortMember).findOne({
+      where: { beneficiaryId: b.id, isActive: true, cohort: { institutionId } },
+      relations: { cohort: true },
+      order: { enrolledAt: 'DESC' },
+    });
+    const cohort = member ? { cohortId: member.cohortId, cohortName: member.cohort.name } : null;
+    return this.toFullDetail(b, cohort, false);
+  }
+
+  async getDocumentForEso(institutionId: string, beneficiaryId: string, kind: 'cac-document' | 'pitch-deck') {
+    await this.findAllocatedForEso(institutionId, beneficiaryId);
+    return this.getDocumentForAdmin(beneficiaryId, kind);
+  }
+
+  private async findAllocatedForEso(institutionId: string, beneficiaryId: string) {
+    const b = await this.beneficiaryRepo.findOne({
+      where: { id: beneficiaryId, assignedInstitutionId: institutionId, status: BeneficiaryStatus.ALLOCATED },
+      relations: FULL_DETAIL_RELATIONS,
+    });
+    if (!b) throw new NotFoundException('This beneficiary is not allocated to your Centre of Excellence');
+    return b;
+  }
+
+  private toFullDetail(
+    b: Beneficiary,
+    cohort: { cohortId: string; cohortName: string } | null = null,
+    includeIdDocument = true,
+  ) {
     const institutionRef = (institution?: Institution | null) =>
       institution
         ? { id: institution.id, name: institution.name, state: institution.state, hubType: institution.hubType }
         : null;
     return {
-      ...this.toEsoBeneficiaryDto(b),
+      ...this.toEsoBeneficiaryDto(b, cohort),
       dateOfBirth: b.dateOfBirth,
       homeAddress: b.homeAddress,
       emergencyContactName: b.emergencyContactName ?? null,
@@ -298,7 +349,7 @@ export class BeneficiariesService {
       signedAt: b.signedAt ?? null,
       ageBracket: b.ageBracket ?? null,
       commitmentHoursConfirmed: b.commitmentHoursConfirmed ?? null,
-      hasGovernmentIdDocument: !!b.governmentIdStorageKey,
+      ...(includeIdDocument ? { hasGovernmentIdDocument: !!b.governmentIdStorageKey } : {}),
       signatureName: b.signatureName ?? null,
       informationAccurateConfirmed: b.informationAccurateConfirmed,
       falseInformationAcknowledged: b.falseInformationAcknowledged,

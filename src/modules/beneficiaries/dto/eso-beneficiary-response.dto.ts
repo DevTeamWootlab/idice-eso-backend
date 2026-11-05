@@ -201,6 +201,10 @@ export class EsoBeneficiaryDto {
   incubationProfile!: EsoBeneficiaryIncubationDto | null;
   @ApiProperty({ type: EsoBeneficiaryAccelerationDto, nullable: true })
   accelerationProfile!: EsoBeneficiaryAccelerationDto | null;
+  @ApiProperty({ format: 'uuid', nullable: true, type: String, description: 'The training cohort the beneficiary is enrolled in at this Centre of Excellence' })
+  cohortId!: string | null;
+  @ApiProperty({ nullable: true, type: String })
+  cohortName!: string | null;
 }
 
 export class EsoBeneficiaryListDto {

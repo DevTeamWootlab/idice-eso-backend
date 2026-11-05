@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseEnumPipe,
   ParseUUIDPipe,
   Post,
   Res,
@@ -32,6 +33,8 @@ import { JwtPayload } from '@common/interfaces/jwt-payload.interface';
 import { documentUploadOptions } from '@/config/multer.config';
 import { ApplicantActivityEventDto, ApplicantMatchDto, CompletenessResultDto } from './dto/applicant-views.dto';
 import { contentDisposition, resolveContentType, resolveFileName } from '@/common/utils/content-disposition';
+
+const ESO_BENEFICIARY_DOCUMENT_KINDS = { CAC_DOCUMENT: 'cac-document', PITCH_DECK: 'pitch-deck' } as const;
 
 @ApiTags('Applications (ESO applicant)')
 @ApiBearerAuth()
@@ -91,6 +94,45 @@ export class ApplicationsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.applicationsService.getApplicantBeneficiaries(user.sub, id);
+  }
+
+  @ApiOperation({
+    summary: 'One beneficiary in my matched cohort, in full',
+    description:
+      'Requires role: ROLE_ESO (owner only). The full intake record of a beneficiary ALLOCATED to the Centre of Excellence ' +
+      'this application is matched to. 404 for anyone else. Never returns NIN data or the government ID document.',
+  })
+  @ApiOkResponse({ description: 'The beneficiary record' })
+  @Get(':id/beneficiaries/:beneficiaryId')
+  beneficiary(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('beneficiaryId', ParseUUIDPipe) beneficiaryId: string,
+  ) {
+    return this.applicationsService.getApplicantBeneficiary(user.sub, id, beneficiaryId);
+  }
+
+  @ApiOperation({
+    summary: "Open a beneficiary's CAC certificate or pitch deck",
+    description: 'Requires role: ROLE_ESO (owner only). Only for beneficiaries allocated to this ESO\'s Centre of Excellence.',
+  })
+  @ApiOkResponse({ description: 'The file itself' })
+  @Get(':id/beneficiaries/:beneficiaryId/documents/:kind')
+  async beneficiaryDocument(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('beneficiaryId', ParseUUIDPipe) beneficiaryId: string,
+    @Param('kind', new ParseEnumPipe(ESO_BENEFICIARY_DOCUMENT_KINDS)) kind: 'cac-document' | 'pitch-deck',
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const file = await this.applicationsService.getApplicantBeneficiaryDocument(user.sub, id, beneficiaryId, kind);
+    res.set({
+      'Content-Type': file.contentType,
+      'Content-Disposition': contentDisposition(file.fileName),
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'private, no-store',
+    });
+    return new StreamableFile(file.buffer);
   }
 
   @ApiOperation({
