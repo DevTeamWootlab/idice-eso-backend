@@ -1,4 +1,4 @@
-import { Entity, Column, OneToOne, JoinColumn } from 'typeorm';
+import { Entity, Column, Index, ManyToOne, OneToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from '@common/entities/base.entity';
 import { Application } from '@/modules/applications/entities/application.entity';
 import { Institution } from '@modules/institutions/entities/institution.entity';
@@ -17,8 +17,9 @@ export enum MatchSource {
 }
 
 @Entity('matches')
+@Index('IDX_matches_applicationId', ['applicationId'])
 export class Match extends BaseEntity {
-  @OneToOne(() => Application)
+  @ManyToOne(() => Application)
   @JoinColumn({ name: 'applicationId' })
   application!: Application;
 

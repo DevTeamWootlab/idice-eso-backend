@@ -3,7 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, In, IsNull, Not } from 'typeorm';
 import { Application } from './entities/application.entity';
 import { ApplicationStatus } from '@/common/enums/application.enum';
-import { Match, MatchStatus } from '@/modules/matching/entities/match.entity';
+import { acceptedCentreIds } from '@/modules/matching/eso-centres';
 import { EligibilityChecklist } from '@/modules/eligibility/entities/eligibility-checklist.entity';
 import { ScoreCard } from '@/modules/scoring/entities/score-card.entity';
 import { RubricConfiguration } from '@/modules/scoring/entities/rubric-configuration.entity';
@@ -91,14 +91,12 @@ export class EsoPortalService {
   async programme(userId: string, id: string) {
     const application = await this.owned(userId, id);
     if (application.status !== ApplicationStatus.MATCHED) throw new ForbiddenException(NOT_MATCHED);
-    const match = await this.dataSource
-      .getRepository(Match)
-      .findOne({ where: { applicationId: id, status: MatchStatus.ACCEPTED } });
-    if (!match) throw new ForbiddenException(NOT_MATCHED);
+    const institutionIds = await acceptedCentreIds(this.dataSource, id);
+    if (institutionIds.length === 0) throw new ForbiddenException(NOT_MATCHED);
 
     const cohorts = await this.dataSource.getRepository(Cohort).find({
-      where: { institutionId: match.institutionId },
-      relations: { course: true },
+      where: { institutionId: In(institutionIds) },
+      relations: { course: true, institution: true },
       order: { startDate: 'ASC' },
     });
     const ids = cohorts.map((c) => c.id);
@@ -130,7 +128,7 @@ export class EsoPortalService {
     const startups = await this.dataSource.getRepository(Beneficiary).find({
       select: { id: true },
       where: {
-        assignedInstitutionId: match.institutionId,
+        assignedInstitutionId: In(institutionIds),
         status: BeneficiaryStatus.ALLOCATED,
         pillar: In([Pillar.INCUBATION, Pillar.ACCELERATION]),
       },
@@ -147,12 +145,15 @@ export class EsoPortalService {
       : { count: '0' };
 
     return {
-      institutionId: match.institutionId,
+      institutionId: institutionIds[0],
+      institutionIds,
       cohorts: cohorts.map((cohort) => {
         const done = completions.get(cohort.id);
         return {
           id: cohort.id,
           name: cohort.name,
+          institutionId: cohort.institutionId,
+          institutionName: cohort.institution?.name ?? null,
           tier: cohort.course?.tier ?? null,
           courseTitle: cohort.course?.title ?? null,
           startDate: cohort.startDate,

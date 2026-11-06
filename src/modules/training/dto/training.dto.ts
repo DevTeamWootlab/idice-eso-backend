@@ -50,7 +50,15 @@ export class CreateCohortDto {
   capacity?: number;
 }
 
-export class EsoCreateCohortDto extends OmitType(CreateCohortDto, ['institutionId'] as const) {}
+export class EsoCreateCohortDto extends OmitType(CreateCohortDto, ['institutionId'] as const) {
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description: 'Which of your Centres of Excellence the cohort is for. Required when you run more than one centre.',
+  })
+  @IsOptional()
+  @IsUUID()
+  institutionId?: string;
+}
 
 export class UpdateCohortDto {
   @ApiPropertyOptional()

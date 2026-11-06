@@ -68,9 +68,10 @@ export class ApplicationsController {
   }
 
   @ApiOperation({
-    summary: 'My confirmed host institution',
+    summary: 'My confirmed host institutions',
     description:
-      'Requires role: ROLE_ESO (owner only). Returns matched=false until the application is MATCHED. Match scores are never exposed.',
+      'Requires role: ROLE_ESO (owner only). Returns matched=false until the application is MATCHED. ' +
+      'institutions lists every approved Centre of Excellence the ESO runs. Match scores are never exposed.',
   })
   @ApiOkResponse({ type: ApplicantMatchDto })
   @Get(':id/match')
@@ -151,12 +152,13 @@ export class ApplicationsController {
   }
 
   @ApiOperation({
-    summary: 'Cohorts and mentorship at my Centre of Excellence',
+    summary: 'Cohorts and mentorship at my Centres of Excellence',
     description:
-      'Requires role: ROLE_ESO (owner only). Training cohorts at the matched Centre of Excellence with member, completion and ' +
-      'certification counts, and how many allocated startups are linked to a mentor. 403 until the application is MATCHED.',
+      'Requires role: ROLE_ESO (owner only). Training cohorts at every Centre of Excellence the ESO is approved to run, with ' +
+      'member, completion and certification counts, and how many allocated startups are linked to a mentor. ' +
+      '403 until the application is MATCHED.',
   })
-  @ApiOkResponse({ description: 'Cohorts and mentorship linkage for the matched Centre of Excellence' })
+  @ApiOkResponse({ description: 'Cohorts and mentorship linkage across the matched Centres of Excellence' })
   @Get(':id/programme')
   programme(
     @CurrentUser() user: JwtPayload,

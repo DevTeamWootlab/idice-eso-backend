@@ -201,6 +201,8 @@ export class EsoBeneficiaryDto {
   incubationProfile!: EsoBeneficiaryIncubationDto | null;
   @ApiProperty({ type: EsoBeneficiaryAccelerationDto, nullable: true })
   accelerationProfile!: EsoBeneficiaryAccelerationDto | null;
+  @ApiProperty({ format: 'uuid', nullable: true, description: 'The Centre of Excellence the beneficiary is allocated to' })
+  assignedInstitutionId!: string | null;
   @ApiProperty({ format: 'uuid', nullable: true, type: String, description: 'The training cohort the beneficiary is enrolled in at this Centre of Excellence' })
   cohortId!: string | null;
   @ApiProperty({ nullable: true, type: String })
@@ -208,8 +210,10 @@ export class EsoBeneficiaryDto {
 }
 
 export class EsoBeneficiaryListDto {
-  @ApiProperty({ type: EsoInstitutionRefDto })
+  @ApiProperty({ type: EsoInstitutionRefDto, description: 'The first centre the ESO runs. See institutions for all of them.' })
   institution!: EsoInstitutionRefDto;
+  @ApiProperty({ type: [EsoInstitutionRefDto], description: 'Every Centre of Excellence the ESO runs' })
+  institutions!: EsoInstitutionRefDto[];
   @ApiProperty({ type: [EsoBeneficiaryDto] })
   items!: EsoBeneficiaryDto[];
 }

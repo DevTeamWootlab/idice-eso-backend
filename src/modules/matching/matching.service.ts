@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Match, MatchSource, MatchStatus } from './entities/match.entity';
@@ -26,6 +26,8 @@ export type { MciBreakdown } from './matching-rules';
 
 const OPEN_PAIRING_STATUSES = [MatchStatus.GENERATED, MatchStatus.AWAITING_APPROVAL];
 const LIVE_PAIRING_STATUSES = [MatchStatus.GENERATED, MatchStatus.AWAITING_APPROVAL, MatchStatus.ACCEPTED];
+
+const PAIRABLE_STATUSES = [ApplicationStatus.VALIDATED_SHORTLISTED, ApplicationStatus.MATCHED];
 
 const sameState = (a: string | null | undefined, b: string | null | undefined) =>
   (a ?? '').trim().toUpperCase() === (b ?? '').trim().toUpperCase();
@@ -104,7 +106,6 @@ export class MatchingService {
     await this.matchRepo.delete({ status: MatchStatus.GENERATED });
     for (const proposal of proposals) {
       const institution = open.find((i) => i.id === proposal.institutionId) as Institution;
-      await this.matchRepo.delete({ applicationId: proposal.applicationId });
       await this.matchRepo.save(
         this.matchRepo.create({
           applicationId: proposal.applicationId,
@@ -160,7 +161,7 @@ export class MatchingService {
 
     for (const match of proposed) {
       const application = await this.applicationRepo.findOne({ where: { id: match.applicationId } });
-      if (!application || application.status !== ApplicationStatus.VALIDATED_SHORTLISTED) {
+      if (!application || !PAIRABLE_STATUSES.includes(application.status)) {
         skipped.push({
           matchId: match.id,
           reason: `The application is now ${application?.status ?? 'missing'} and can no longer be matched`,
@@ -175,16 +176,19 @@ export class MatchingService {
       const esoState = match.application?.preferredInstitution?.state ?? null;
       const crossState = !sameState(esoState, match.institution?.state ?? match.state);
 
-      await this.stateMachine.transition(application.id, {
-        targetStatus: ApplicationStatus.MATCHED,
-        actorId,
-        role: 'ROLE_SYSADMIN',
-        metadata: {
-          institutionId: match.institutionId,
-          matchCompatibilityIndex: match.matchCompatibilityIndex,
-        },
-      });
-      await this.applicationRepo.update(application.id, { matchedAt: new Date() });
+      const additionalCentre = application.status === ApplicationStatus.MATCHED;
+      if (!additionalCentre) {
+        await this.stateMachine.transition(application.id, {
+          targetStatus: ApplicationStatus.MATCHED,
+          actorId,
+          role: 'ROLE_SYSADMIN',
+          metadata: {
+            institutionId: match.institutionId,
+            matchCompatibilityIndex: match.matchCompatibilityIndex,
+          },
+        });
+        await this.applicationRepo.update(application.id, { matchedAt: new Date() });
+      }
       await this.matchRepo.update(match.id, { status: MatchStatus.ACCEPTED, matchedAt: new Date() });
       await this.auditLogService.record({
         actorId,
@@ -197,6 +201,7 @@ export class MatchingService {
           institutionName: match.institution?.name,
           matchCompatibilityIndex: match.matchCompatibilityIndex,
           source: match.source,
+          additionalCentre,
           crossState,
           esoState,
           institutionState: match.institution?.state ?? match.state,
@@ -297,10 +302,13 @@ export class MatchingService {
       where: { status: In(LIVE_PAIRING_STATUSES) },
       relations: { institution: true },
     });
-    const pairedByApplication = new Map(pairings.map((m) => [m.applicationId, m]));
+    const pairingsByApplication = new Map<string, Match[]>();
+    for (const m of pairings) {
+      pairingsByApplication.set(m.applicationId, [...(pairingsByApplication.get(m.applicationId) ?? []), m]);
+    }
 
     const pool = await this.applicationRepo.find({
-      where: { status: ApplicationStatus.VALIDATED_SHORTLISTED },
+      where: { status: In(PAIRABLE_STATUSES) },
       relations: { preferredInstitution: true, scoreCards: true },
     });
 
@@ -322,7 +330,7 @@ export class MatchingService {
           },
           { id: institution.id, state: institution.state, hubType: institution.hubType },
         );
-        const pairing = pairedByApplication.get(a.id) ?? null;
+        const own = pairingsByApplication.get(a.id) ?? [];
         return {
           applicationId: a.id,
           organisationLegalName: a.organisationLegalName,
@@ -331,21 +339,21 @@ export class MatchingService {
           appliedToInstitutionName: a.preferredInstitution?.name ?? null,
           state: a.preferredInstitution?.state ?? null,
           isCrossState: !sameState(a.preferredInstitution?.state, institution.state),
-          isCurrentMatch: pairing?.institutionId === institutionId,
-          pairedWith: pairing
-            ? {
-                matchId: pairing.id,
-                institutionId: pairing.institutionId,
-                institutionName: pairing.institution?.name ?? null,
-                status: pairing.status,
-              }
-            : null,
+          isCurrentMatch: own.some((m) => m.institutionId === institutionId),
+          otherPairings: own
+            .filter((m) => m.institutionId !== institutionId)
+            .map((m) => ({
+              matchId: m.id,
+              institutionId: m.institutionId,
+              institutionName: m.institution?.name ?? null,
+              status: m.status,
+            })),
           ...mci,
         };
       })
       .sort(
         (x, y) =>
-          Number(!!x.pairedWith) - Number(!!y.pairedWith) ||
+          Number(x.isCrossState) - Number(y.isCrossState) ||
           y.matchCompatibilityIndex - x.matchCompatibilityIndex ||
           (y.finalScorePercent ?? 0) - (x.finalScorePercent ?? 0),
       );
@@ -413,16 +421,19 @@ export class MatchingService {
       };
     });
 
-    const pool = await this.applicationRepo.find({
-      where: { status: ApplicationStatus.VALIDATED_SHORTLISTED },
-      relations: { preferredInstitution: true },
-    });
+    const pool = (
+      await this.applicationRepo.find({
+        where: { status: In(PAIRABLE_STATUSES) },
+        relations: { preferredInstitution: true },
+      })
+    ).filter((a) => (a.finalScorePercent ?? 0) >= QUALIFICATION_THRESHOLD);
     const pairedApps = new Set(pairings.map((m) => m.applicationId));
+    const candidateStates = new Set(pool.map((a) => (a.preferredInstitution?.state ?? '').trim().toUpperCase()));
     const freeStates = pool
-      .filter((a) => (a.finalScorePercent ?? 0) >= QUALIFICATION_THRESHOLD && !pairedApps.has(a.id))
+      .filter((a) => a.status === ApplicationStatus.VALIDATED_SHORTLISTED && !pairedApps.has(a.id))
       .map((a) => (a.preferredInstitution?.state ?? '').trim().toUpperCase());
     for (const row of rows) {
-      row.hasSameStateCandidate = freeStates.includes(row.state.trim().toUpperCase());
+      row.hasSameStateCandidate = candidateStates.has(row.state.trim().toUpperCase());
     }
 
     const paired = rows.filter((r) => r.match);
@@ -463,8 +474,8 @@ export class MatchingService {
         where: { id: applicationId },
         relations: { preferredInstitution: true, scoreCards: true },
       });
-      if (!application || application.status !== ApplicationStatus.VALIDATED_SHORTLISTED) {
-        throw new BadRequestException('Only validated, unmatched ESOs can be assigned');
+      if (!application || !PAIRABLE_STATUSES.includes(application.status)) {
+        throw new BadRequestException('Only validated ESOs can be assigned');
       }
       if ((application.finalScorePercent ?? 0) < QUALIFICATION_THRESHOLD) {
         throw new BadRequestException(`Final score is below the ${QUALIFICATION_THRESHOLD}% threshold`);
@@ -477,13 +488,6 @@ export class MatchingService {
         );
       }
 
-      const appRow = await matches.findOne({ where: { applicationId }, relations: { institution: true } });
-      if (appRow && appRow.institutionId !== institutionId && LIVE_PAIRING_STATUSES.includes(appRow.status)) {
-        throw new ConflictException(
-          `This ESO is already paired with ${appRow.institution?.name ?? 'another institution'}. Override or withdraw that pairing first.`,
-        );
-      }
-
       const current = await matches.findOne({ where: { institutionId } });
       if (current?.status === MatchStatus.ACCEPTED) {
         throw new BadRequestException('This institution already has a committed match');
@@ -492,9 +496,7 @@ export class MatchingService {
         throw new BadRequestException('This pairing is already staged');
       }
 
-      // Free both unique keys, then insert the manual row.
       if (current) await matches.delete({ id: current.id });
-      if (appRow && appRow.id !== current?.id) await matches.delete({ id: appRow.id });
 
       const mci = computeMci(
         {
@@ -555,6 +557,54 @@ export class MatchingService {
         relations: { application: { preferredInstitution: true }, institution: true },
       });
     });
+  }
+
+  async releaseAcceptedMatch(actorId: string, matchId: string, reason: string) {
+    if (!reason?.trim()) throw new BadRequestException('A reason is required to release an approved pairing.');
+    const match = await this.matchRepo.findOne({
+      where: { id: matchId },
+      relations: { application: true, institution: true },
+    });
+    if (!match || match.status !== MatchStatus.ACCEPTED) {
+      throw new BadRequestException('Only approved pairings can be released');
+    }
+    await this.matchRepo.delete({ id: match.id });
+    await this.auditLogService.record({
+      actorId,
+      actorRole: 'ROLE_SYSADMIN',
+      action: 'PARTNER_MATCH_RELEASED',
+      entityType: 'Application',
+      entityId: match.applicationId,
+      metadata: {
+        institutionId: match.institutionId,
+        institutionName: match.institution?.name ?? null,
+        source: match.source,
+        matchCompatibilityIndex: match.matchCompatibilityIndex,
+        approvedAt: match.matchedAt ?? null,
+        reason: reason.trim(),
+        releasedByUserId: actorId,
+      },
+    });
+  }
+
+  async returnToPoolIfUnpaired(actorId: string, applicationId: string, reason: string): Promise<boolean> {
+    const application = await this.applicationRepo.findOne({ where: { id: applicationId } });
+    if (!application || application.status !== ApplicationStatus.MATCHED) return false;
+    const remaining = await this.matchRepo.count({ where: { applicationId, status: MatchStatus.ACCEPTED } });
+    if (remaining > 0) return false;
+    await this.applicationRepo.update(applicationId, {
+      status: ApplicationStatus.VALIDATED_SHORTLISTED,
+      matchedAt: null,
+    });
+    await this.auditLogService.record({
+      actorId,
+      actorRole: 'ROLE_SYSADMIN',
+      action: 'PARTNER_MATCH_ESO_RETURNED_TO_POOL',
+      entityType: 'Application',
+      entityId: applicationId,
+      metadata: { fromStatus: ApplicationStatus.MATCHED, toStatus: ApplicationStatus.VALIDATED_SHORTLISTED, reason: reason.trim() },
+    });
+    return true;
   }
 
   async cancelManualAssignment(actorId: string, matchId: string) {

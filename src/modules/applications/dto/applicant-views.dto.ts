@@ -22,6 +22,14 @@ export class ApplicantMatchInstitutionDto {
   hubType!: string;
 }
 
+export class ApplicantMatchedCentreDto extends ApplicantMatchInstitutionDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiPropertyOptional({ format: 'date-time', nullable: true })
+  matchedAt!: string | null;
+}
+
 export class ApplicantMatchDto {
   @ApiProperty({
     description:
@@ -32,8 +40,18 @@ export class ApplicantMatchDto {
   @ApiPropertyOptional({ format: 'date-time', nullable: true })
   matchedAt!: string | null;
 
-  @ApiPropertyOptional({ type: ApplicantMatchInstitutionDto, nullable: true })
+  @ApiPropertyOptional({
+    type: ApplicantMatchInstitutionDto,
+    nullable: true,
+    description: 'The first centre the ESO was matched to. See institutions for every centre.',
+  })
   institution!: ApplicantMatchInstitutionDto | null;
+
+  @ApiProperty({
+    type: () => [ApplicantMatchedCentreDto],
+    description: 'Every Centre of Excellence the ESO is approved to run, oldest first. An ESO can run several.',
+  })
+  institutions!: ApplicantMatchedCentreDto[];
 }
 
 export class AdminApplicationStatsDto {

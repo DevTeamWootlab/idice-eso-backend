@@ -31,7 +31,9 @@ export class MonthlyReportsController {
   @ApiOperation({
     summary: 'Submit or replace the report for a month',
     description:
-      'Requires role: ROLE_ESO with a matched application. Upload the file to Cloudinary first and send its URL. Submitting again for the same month replaces the earlier file.',
+      'Requires role: ROLE_ESO with a matched application. Upload the file to Cloudinary first and send its URL. ' +
+      'An ESO running several centres files one report per centre per month and must send institutionId. ' +
+      'Submitting again for the same centre and month replaces the earlier file.',
   })
   @ApiCreatedResponse({ type: MonthlyReportDto })
   @Post()

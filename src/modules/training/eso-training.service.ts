@@ -1,9 +1,9 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { Application } from '@/modules/applications/entities/application.entity';
 import { ApplicationStatus } from '@/common/enums/application.enum';
-import { Match, MatchStatus } from '@/modules/matching/entities/match.entity';
+import { acceptedCentreIds } from '@/modules/matching/eso-centres';
 import { JwtPayload } from '@/common/interfaces/jwt-payload.interface';
 import { Cohort } from './entities/cohort.entity';
 import { TrainingCompletion } from './entities/training-completion.entity';
@@ -26,24 +26,22 @@ export class EsoTrainingService {
     private readonly trainingService: TrainingService,
   ) {}
 
-  private async hostInstitutionId(userId: string): Promise<string> {
+  private async hostInstitutionIds(userId: string): Promise<string[]> {
     const application = await this.dataSource.getRepository(Application).findOne({
       where: { submittedByOrgId: userId, status: ApplicationStatus.MATCHED },
     });
     if (!application) throw new ForbiddenException(NOT_MATCHED);
-    const match = await this.dataSource
-      .getRepository(Match)
-      .findOne({ where: { applicationId: application.id, status: MatchStatus.ACCEPTED } });
-    if (match) return match.institutionId;
-    if (application.preferredInstitutionId) return application.preferredInstitutionId;
+    const institutionIds = await acceptedCentreIds(this.dataSource, application.id);
+    if (institutionIds.length > 0) return institutionIds;
+    if (application.preferredInstitutionId) return [application.preferredInstitutionId];
     throw new ForbiddenException(NOT_MATCHED);
   }
 
   private async ownCohort(userId: string, cohortId: string): Promise<Cohort> {
-    const institutionId = await this.hostInstitutionId(userId);
+    const institutionIds = await this.hostInstitutionIds(userId);
     const cohort = await this.dataSource.getRepository(Cohort).findOne({ where: { id: cohortId } });
     if (!cohort) throw new NotFoundException('Cohort not found');
-    if (cohort.institutionId !== institutionId) {
+    if (!institutionIds.includes(cohort.institutionId)) {
       throw new ForbiddenException('This cohort belongs to another Centre of Excellence');
     }
     return cohort;
@@ -54,8 +52,8 @@ export class EsoTrainingService {
   }
 
   async listCohorts(userId: string) {
-    const institutionId = await this.hostInstitutionId(userId);
-    const cohorts = (await this.trainingService.listCohorts()).filter((c) => c.institutionId === institutionId);
+    const institutionIds = await this.hostInstitutionIds(userId);
+    const cohorts = (await this.trainingService.listCohorts()).filter((c) => institutionIds.includes(c.institutionId));
     if (cohorts.length === 0) return [];
     const rows = await this.dataSource
       .getRepository(TrainingCompletion)
@@ -75,7 +73,14 @@ export class EsoTrainingService {
   }
 
   async createCohort(user: JwtPayload, dto: EsoCreateCohortDto) {
-    const institutionId = await this.hostInstitutionId(user.sub);
+    const institutionIds = await this.hostInstitutionIds(user.sub);
+    const institutionId = dto.institutionId ?? (institutionIds.length === 1 ? institutionIds[0] : undefined);
+    if (!institutionId) {
+      throw new BadRequestException('Choose which Centre of Excellence this cohort is for.');
+    }
+    if (!institutionIds.includes(institutionId)) {
+      throw new ForbiddenException('You can only create cohorts at a Centre of Excellence you run');
+    }
     return this.trainingService.createCohort({ ...dto, institutionId });
   }
 

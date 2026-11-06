@@ -163,14 +163,19 @@ export class BeneficiariesService {
    * trusts whatever institutionId it is given, so it must never be called with one
    * sourced from client input.
    */
-  async listForEso(institutionId: string): Promise<EsoBeneficiaryListDto> {
-    const institution = await this.dataSource.getRepository(Institution).findOne({
-      where: { id: institutionId },
-    });
-    if (!institution) throw new NotFoundException('Institution not found');
+  async listForEso(institutionIds: string[]): Promise<EsoBeneficiaryListDto> {
+    const found = institutionIds.length
+      ? await this.dataSource.getRepository(Institution).find({ where: { id: In(institutionIds) } })
+      : [];
+    const institutions = institutionIds
+      .map((id) => found.find((i) => i.id === id))
+      .filter((i): i is Institution => !!i)
+      .map((i) => ({ id: i.id, name: i.name, state: i.state }));
+    if (institutions.length === 0) throw new NotFoundException('Institution not found');
+    const centreIds = institutions.map((i) => i.id);
 
     const beneficiaries = await this.beneficiaryRepo.find({
-      where: { assignedInstitutionId: institutionId, status: BeneficiaryStatus.ALLOCATED },
+      where: { assignedInstitutionId: In(centreIds), status: BeneficiaryStatus.ALLOCATED },
       relations: { skillsProfile: true, incubationProfile: true, accelerationProfile: true },
       order: { allocatedAt: 'DESC' },
     });
@@ -182,14 +187,16 @@ export class BeneficiariesService {
           order: { enrolledAt: 'DESC' },
         })
       : [];
+    const centreOf = new Map(beneficiaries.map((b) => [b.id, b.assignedInstitutionId]));
     const cohortOf = new Map<string, { cohortId: string; cohortName: string }>();
     for (const member of memberships) {
-      if (member.cohort?.institutionId !== institutionId || cohortOf.has(member.beneficiaryId)) continue;
+      if (member.cohort?.institutionId !== centreOf.get(member.beneficiaryId) || cohortOf.has(member.beneficiaryId)) continue;
       cohortOf.set(member.beneficiaryId, { cohortId: member.cohortId, cohortName: member.cohort.name });
     }
 
     return {
-      institution: { id: institution.id, name: institution.name, state: institution.state },
+      institution: institutions[0],
+      institutions,
       items: beneficiaries.map((b) => this.toEsoBeneficiaryDto(b, cohortOf.get(b.id) ?? null)),
     };
   }
@@ -291,6 +298,7 @@ export class BeneficiariesService {
       skillsProfile,
       incubationProfile,
       accelerationProfile,
+      assignedInstitutionId: b.assignedInstitutionId ?? null,
       cohortId: cohort?.cohortId ?? null,
       cohortName: cohort?.cohortName ?? null,
     };
@@ -302,10 +310,10 @@ export class BeneficiariesService {
     return this.toFullDetail(b);
   }
 
-  async getForEso(institutionId: string, beneficiaryId: string) {
-    const b = await this.findAllocatedForEso(institutionId, beneficiaryId);
+  async getForEso(institutionIds: string[], beneficiaryId: string) {
+    const b = await this.findAllocatedForEso(institutionIds, beneficiaryId);
     const member = await this.dataSource.getRepository(CohortMember).findOne({
-      where: { beneficiaryId: b.id, isActive: true, cohort: { institutionId } },
+      where: { beneficiaryId: b.id, isActive: true, cohort: { institutionId: b.assignedInstitutionId } },
       relations: { cohort: true },
       order: { enrolledAt: 'DESC' },
     });
@@ -313,14 +321,17 @@ export class BeneficiariesService {
     return this.toFullDetail(b, cohort, false);
   }
 
-  async getDocumentForEso(institutionId: string, beneficiaryId: string, kind: 'cac-document' | 'pitch-deck') {
-    await this.findAllocatedForEso(institutionId, beneficiaryId);
+  async getDocumentForEso(institutionIds: string[], beneficiaryId: string, kind: 'cac-document' | 'pitch-deck') {
+    await this.findAllocatedForEso(institutionIds, beneficiaryId);
     return this.getDocumentForAdmin(beneficiaryId, kind);
   }
 
-  private async findAllocatedForEso(institutionId: string, beneficiaryId: string) {
+  private async findAllocatedForEso(institutionIds: string[], beneficiaryId: string) {
+    if (institutionIds.length === 0) {
+      throw new NotFoundException('This beneficiary is not allocated to your Centre of Excellence');
+    }
     const b = await this.beneficiaryRepo.findOne({
-      where: { id: beneficiaryId, assignedInstitutionId: institutionId, status: BeneficiaryStatus.ALLOCATED },
+      where: { id: beneficiaryId, assignedInstitutionId: In(institutionIds), status: BeneficiaryStatus.ALLOCATED },
       relations: FULL_DETAIL_RELATIONS,
     });
     if (!b) throw new NotFoundException('This beneficiary is not allocated to your Centre of Excellence');

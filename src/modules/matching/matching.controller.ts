@@ -2,7 +2,6 @@ import { Body, Controller, Delete, Get, HttpCode, Param, ParseBoolPipe, ParseUUI
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
-  ApiConflictResponse,
   ApiCreatedResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
@@ -114,13 +113,13 @@ export class MatchingController {
   @ApiOperation({
     summary: 'Candidate ESOs for a Centre of Excellence (assign / override picker)',
     description:
-      'Requires role: ROLE_SYSADMIN. Validated ESOs with a final score of 70% or more, ranked by MCI against the ' +
-      'given institution. Same state only unless crossState=true. ESOs already in a suggested, staged or approved ' +
-      'pairing are returned with pairedWith set and cannot be assigned until that pairing is overridden or withdrawn.',
+      'Requires role: ROLE_SYSADMIN. Validated ESOs (including ones already matched elsewhere) with a final score of ' +
+      '70% or more, ranked by MCI against the given institution. Same state only unless crossState=true. An ESO can ' +
+      'run several centres, so its other pairings are listed in otherPairings and do not block the assignment.',
   })
   @ApiParam({ name: 'institutionId', format: 'uuid', description: 'Host institution (Centre of Excellence) ID' })
   @ApiQuery({ name: 'crossState', required: false, type: Boolean, description: 'Include ESOs from every state' })
-  @ApiOkResponse({ description: 'Candidates ranked by MCI, unpaired first.', type: [AssignableCandidateDto] })
+  @ApiOkResponse({ description: 'Candidates ranked by MCI, same state first.', type: [AssignableCandidateDto] })
   @ApiNotFoundResponse({ description: 'Institution not found' })
   @Get('institutions/:institutionId/candidates')
   candidates(
@@ -134,6 +133,7 @@ export class MatchingController {
     summary: 'Manually assign an ESO to a Centre of Excellence',
     description:
       'Requires role: ROLE_SYSADMIN. Overrides a suggested match or assigns an ESO to an unmatched centre. ' +
+      'An ESO already matched to other centres can be assigned to this one as well. ' +
       'A reason is required and is recorded in the audit trail. ESOs from another state need allowCrossState=true; ' +
       'the cross-state exception and the administrator are logged. The pairing is staged as AWAITING_APPROVAL ' +
       'and only takes effect once approved with POST /internal/match-engine/commit.',
@@ -144,9 +144,6 @@ export class MatchingController {
     description: 'Missing reason, the application is not eligible, or it is from another state without allowCrossState',
   })
   @ApiNotFoundResponse({ description: 'Institution or application not found' })
-  @ApiConflictResponse({
-    description: 'The ESO is already paired with another institution',
-  })
   @Post('institutions/:institutionId/assign')
   assign(
     @Param('institutionId', ParseUUIDPipe) institutionId: string,

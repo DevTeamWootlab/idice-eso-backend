@@ -1,11 +1,32 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, Matches, Max, MaxLength, Min, ValidateIf } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Matches,
+  Max,
+  MaxLength,
+  Min,
+  ValidateIf,
+} from 'class-validator';
 import { REPORT_MONTH_PATTERN } from '../reporting-period';
 
 export class SubmitMonthlyReportDto {
   @ApiProperty({ example: '2026-10', description: 'The month this report covers (YYYY-MM)' })
   @Matches(REPORT_MONTH_PATTERN, { message: 'reportMonth must be a month in the format YYYY-MM' })
   reportMonth!: string;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      'The Centre of Excellence this report is for. Required when the ESO runs more than one centre; optional otherwise.',
+  })
+  @IsOptional()
+  @IsUUID()
+  institutionId?: string;
 
   @ApiPropertyOptional({
     example: false,
