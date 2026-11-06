@@ -52,6 +52,7 @@ import {
   parseStatusFilter,
   totalPagesFor,
 } from './admin-applications.query';
+import { acceptedCentreIds } from '@/modules/matching/eso-centres';
 import { Match, MatchStatus } from '@/modules/matching/entities/match.entity';
 import { BeneficiariesService } from '@/modules/beneficiaries/beneficiaries.service';
 import { NotificationsService } from '@/modules/notifications/notifications.service';
@@ -550,21 +551,28 @@ export class ApplicationsService {
   async getApplicantMatch(userId: string, id: string) {
     const application = await this.findOneOwned(userId, id);
     if (application.status !== ApplicationStatus.MATCHED) {
-      return { matched: false, matchedAt: null, institution: null };
+      return { matched: false, matchedAt: null, institution: null, institutions: [] };
     }
-    const match = await this.dataSource
-      .getRepository(Match)
-      .findOne({ where: { applicationId: id }, relations: { institution: true } });
+    const matches = await this.dataSource.getRepository(Match).find({
+      where: { applicationId: id, status: MatchStatus.ACCEPTED },
+      relations: { institution: true },
+      order: { matchedAt: 'ASC' },
+    });
+    const institutions = matches
+      .filter((m) => m.institution)
+      .map((m) => ({
+        id: m.institution.id,
+        name: m.institution.name,
+        state: m.institution.state,
+        hubType: m.institution.hubType,
+        matchedAt: m.matchedAt ? new Date(m.matchedAt).toISOString() : null,
+      }));
+    const first = institutions[0] ?? null;
     return {
       matched: true,
-      matchedAt: match?.matchedAt ? new Date(match.matchedAt).toISOString() : null,
-      institution: match?.institution
-        ? {
-            name: match.institution.name,
-            state: match.institution.state,
-            hubType: match.institution.hubType,
-          }
-        : null,
+      matchedAt: first?.matchedAt ?? null,
+      institution: first ? { name: first.name, state: first.state, hubType: first.hubType } : null,
+      institutions,
     };
   }
 
@@ -580,11 +588,11 @@ export class ApplicationsService {
    * nobody allocated yet" stays visible to the caller.
    */
   async getApplicantBeneficiaries(userId: string, id: string) {
-    return this.beneficiariesService.listForEso(await this.matchedInstitutionId(userId, id));
+    return this.beneficiariesService.listForEso(await this.matchedInstitutionIds(userId, id));
   }
 
   async getApplicantBeneficiary(userId: string, id: string, beneficiaryId: string) {
-    return this.beneficiariesService.getForEso(await this.matchedInstitutionId(userId, id), beneficiaryId);
+    return this.beneficiariesService.getForEso(await this.matchedInstitutionIds(userId, id), beneficiaryId);
   }
 
   async getApplicantBeneficiaryDocument(
@@ -593,25 +601,23 @@ export class ApplicationsService {
     beneficiaryId: string,
     kind: 'cac-document' | 'pitch-deck',
   ) {
-    return this.beneficiariesService.getDocumentForEso(await this.matchedInstitutionId(userId, id), beneficiaryId, kind);
+    return this.beneficiariesService.getDocumentForEso(await this.matchedInstitutionIds(userId, id), beneficiaryId, kind);
   }
 
-  private async matchedInstitutionId(userId: string, id: string): Promise<string> {
+  private async matchedInstitutionIds(userId: string, id: string): Promise<string[]> {
     const application = await this.findOneOwned(userId, id);
     if (application.status !== ApplicationStatus.MATCHED) {
       throw new ForbiddenException(
         'This application has not been matched to a Centre of Excellence yet',
       );
     }
-    const match = await this.dataSource
-      .getRepository(Match)
-      .findOne({ where: { applicationId: id, status: MatchStatus.ACCEPTED } });
-    if (!match) {
+    const institutionIds = await acceptedCentreIds(this.dataSource, id);
+    if (institutionIds.length === 0) {
       throw new ForbiddenException(
         'This application has not been matched to a Centre of Excellence yet',
       );
     }
-    return match.institutionId;
+    return institutionIds;
   }
 
   private async findOrCreateDraft(userId: string): Promise<Application> {

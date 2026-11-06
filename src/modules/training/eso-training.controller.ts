@@ -39,9 +39,9 @@ export class EsoTrainingController {
   }
 
   @ApiOperation({
-    summary: 'Cohorts at my Centre of Excellence',
+    summary: 'Cohorts at my Centres of Excellence',
     description:
-      "Requires role: ROLE_ESO (matched). Cohorts at the ESO's approved Centre of Excellence with member, completion and certification counts.",
+      "Requires role: ROLE_ESO (matched). Cohorts at every Centre of Excellence the ESO is approved to run, with member, completion and certification counts.",
   })
   @ApiOkResponse({ description: 'Cohorts, newest start date first' })
   @Get('cohorts')
@@ -50,8 +50,10 @@ export class EsoTrainingController {
   }
 
   @ApiOperation({
-    summary: 'Create a cohort at my Centre of Excellence',
-    description: "Requires role: ROLE_ESO (matched). The cohort is always created at the ESO's approved Centre of Excellence.",
+    summary: 'Create a cohort at one of my Centres of Excellence',
+    description:
+      "Requires role: ROLE_ESO (matched). The cohort is created at one of the ESO's approved Centres of Excellence. " +
+      'Send institutionId when the ESO runs more than one centre.',
   })
   @ApiCreatedResponse({ description: 'The new cohort (status PLANNED)' })
   @Post('cohorts')

@@ -39,12 +39,12 @@ export class AssignableCandidateDto {
   @ApiProperty({ description: 'true when the ESO is the current pairing for this institution' })
   isCurrentMatch!: boolean;
 
-  @ApiPropertyOptional({
-    nullable: true,
-    description: 'Set when the ESO is already in a suggested, staged or approved pairing. Such ESOs cannot be assigned until that pairing is overridden or withdrawn.',
-    example: { matchId: 'uuid', institutionId: 'uuid', institutionName: 'University of Ilorin', status: 'GENERATED' },
+  @ApiProperty({
+    description:
+      'Other Centres of Excellence this ESO is already paired with (suggested, staged or approved). An ESO can run several centres, so these do not block the assignment.',
+    example: [{ matchId: 'uuid', institutionId: 'uuid', institutionName: 'University of Ilorin', status: 'ACCEPTED' }],
   })
-  pairedWith!: { matchId: string; institutionId: string; institutionName: string | null; status: MatchStatus } | null;
+  otherPairings!: { matchId: string; institutionId: string; institutionName: string | null; status: MatchStatus }[];
 }
 
 export class UnmatchedApplicationDto {

@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 const STATUSES = ['ON_TIME', 'LATE', 'DUE', 'OVERDUE'];
 
@@ -30,6 +30,17 @@ export class MonthlyReportDto {
   beneficiaryCount!: number | null;
   @ApiProperty({ nullable: true })
   submittedByName!: string | null;
+  @ApiPropertyOptional({ type: ReportInstitutionDto, nullable: true, description: 'The Centre of Excellence the report is for' })
+  institution!: ReportInstitutionDto | null;
+}
+
+export class MyReportingCentreDto {
+  @ApiProperty({ type: ReportInstitutionDto })
+  institution!: ReportInstitutionDto;
+  @ApiProperty({ enum: STATUSES })
+  currentStatus!: string;
+  @ApiProperty({ example: '2026-09', description: 'The first month a report is expected for this centre' })
+  earliestMonth!: string;
 }
 
 export class MyMonthlyReportsDto {
@@ -45,6 +56,8 @@ export class MyMonthlyReportsDto {
   earliestMonth!: string;
   @ApiProperty({ type: [MonthlyReportDto] })
   items!: MonthlyReportDto[];
+  @ApiProperty({ type: [MyReportingCentreDto], description: 'Every centre the ESO reports for, one report per centre per month' })
+  centres!: MyReportingCentreDto[];
 }
 
 export class AdminMonthlyReportRowDto {

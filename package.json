@@ -31,6 +31,7 @@
     "db:migration:show:prod": "node ./node_modules/typeorm/cli.js migration:show -d dist/database/data-source.js",
     "db:seed:prod": "node dist/database/seeds/seed.js",
     "db:seed:supabase:prod": "node dist/database/seeds/supabase-import.js",
+    "match:apply-list:prod": "node dist/database/seeds/apply-match-list.js",
     "deploy:prod": "yarn db:migrate:prod && yarn db:seed:prod",
     "seed:azure": "cross-env DB_SSL_REJECT_UNAUTHORIZED=true node dist/database/seeds/seed.js",
     "db:migrate:revert": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:revert -d src/database/data-source.ts",
@@ -38,6 +39,7 @@
     "db:migration:show": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:show -d src/database/data-source.ts",
     "db:seed": "ts-node -r tsconfig-paths/register src/database/seeds/seed.ts",
     "db:seed:supabase": "ts-node -r tsconfig-paths/register src/database/seeds/supabase-import.ts",
+    "match:apply-list": "ts-node -r tsconfig-paths/register src/database/seeds/apply-match-list.ts",
     "totp": "ts-node -r tsconfig-paths/register scripts/generate-totp.ts"
   },
   "dependencies": {

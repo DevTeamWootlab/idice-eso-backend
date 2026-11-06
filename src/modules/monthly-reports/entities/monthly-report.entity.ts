@@ -2,7 +2,9 @@ import { Entity, Column, Index } from 'typeorm';
 import { BaseEntity } from '@/common/entities/base.entity';
 
 @Entity('monthly_reports')
-@Index('IDX_monthly_reports_application_month', ['applicationId', 'reportMonth'], { unique: true })
+@Index('IDX_monthly_reports_application_institution_month', ['applicationId', 'institutionId', 'reportMonth'], {
+  unique: true,
+})
 export class MonthlyReport extends BaseEntity {
   @Column({ type: 'uuid' })
   applicationId!: string;
