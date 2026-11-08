@@ -8,6 +8,7 @@ import { ApplicationsModule } from '@/modules/applications/applications.module';
 import { NotificationsModule } from '@/modules/notifications/notifications.module';
 import { MatchingService } from './matching.service';
 import { MatchingController } from './matching.controller';
+import { SelectedEsosStartupService } from './selected-esos/selected-esos-startup.service';
 
 @Module({
   imports: [
@@ -16,6 +17,6 @@ import { MatchingController } from './matching.controller';
     NotificationsModule,
   ],
   controllers: [MatchingController],
-  providers: [MatchingService],
+  providers: [MatchingService, SelectedEsosStartupService],
 })
 export class MatchingModule {}

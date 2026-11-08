@@ -1,4 +1,4 @@
-import { deadlineFor, dueDateFor, monthLabel, reportMonthOf, reportStatus } from './reporting-period';
+import { deadlineFor, dueDateFor, monthLabel, reportingStartMonth, reportMonthOf, reportStatus } from './reporting-period';
 
 describe('monthly reporting period', () => {
   it('uses the last day of the month as the due date, including leap years', () => {
@@ -26,5 +26,25 @@ describe('monthly reporting period', () => {
 
   it('names the month in words', () => {
     expect(monthLabel('2026-10')).toBe('October 2026');
+  });
+});
+
+describe('reporting start month', () => {
+  const original = process.env.REPORTING_START_MONTH;
+  afterEach(() => {
+    if (original === undefined) delete process.env.REPORTING_START_MONTH;
+    else process.env.REPORTING_START_MONTH = original;
+  });
+
+  it('defaults to December 2026', () => {
+    delete process.env.REPORTING_START_MONTH;
+    expect(reportingStartMonth()).toBe('2026-12');
+  });
+
+  it('uses a valid REPORTING_START_MONTH and ignores an invalid one', () => {
+    process.env.REPORTING_START_MONTH = '2027-01';
+    expect(reportingStartMonth()).toBe('2027-01');
+    process.env.REPORTING_START_MONTH = 'January';
+    expect(reportingStartMonth()).toBe('2026-12');
   });
 });

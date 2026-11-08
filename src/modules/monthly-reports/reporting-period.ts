@@ -2,7 +2,14 @@ export const REPORT_MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 const LAGOS_OFFSET_MS = 60 * 60 * 1000;
 
-export type MonthlyReportStatus = 'ON_TIME' | 'LATE' | 'DUE' | 'OVERDUE';
+export type MonthlyReportStatus = 'ON_TIME' | 'LATE' | 'DUE' | 'OVERDUE' | 'NOT_STARTED';
+
+const DEFAULT_REPORTING_START_MONTH = '2026-12';
+
+export function reportingStartMonth(): string {
+  const configured = (process.env.REPORTING_START_MONTH ?? '').trim();
+  return REPORT_MONTH_PATTERN.test(configured) ? configured : DEFAULT_REPORTING_START_MONTH;
+}
 
 export function reportMonthOf(date: Date): string {
   const local = new Date(date.getTime() + LAGOS_OFFSET_MS);

@@ -16,7 +16,14 @@ import { Institution } from '@/modules/institutions/entities/institution.entity'
 import { StorageService } from '@/modules/storage/storage.service';
 import { parseCloudinaryUrl } from '@/modules/storage/cloudinary.client';
 import { resolveContentType, resolveFileName } from '@/common/utils/content-disposition';
-import { dueDateFor, monthLabel, reportMonthOf, reportStatus } from './reporting-period';
+import {
+  dueDateFor,
+  monthLabel,
+  reportingStartMonth,
+  reportMonthOf,
+  reportStatus,
+  type MonthlyReportStatus,
+} from './reporting-period';
 
 const NOT_MATCHED = 'Monthly reporting opens once your application is matched to a Centre of Excellence.';
 
@@ -45,7 +52,9 @@ export class MonthlyReportsService {
   }
 
   private earliestMonthFor(match: Match, now: Date): string {
-    return match.matchedAt ? reportMonthOf(new Date(match.matchedAt)) : reportMonthOf(now);
+    const matchedMonth = match.matchedAt ? reportMonthOf(new Date(match.matchedAt)) : reportMonthOf(now);
+    const start = reportingStartMonth();
+    return matchedMonth > start ? matchedMonth : start;
   }
 
   private async institutionsFor(reports: MonthlyReport[]) {
@@ -96,10 +105,15 @@ export class MonthlyReportsService {
     const institutions = await this.institutionsFor(reports);
     const centres = matches.map((match) => {
       const current = reports.find((r) => r.reportMonth === currentMonth && r.institutionId === match.institutionId);
+      const earliestMonth = this.earliestMonthFor(match, now);
+      const currentStatus: MonthlyReportStatus =
+        currentMonth < earliestMonth
+          ? 'NOT_STARTED'
+          : reportStatus(currentMonth, current ? new Date(current.submittedAt) : null, now);
       return {
         institution: { id: match.institution.id, name: match.institution.name, state: match.institution.state },
-        currentStatus: reportStatus(currentMonth, current ? new Date(current.submittedAt) : null, now),
-        earliestMonth: this.earliestMonthFor(match, now),
+        currentStatus,
+        earliestMonth,
       };
     });
     return {
@@ -108,6 +122,7 @@ export class MonthlyReportsService {
       currentDueDate: dueDateFor(currentMonth),
       currentStatus: centres[0].currentStatus,
       earliestMonth: centres.map((c) => c.earliestMonth).sort()[0],
+      reportingStartMonth: reportingStartMonth(),
       items: reports.map((r) => this.toDto(r, names, institutions)),
       centres,
     };
@@ -134,7 +149,7 @@ export class MonthlyReportsService {
     }
     if (dto.reportMonth < earliestMonth) {
       throw new UnprocessableEntityException(
-        `Reports for ${match.institution.name} start from ${monthLabel(earliestMonth)}, the month you were matched to it.`,
+        `Reports for ${match.institution.name} start from ${monthLabel(earliestMonth)}.`,
       );
     }
     const isNil = dto.isNil === true;
@@ -205,6 +220,7 @@ export class MonthlyReportsService {
         overdue: count('OVERDUE'),
       },
       items,
+      reportingStartMonth: reportingStartMonth(),
     };
   }
 
