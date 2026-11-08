@@ -32,7 +32,7 @@
     "db:seed:prod": "node dist/database/seeds/seed.js",
     "db:seed:supabase:prod": "node dist/database/seeds/supabase-import.js",
     "match:apply-list:prod": "node dist/database/seeds/apply-match-list.js",
-    "deploy:prod": "yarn db:migrate:prod && yarn db:seed:prod",
+    "deploy:prod": "yarn db:migrate:prod && yarn db:seed:prod && (node dist/database/seeds/apply-match-list.js --auto || echo 'Selected ESOs list was not fully applied; it retries on the next deploy.')",
     "seed:azure": "cross-env DB_SSL_REJECT_UNAUTHORIZED=true node dist/database/seeds/seed.js",
     "db:migrate:revert": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:revert -d src/database/data-source.ts",
     "db:migration:generate": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:generate -d src/database/data-source.ts",

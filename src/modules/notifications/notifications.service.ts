@@ -147,6 +147,54 @@ export class NotificationsService {
     );
   }
 
+  async sendSelectedEsoWelcome(input: {
+    to: string;
+    loginEmail: string;
+    organisationName: string;
+    applicationRef?: string;
+    centres: string[];
+    temporaryPassword: string;
+    temporaryPasswordExpiresAt: Date;
+    createInApp?: boolean;
+  }) {
+    const esc = (value: string) =>
+      value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const listed = (names: string[], wrap: (n: string) => string) =>
+      names.length <= 1
+        ? names.map(wrap).join('')
+        : `${names.slice(0, -1).map(wrap).join(', ')} and ${wrap(names[names.length - 1])}`;
+    const until = input.temporaryPasswordExpiresAt.toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'Africa/Lagos',
+    });
+    const plural = input.centres.length > 1;
+    await this.mail.send(
+      input.to,
+      'You have been matched — iDICE ESO Portal',
+      this.renderHtmlTemplate(
+        'Partner match confirmed',
+        `${esc(refPrefix(input.applicationRef))}Congratulations. ${esc(input.organisationName)} has been selected and matched as the ` +
+          `Enterprise Support Organisation partner for ${plural ? 'these Centres of Excellence' : 'this Centre of Excellence'}: ` +
+          `${listed(input.centres, (n) => `<strong>${esc(n)}</strong>`)}.<br /><br />` +
+          `Sign in to your ESO dashboard with <strong>${esc(input.loginEmail)}</strong> to see your ` +
+          `${plural ? 'centres' : 'centre'}, beneficiaries, training cohorts and monthly reports.<br /><br />` +
+          `If you find it difficult to sign in, use the temporary password <strong>${esc(input.temporaryPassword)}</strong>. ` +
+          `You will be asked to set your own password straight away. The temporary password works until ${esc(until)}. ` +
+          `You can also use “Forgot password” on the sign-in page at any time.`,
+        'Sign in',
+        `${this.frontendUrl()}/login`,
+      ),
+    );
+    if (input.createInApp === false) return;
+    await this.tryInApp(
+      input.loginEmail,
+      'You have been matched',
+      `${refPrefix(input.applicationRef)}Your organisation has been matched with ${listed(input.centres, (n) => n)}.`,
+    );
+  }
+
   async sendDisqualificationNotification(email: string, reason: string, applicationRef?: string) {
     await this.tryInApp(email, 'Application update', `${refPrefix(applicationRef)}Your application was not successful. Reason: ${reason}`);
     await this.mail.send(

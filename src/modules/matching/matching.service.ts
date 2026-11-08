@@ -144,7 +144,7 @@ export class MatchingService {
    * commit time, so a proposal that went stale since it was generated is skipped with a
    * reason instead of being forced through.
    */
-  async commitMatches(actorId: string, matchIds?: string[]) {
+  async commitMatches(actorId: string, matchIds?: string[], options: { notify?: boolean } = {}) {
     const proposed = await this.matchRepo.find({
       where: {
         status: In(OPEN_PAIRING_STATUSES),
@@ -207,7 +207,7 @@ export class MatchingService {
           institutionState: match.institution?.state ?? match.state,
         },
       });
-      if (application.primaryContactEmail) {
+      if (options.notify !== false && application.primaryContactEmail) {
         await this.notificationsService.sendMatchedNotification(
           application.primaryContactEmail,
           match.institution?.name ?? 'your host institution',
@@ -458,6 +458,7 @@ export class MatchingService {
     applicationId: string,
     reason: string,
     allowCrossState = false,
+    skipScoreThreshold = false,
   ) {
     if (!reason?.trim()) throw new BadRequestException('A reason is required for a manual pairing.');
 
@@ -477,7 +478,7 @@ export class MatchingService {
       if (!application || !PAIRABLE_STATUSES.includes(application.status)) {
         throw new BadRequestException('Only validated ESOs can be assigned');
       }
-      if ((application.finalScorePercent ?? 0) < QUALIFICATION_THRESHOLD) {
+      if (!skipScoreThreshold && (application.finalScorePercent ?? 0) < QUALIFICATION_THRESHOLD) {
         throw new BadRequestException(`Final score is below the ${QUALIFICATION_THRESHOLD}% threshold`);
       }
       const esoState = application.preferredInstitution?.state ?? null;

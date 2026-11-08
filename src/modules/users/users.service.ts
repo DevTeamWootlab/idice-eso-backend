@@ -91,8 +91,17 @@ export class UsersService {
     private readonly auditLogService: AuditLogService,
   ) {}
 
-  findByEmail(email: string) {
-    return this.userRepo.findOne({ where: { email } });
+  async findByEmail(email: string) {
+    const value = (email ?? '').trim();
+    if (!value) return null;
+    const exact = await this.userRepo.findOne({ where: { email: value } });
+    if (exact) return exact;
+    const sameIgnoringCase = await this.userRepo
+      .createQueryBuilder('user')
+      .where('LOWER(user.email) = LOWER(:email)', { email: value })
+      .limit(2)
+      .getMany();
+    return sameIgnoringCase.length === 1 ? sameIgnoringCase[0] : null;
   }
 
   findById(id: string) {
@@ -110,8 +119,17 @@ export class UsersService {
   deactivate(id: string) {
     return this.userRepo.update(id, { isActive: false });
   }
+  setMustChangePassword(id: string, mustChangePassword: boolean) {
+    return this.userRepo.update(id, { mustChangePassword });
+  }
+
   updatePassword(id: string, passwordHash: string) {
-    return this.userRepo.update(id, { passwordHash });
+    return this.userRepo.update(id, {
+      passwordHash,
+      temporaryPasswordHash: null,
+      temporaryPasswordExpiresAt: null,
+      mustChangePassword: false,
+    });
   }
   async sendVerificationEmail(userId: string, email: string) {
     const token = randomUUID();

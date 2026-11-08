@@ -26,4 +26,7 @@ export class MeResponseDto {
 
   @ApiProperty()
   isEmailVerified!: boolean;
+
+  @ApiProperty({ description: 'True after signing in with a temporary password, until a new password is set' })
+  mustChangePassword!: boolean;
 }
