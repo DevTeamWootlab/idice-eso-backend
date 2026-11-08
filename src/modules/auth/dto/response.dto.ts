@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsString, IsDate } from 'class-validator';
 
 export class RegisterResponseDto {
@@ -28,6 +28,11 @@ export class LoginResponseDto {
   @ApiProperty({ description: 'Refresh token' })
   @IsString()
   refreshToken!: string;
+
+  @ApiPropertyOptional({
+    description: 'True when the user signed in with a temporary password and must set a new one before continuing',
+  })
+  mustChangePassword?: boolean;
 }
 
 export class SessionResponseDto {

@@ -32,4 +32,15 @@ export class User extends BaseEntity {
 
   @Column({ type: 'smallint', nullable: true })
   scoringSlot!: number | null;
+
+  @Exclude()
+  @Column({ type: 'varchar', nullable: true })
+  temporaryPasswordHash!: string | null;
+
+  @Exclude()
+  @Column({ type: 'timestamptz', nullable: true })
+  temporaryPasswordExpiresAt!: Date | null;
+
+  @Column({ default: false })
+  mustChangePassword!: boolean;
 }

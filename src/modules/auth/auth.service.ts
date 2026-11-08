@@ -104,16 +104,22 @@ export class AuthService {
   }
 
   async login(dto: LoginDto, meta: RequestMeta = {}) {
-    await this.assertNotLockedOut(dto.email);
-
     const user = await this.usersService.findByEmail(dto.email);
-    const passwordValid = user
+    const attemptEmail = user?.email ?? dto.email.trim();
+    await this.assertNotLockedOut(attemptEmail);
+
+    let passwordValid = user
       ? await argon2.verify(user.passwordHash, dto.password)
       : false;
+    let usedTemporaryPassword = false;
+    if (user && !passwordValid && this.temporaryPasswordActive(user)) {
+      passwordValid = await argon2.verify(user.temporaryPasswordHash as string, dto.password);
+      usedTemporaryPassword = passwordValid;
+    }
 
     await this.loginAttemptRepo.save(
       this.loginAttemptRepo.create({
-        email: dto.email,
+        email: attemptEmail,
         successful: passwordValid,
         ipAddress: meta.ipAddress,
       }),
@@ -131,7 +137,28 @@ export class AuthService {
       );
     }
 
-    return this.issueTokenPair(user.id, user.email, user.role, meta);
+    if (usedTemporaryPassword && !user.mustChangePassword) {
+      await this.usersService.setMustChangePassword(user.id, true);
+    }
+    const tokens = await this.issueTokenPair(user.id, user.email, user.role, meta);
+    return { ...tokens, mustChangePassword: usedTemporaryPassword || user.mustChangePassword };
+  }
+
+  private temporaryPasswordActive(user: { temporaryPasswordHash: string | null; temporaryPasswordExpiresAt: Date | null }) {
+    return (
+      !!user.temporaryPasswordHash &&
+      !!user.temporaryPasswordExpiresAt &&
+      new Date(user.temporaryPasswordExpiresAt).getTime() > Date.now()
+    );
+  }
+
+  private async clearFailedLogins(email: string) {
+    await this.loginAttemptRepo
+      .createQueryBuilder()
+      .delete()
+      .where('LOWER(email) = LOWER(:email)', { email })
+      .andWhere('successful = false')
+      .execute();
   }
 
   async verifyMfaAndLogin(
@@ -246,6 +273,7 @@ export class AuthService {
       assignedState: user.assignedState ?? null,
       mfaEnabled: user.mfaEnabled,
       isEmailVerified: user.isEmailVerified,
+      mustChangePassword: user.mustChangePassword,
     };
   }
 
@@ -300,6 +328,9 @@ export class AuthService {
     record.used = true;
     await this.resetTokenRepo.save(record);
 
+    const resetUser = await this.usersService.findById(record.userId);
+    if (resetUser) await this.clearFailedLogins(resetUser.email);
+
     // a password reset invalidates every existing session
     await this.logoutAll(record.userId);
 
@@ -316,13 +347,19 @@ export class AuthService {
     if (!user) {
       throw new NotFoundException('User not Found');
     }
-    const valid = await argon2.verify(user.passwordHash, currentPassword);
+    const valid =
+      (await argon2.verify(user.passwordHash, currentPassword)) ||
+      (this.temporaryPasswordActive(user) && (await argon2.verify(user.temporaryPasswordHash as string, currentPassword)));
     if (!valid) {
       throw new UnauthorizedException('Current password is incorrect');
+    }
+    if (user.temporaryPasswordHash && (await argon2.verify(user.temporaryPasswordHash, newPassword))) {
+      throw new BadRequestException('Choose a new password that is different from the temporary password.');
     }
 
     const passwordHash = await argon2.hash(newPassword);
     await this.usersService.updatePassword(userId, passwordHash);
+    await this.clearFailedLogins(user.email);
     await this.logoutAll(userId); // force re-login on every device after a password change too
 
     return { message: 'Password changed successfully' };
