@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-const STATUSES = ['ON_TIME', 'LATE', 'DUE', 'OVERDUE'];
+const STATUSES = ['ON_TIME', 'LATE', 'DUE', 'OVERDUE', 'NOT_STARTED'];
 
 export class ReportInstitutionDto {
   @ApiProperty({ format: 'uuid' })
@@ -54,6 +54,8 @@ export class MyMonthlyReportsDto {
   currentStatus!: string;
   @ApiProperty({ example: '2026-09', description: 'First month this ESO is expected to report on' })
   earliestMonth!: string;
+  @ApiProperty({ example: '2026-12', description: 'The first month any ESO reports on' })
+  reportingStartMonth!: string;
   @ApiProperty({ type: [MonthlyReportDto] })
   items!: MonthlyReportDto[];
   @ApiProperty({ type: [MyReportingCentreDto], description: 'Every centre the ESO reports for, one report per centre per month' })
@@ -97,4 +99,6 @@ export class AdminMonthlyReportsDto {
   summary!: AdminMonthlyReportSummaryDto;
   @ApiProperty({ type: [AdminMonthlyReportRowDto] })
   items!: AdminMonthlyReportRowDto[];
+  @ApiProperty({ example: '2026-12', description: 'The first month any ESO reports on. Earlier months expect no reports.' })
+  reportingStartMonth!: string;
 }
