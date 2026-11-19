@@ -154,6 +154,7 @@ export class EsoPortalService {
           name: cohort.name,
           institutionId: cohort.institutionId,
           institutionName: cohort.institution?.name ?? null,
+          pillar: cohort.pillar,
           tier: cohort.course?.tier ?? null,
           courseTitle: cohort.course?.title ?? null,
           startDate: cohort.startDate,

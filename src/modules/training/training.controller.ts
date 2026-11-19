@@ -41,12 +41,12 @@ export class TrainingController {
 
   @ApiOkResponse({ type: [CohortDto] })
   @ApiOperation({
-    summary: 'List cohorts with member counts',
+    summary: 'List cohorts with member, completion and certification counts and the ESO running each centre',
     description: 'Requires role: ROLE_SYSADMIN',
   })
   @Get('cohorts')
   cohorts() {
-    return this.trainingService.listCohorts();
+    return this.trainingService.listCohortsForAdmin();
   }
 
   @ApiCreatedResponse({ type: CohortDto })

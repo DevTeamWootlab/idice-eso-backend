@@ -21,6 +21,14 @@ export const isOpenForEnrolment = (status: CohortStatus) =>
 export const canRecordCompletions = (status: CohortStatus) =>
   status === C.ACTIVE || status === C.COMPLETED;
 
+export const PROGRAMME_NAMES: Record<Pillar, string> = {
+  [Pillar.SKILLS]: 'Digital and Creative Talent Development',
+  [Pillar.INCUBATION]: 'Startup Incubation',
+  [Pillar.ACCELERATION]: 'Enterprise Acceleration',
+};
+
+export const recordsProgress = (pillar: Pillar | undefined | null) => (pillar ?? Pillar.SKILLS) === Pillar.SKILLS;
+
 /** Why a beneficiary can't join a cohort, or null when they can. */
 export function enrolmentBlocker(
   beneficiary: {
@@ -28,7 +36,7 @@ export function enrolmentBlocker(
     pillar: Pillar;
     assignedInstitutionId?: string | null;
   },
-  cohort: { institutionId: string },
+  cohort: { institutionId: string; pillar?: Pillar | null },
 ): string | null {
   if (beneficiary.status !== BeneficiaryStatus.ALLOCATED) {
     return 'Beneficiary has not been allocated to a Centre of Excellence';
@@ -36,8 +44,9 @@ export function enrolmentBlocker(
   if (beneficiary.assignedInstitutionId !== cohort.institutionId) {
     return 'Beneficiary is allocated to a different institution';
   }
-  if (beneficiary.pillar !== Pillar.SKILLS) {
-    return 'Only Skills-pillar beneficiaries can join a training cohort';
+  const programme = cohort.pillar ?? Pillar.SKILLS;
+  if (beneficiary.pillar !== programme) {
+    return `Only ${PROGRAMME_NAMES[programme]} youth can join this cohort`;
   }
   return null;
 }
