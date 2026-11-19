@@ -46,6 +46,17 @@ export class InternalBeneficiariesController {
   }
 
   @ApiOperation({
+    summary: 'Export beneficiaries',
+    description:
+      'Requires role: ROLE_SYSADMIN. Every beneficiary matching the same filters as the list (no paging), ' +
+      'with contact details, programme, course, centres and cohorts. Never returns NIN data.',
+  })
+  @Get('export')
+  export(@Query() query: ListBeneficiariesDto) {
+    return this.beneficiariesService.exportForAdmin(query);
+  }
+
+  @ApiOperation({
     summary: 'Change the status of many beneficiaries at once',
     description:
       'Requires role: ROLE_SYSADMIN. Applies the same rules as the single update to each beneficiary in turn ' +

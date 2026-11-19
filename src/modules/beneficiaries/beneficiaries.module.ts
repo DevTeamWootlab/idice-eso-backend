@@ -11,6 +11,7 @@ import { BeneficiariesController } from './beneficiaries.controller';
 import { InternalBeneficiariesController } from './internal-beneficiaries.controller';
 import { BeneficiariesService } from './beneficiaries.service';
 import { GeoAllocationService } from './services/geo-allocation.service';
+import { PendingAllocationStartupService } from './auto-allocation/pending-allocation-startup.service';
 
 import { StorageModule } from '../storage/storage.module';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -28,7 +29,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     NotificationsModule,
   ],
   controllers: [BeneficiariesController, InternalBeneficiariesController],
-  providers: [BeneficiariesService, GeoAllocationService],
+  providers: [BeneficiariesService, GeoAllocationService, PendingAllocationStartupService],
   exports: [BeneficiariesService],
 })
 export class BeneficiariesModule {}

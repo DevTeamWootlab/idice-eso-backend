@@ -3,7 +3,7 @@ import { BulkUpdateBeneficiaryStatusDto } from './dto/bulk-update-beneficiary-st
 import { JwtPayload } from '@/common/interfaces/jwt-payload.interface';
 import { Injectable, ConflictException, UnprocessableEntityException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
-import { Repository, DataSource, QueryFailedError, In } from 'typeorm';
+import { Repository, DataSource, QueryFailedError, In, SelectQueryBuilder } from 'typeorm';
 import { CohortMember } from '@/modules/training/entities/cohort-member.entity';
 import { randomInt } from 'crypto';
 
@@ -122,6 +122,19 @@ export class BeneficiariesService {
         'skills.knowledgeRating',
       ]);
 
+    this.applyAdminFilters(qb, query);
+
+    const [items, total] = await qb
+      .orderBy('b.createdAt', 'DESC')
+      .addOrderBy('b.id', 'ASC')
+      .offset(skip)
+      .limit(limit)
+      .getManyAndCount();
+
+    return { items, total, page, limit, totalPages: totalPagesFor(total, limit) };
+  }
+
+  private applyAdminFilters(qb: SelectQueryBuilder<Beneficiary>, query: ListBeneficiariesDto) {
     if (query.status) qb.andWhere('b.status = :status', { status: query.status });
     if (query.pillar) qb.andWhere('b.pillar = :pillar', { pillar: query.pillar });
     if (query.skillTier) qb.andWhere('skills.skillTier = :skillTier', { skillTier: query.skillTier });
@@ -140,15 +153,76 @@ export class BeneficiariesService {
         { term: `%${escapeLikePattern(term)}%` },
       );
     }
+  }
 
-    const [items, total] = await qb
-      .orderBy('b.createdAt', 'DESC')
-      .addOrderBy('b.id', 'ASC')
-      .offset(skip)
-      .limit(limit)
-      .getManyAndCount();
+  async exportForAdmin(query: ListBeneficiariesDto) {
+    const qb = this.beneficiaryRepo
+      .createQueryBuilder('b')
+      .leftJoin('b.assignedInstitution', 'institution')
+      .leftJoin('b.preferredInstitution', 'preferred')
+      .leftJoin('b.skillsProfile', 'skills')
+      .select([
+        'b.id',
+        'b.referenceId',
+        'b.fullName',
+        'b.gender',
+        'b.ageBracket',
+        'b.email',
+        'b.phoneNumber',
+        'b.pillar',
+        'b.status',
+        'b.stateOfResidence',
+        'b.lga',
+        'b.isNeet',
+        'b.pwdAssistiveRequirement',
+        'b.assignedInstitutionId',
+        'b.allocatedAt',
+        'b.createdAt',
+      ])
+      .addSelect(['institution.id', 'institution.name', 'preferred.id', 'preferred.name'])
+      .addSelect(['skills.id', 'skills.skillTier', 'skills.specificSkillArea', 'skills.experienceLevel']);
+    this.applyAdminFilters(qb, query);
+    const rows = await qb.orderBy('b.createdAt', 'DESC').addOrderBy('b.id', 'ASC').getMany();
 
-    return { items, total, page, limit, totalPages: totalPagesFor(total, limit) };
+    const ids = rows.map((b) => b.id);
+    const memberships = ids.length
+      ? await this.dataSource
+          .getRepository(CohortMember)
+          .createQueryBuilder('m')
+          .innerJoin('m.cohort', 'cohort')
+          .select('m.beneficiaryId', 'beneficiaryId')
+          .addSelect('cohort.name', 'name')
+          .where('m.beneficiaryId IN (:...ids)', { ids })
+          .andWhere('m.isActive = true')
+          .orderBy('m.enrolledAt', 'ASC')
+          .getRawMany<{ beneficiaryId: string; name: string }>()
+      : [];
+    const cohortsOf = new Map<string, string[]>();
+    for (const m of memberships) cohortsOf.set(m.beneficiaryId, [...(cohortsOf.get(m.beneficiaryId) ?? []), m.name]);
+
+    return rows.map((b) => ({
+      id: b.id,
+      referenceId: b.referenceId,
+      fullName: b.fullName,
+      email: b.email,
+      phoneNumber: b.phoneNumber,
+      gender: b.gender,
+      ageBracket: b.ageBracket ?? null,
+      stateOfResidence: b.stateOfResidence,
+      lga: b.lga ?? null,
+      pillar: b.pillar,
+      status: b.status,
+      skillTier: b.skillsProfile?.skillTier ?? null,
+      course: b.skillsProfile?.specificSkillArea ?? null,
+      experienceLevel: b.skillsProfile?.experienceLevel ?? null,
+      preferredInstitution: b.preferredInstitution?.name ?? null,
+      assignedInstitution: b.assignedInstitution?.name ?? null,
+      cohorts: cohortsOf.get(b.id) ?? [],
+      isPwd: !!b.pwdAssistiveRequirement?.trim(),
+      isNeet: b.isNeet,
+      createdAt: b.createdAt,
+      allocatedAt: b.allocatedAt ?? null,
+    }));
   }
 
   /**
@@ -603,6 +677,8 @@ export class BeneficiariesService {
       dto.pillar === Pillar.SKILLS ? dto.skillsProfile?.preferredHubType : null,
     );
     const assignedInstitutionId = assignedInstitution.id;
+    const autoAllocate =
+      assignedInstitutionId === dto.preferredInstitutionId && (await this.hasRoom(assignedInstitution));
     const highestEducationLevel =
       (dto.pillar === Pillar.SKILLS ? dto.skillsProfile?.highestEducationLevel : dto.highestEducationLevel)?.trim() || null;
 
@@ -660,7 +736,8 @@ export class BeneficiariesService {
           commitmentHoursConfirmed: dto.commitmentHoursConfirmed ?? null,
           governmentIdStorageKey: dto.governmentIdStorageKey ?? null,
           signedAt: new Date(),
-          status: BeneficiaryStatus.SUBMITTED,
+          status: autoAllocate ? BeneficiaryStatus.ALLOCATED : BeneficiaryStatus.SUBMITTED,
+          allocatedAt: autoAllocate ? new Date() : null,
         });
 
         const savedBeneficiary = await manager.save(beneficiary);
@@ -733,7 +810,38 @@ export class BeneficiariesService {
       // applicant after their data was saved correctly.
     }
 
+    if (autoAllocate) {
+      await this.notificationsService
+        .sendBeneficiaryAllocated(
+          beneficiary.email,
+          beneficiary.phoneNumber,
+          beneficiary.referenceId,
+          assignedInstitution.name,
+        )
+        .catch(() => undefined);
+      await this.recordAutoAllocation(beneficiary.id, assignedInstitutionId, 'submission').catch(() => undefined);
+    }
+
     return beneficiary;
+  }
+
+  async hasRoom(institution: Institution): Promise<boolean> {
+    if (!(institution.beneficiaryCapacity > 0)) return true;
+    const allocated = await this.beneficiaryRepo.count({
+      where: { assignedInstitutionId: institution.id, status: BeneficiaryStatus.ALLOCATED },
+    });
+    return allocated < institution.beneficiaryCapacity;
+  }
+
+  recordAutoAllocation(beneficiaryId: string, institutionId: string, source: 'submission' | 'pending-backlog') {
+    return this.auditLogService.record({
+      actorId: 'SYSTEM',
+      actorRole: 'SYSTEM',
+      action: 'BENEFICIARY_AUTO_ALLOCATED',
+      entityType: 'Beneficiary',
+      entityId: beneficiaryId,
+      metadata: { institutionId, source },
+    });
   }
 
   /**

@@ -3,6 +3,7 @@ import { BaseEntity } from '@common/entities/base.entity';
 import { Institution } from '@modules/institutions/entities/institution.entity';
 import { Course } from './course.entity';
 import { CohortStatus } from '@common/enums/training.enum';
+import { Pillar } from '@common/enums/beneficiary.enum';
 
 @Entity('cohorts')
 @Index(['institutionId', 'status'])
@@ -35,4 +36,7 @@ export class Cohort extends BaseEntity {
 
   @Column({ type: 'int', default: 0 })
   capacity!: number;
+
+  @Column({ type: 'enum', enum: Pillar, enumName: 'cohorts_pillar_enum', default: Pillar.SKILLS })
+  pillar!: Pillar;
 }

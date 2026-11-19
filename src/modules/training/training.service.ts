@@ -21,6 +21,7 @@ import {
 import {
   canRecordCompletions,
   canTransitionCohort,
+  recordsProgress,
   completionBlocker,
   enrolmentBlocker,
   isEditable,
@@ -29,6 +30,8 @@ import {
 import { AuditLogService } from '@/modules/audit-log/audit-log.service';
 import { JwtPayload } from '@/common/interfaces/jwt-payload.interface';
 import { BulkEnrollmentResult, EnrollmentResultItem } from './dto/enrollment-result.interface';
+import { Pillar } from '@/common/enums/beneficiary.enum';
+import { Match, MatchStatus } from '@/modules/matching/entities/match.entity';
 
 interface Rejection {
   beneficiaryId: string;
@@ -81,6 +84,41 @@ export class TrainingService {
     }));
   }
 
+  async listCohortsForAdmin() {
+    const cohorts = await this.listCohorts();
+    if (cohorts.length === 0) return [];
+    const ids = cohorts.map((c) => c.id);
+    const centreIds = Array.from(new Set(cohorts.map((c) => c.institutionId)));
+    const [progressRows, esoRows] = await Promise.all([
+      this.completionRepo
+        .createQueryBuilder('c')
+        .select('c.cohortId', 'cohortId')
+        .addSelect('SUM(CASE WHEN c.completed THEN 1 ELSE 0 END)', 'completed')
+        .addSelect('SUM(CASE WHEN c.certified THEN 1 ELSE 0 END)', 'certified')
+        .where('c.cohortId IN (:...ids)', { ids })
+        .groupBy('c.cohortId')
+        .getRawMany<{ cohortId: string; completed: string; certified: string }>(),
+      this.dataSource
+        .getRepository(Match)
+        .createQueryBuilder('m')
+        .innerJoin('m.application', 'a')
+        .select('m.institutionId', 'institutionId')
+        .addSelect('a.id', 'applicationId')
+        .addSelect('a.organisationLegalName', 'name')
+        .where('m.institutionId IN (:...centreIds)', { centreIds })
+        .andWhere('m.status = :accepted', { accepted: MatchStatus.ACCEPTED })
+        .getRawMany<{ institutionId: string; applicationId: string; name: string }>(),
+    ]);
+    const progress = new Map(progressRows.map((r) => [r.cohortId, r]));
+    const esoByCentre = new Map(esoRows.map((r) => [r.institutionId, { applicationId: r.applicationId, name: r.name }]));
+    return cohorts.map((cohort) => ({
+      ...cohort,
+      completedCount: Number(progress.get(cohort.id)?.completed ?? 0),
+      certifiedCount: Number(progress.get(cohort.id)?.certified ?? 0),
+      eso: esoByCentre.get(cohort.institutionId) ?? null,
+    }));
+  }
+
   async createCohort(dto: CreateCohortDto) {
     if (dto.endDate && dto.endDate < dto.startDate) {
       throw new BadRequestException('endDate cannot be before startDate');
@@ -91,15 +129,28 @@ export class TrainingService {
     if (!institution) {
       throw new BadRequestException('Institution not found or inactive');
     }
-    const course = await this.courseRepo.findOne({
-      where: { id: dto.courseId, isActive: true },
-    });
-    if (!course) throw new BadRequestException('Course not found or inactive');
+    const pillar = dto.pillar ?? Pillar.SKILLS;
+    let courseId: string | null = null;
+    if (pillar === Pillar.SKILLS) {
+      if (!dto.courseId) {
+        throw new BadRequestException('Choose a course for a Digital and Creative Talent Development cohort');
+      }
+      const course = await this.courseRepo.findOne({
+        where: { id: dto.courseId, isActive: true },
+      });
+      if (!course) throw new BadRequestException('Course not found or inactive');
+      courseId = course.id;
+    } else if (dto.courseId) {
+      throw new BadRequestException(
+        'Courses only apply to Digital and Creative Talent Development cohorts',
+      );
+    }
 
     const cohort = this.cohortRepo.create({
       name: dto.name.trim(),
       institutionId: dto.institutionId,
-      courseId: dto.courseId,
+      pillar,
+      courseId: courseId as unknown as string,
       startDate: dto.startDate as unknown as Date,
       endDate: dto.endDate as unknown as Date,
       capacity: dto.capacity ?? 0,
@@ -394,6 +445,11 @@ export class TrainingService {
 
   async recordCompletions(cohortId: string, dto: RecordCompletionsDto) {
     const cohort = await this.requireCohort(cohortId);
+    if (!recordsProgress(cohort.pillar)) {
+      throw new BadRequestException(
+        'Progress and certification are recorded for Digital and Creative Talent Development cohorts only',
+      );
+    }
     if (!canRecordCompletions(cohort.status)) {
       throw new BadRequestException(
         'Completions can only be recorded for active or completed cohorts',

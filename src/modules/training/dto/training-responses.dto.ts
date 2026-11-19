@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { TrainingTier } from '@/common/enums/beneficiary.enum';
+import { Pillar, TrainingTier } from '@/common/enums/beneficiary.enum';
 import { CohortStatus } from '@/common/enums/training.enum';
 import { InstitutionRefDto } from '@/modules/beneficiaries/dto/beneficiary-responses.dto';
 import {
@@ -39,6 +39,8 @@ export class CohortDto {
   status!: CohortStatus;
   @ApiProperty({ description: '0 means no cap' })
   capacity!: number;
+  @ApiProperty({ enum: Pillar, description: 'Programme the cohort runs' })
+  pillar!: Pillar;
   @ApiPropertyOptional({ description: 'Active members (listing only)' })
   memberCount?: number;
   @ApiPropertyOptional({ type: InstitutionRefDto, description: 'Listing only' })

@@ -19,6 +19,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { CohortStatus } from '@/common/enums/training.enum';
+import { Pillar } from '@/common/enums/beneficiary.enum';
 
 export class CreateCohortDto {
   @ApiProperty()
@@ -30,9 +31,19 @@ export class CreateCohortDto {
   @IsUUID()
   institutionId!: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional({
+    enum: Pillar,
+    default: Pillar.SKILLS,
+    description: 'Programme the cohort runs. SKILLS is Digital and Creative Talent Development.',
+  })
+  @IsOptional()
+  @IsEnum(Pillar)
+  pillar?: Pillar;
+
+  @ApiPropertyOptional({ description: 'Required for SKILLS cohorts; not accepted for INCUBATION or ACCELERATION cohorts.' })
+  @IsOptional()
   @IsUUID()
-  courseId!: string;
+  courseId?: string;
 
   @ApiProperty({ example: '2026-10-05' })
   @IsDateString()
